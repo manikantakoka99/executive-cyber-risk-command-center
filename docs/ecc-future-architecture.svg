@@ -1,0 +1,370 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+<defs>
+  <marker id="arrowCyan" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+    <path d="M0,0 L8,3 L0,6 Z" fill="#38BDF8"/>
+  </marker>
+  <marker id="arrowOrange" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+    <path d="M0,0 L8,3 L0,6 Z" fill="#F59E0B"/>
+  </marker>
+  <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+    <path d="M0,0 L8,3 L0,6 Z" fill="#EF4444"/>
+  </marker>
+  <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+    <path d="M0,0 L8,3 L0,6 Z" fill="#22C55E"/>
+  </marker>
+  <marker id="arrowMuted" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+    <path d="M0,0 L8,3 L0,6 Z" fill="#94A3B8"/>
+  </marker>
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1A2336" stroke-width="1"/>
+  </pattern>
+</defs>
+<rect width="3840" height="2160" fill="#0B1220"/>
+<rect width="3840" height="2160" fill="url(#grid)" opacity="0.45"/>
+<text x="80" y="70" fill="#F1F5F9" font-size="42" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">YVI DWAN Executive Cyber Risk Command Center</text>
+<text x="80" y="112" fill="#38BDF8" font-size="28" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Future-State Technical Architecture</text>
+<text x="80" y="148" fill="#94A3B8" font-size="20" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">From Security Signals  →  Business Risk  →  Executive Decision  →  Closed Loop</text>
+<text x="3200" y="70" fill="#F59E0B" font-size="16" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">TARGET / FUTURE STATE</text>
+<text x="3200" y="98" fill="#94A3B8" font-size="14" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="end">Not the current MVP · Conceptual + proposed implementation</text>
+<rect x="50" y="175" width="450" height="1180" rx="12" fill="#121A2B" stroke="#38BDF8" stroke-width="2.2" opacity="1.0"/>
+<rect x="50" y="175" width="450" height="48" rx="0" fill="#0F1828" stroke="#38BDF8" stroke-width="0" opacity="1.0"/>
+<rect x="50" y="175" width="10" height="48" rx="0" fill="#38BDF8" stroke="#38BDF8" stroke-width="0" opacity="1.0"/>
+<text x="74" y="207" fill="#F1F5F9" font-size="17" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">01  DOMAIN SOURCES</text>
+<rect x="520" y="175" width="440" height="1180" rx="12" fill="#121A2B" stroke="#38BDF8" stroke-width="2.2" opacity="1.0"/>
+<rect x="520" y="175" width="440" height="48" rx="0" fill="#0F1828" stroke="#38BDF8" stroke-width="0" opacity="1.0"/>
+<rect x="520" y="175" width="10" height="48" rx="0" fill="#38BDF8" stroke="#38BDF8" stroke-width="0" opacity="1.0"/>
+<text x="544" y="207" fill="#F1F5F9" font-size="17" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">02  INGESTION</text>
+<rect x="980" y="175" width="680" height="1180" rx="12" fill="#121A2B" stroke="#38BDF8" stroke-width="2.2" opacity="1.0"/>
+<rect x="980" y="175" width="680" height="48" rx="0" fill="#0F1828" stroke="#38BDF8" stroke-width="0" opacity="1.0"/>
+<rect x="980" y="175" width="10" height="48" rx="0" fill="#38BDF8" stroke="#38BDF8" stroke-width="0" opacity="1.0"/>
+<text x="1004" y="207" fill="#F1F5F9" font-size="17" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">03  NORMALIZATION &amp; CORRELATION</text>
+<rect x="1680" y="175" width="780" height="1180" rx="12" fill="#121A2B" stroke="#EF4444" stroke-width="2.2" opacity="1.0"/>
+<rect x="1680" y="175" width="780" height="48" rx="0" fill="#0F1828" stroke="#EF4444" stroke-width="0" opacity="1.0"/>
+<rect x="1680" y="175" width="10" height="48" rx="0" fill="#EF4444" stroke="#EF4444" stroke-width="0" opacity="1.0"/>
+<text x="1704" y="207" fill="#F1F5F9" font-size="17" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">04  RISK / IMPACT ENGINE</text>
+<rect x="2480" y="175" width="600" height="1180" rx="12" fill="#121A2B" stroke="#F59E0B" stroke-width="2.2" opacity="1.0"/>
+<rect x="2480" y="175" width="600" height="48" rx="0" fill="#0F1828" stroke="#F59E0B" stroke-width="0" opacity="1.0"/>
+<rect x="2480" y="175" width="10" height="48" rx="0" fill="#F59E0B" stroke="#F59E0B" stroke-width="0" opacity="1.0"/>
+<text x="2504" y="207" fill="#F1F5F9" font-size="17" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">05  EXECUTIVE DECISION</text>
+<rect x="3100" y="175" width="690" height="1180" rx="12" fill="#121A2B" stroke="#22C55E" stroke-width="2.2" opacity="1.0"/>
+<rect x="3100" y="175" width="690" height="48" rx="0" fill="#0F1828" stroke="#22C55E" stroke-width="0" opacity="1.0"/>
+<rect x="3100" y="175" width="10" height="48" rx="0" fill="#22C55E" stroke="#22C55E" stroke-width="0" opacity="1.0"/>
+<text x="3124" y="207" fill="#F1F5F9" font-size="17" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">06  ACTION &amp; FEEDBACK</text>
+<text x="70" y="247" fill="#38BDF8" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">12 DOMAIN SECURITY / COMPLIANCE SOLUTIONS</text>
+<rect x="66.0" y="263" width="199.0" height="72" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.2" opacity="1.0"/>
+<text x="76.0" y="291" fill="#F1F5F9" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">SOC / MDR</text>
+<text x="76.0" y="313" fill="#94A3B8" font-size="11" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">SIEM / EDR alerts</text>
+<rect x="277.0" y="263" width="199.0" height="72" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.2" opacity="1.0"/>
+<text x="287.0" y="291" fill="#F1F5F9" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">IAM / PAM</text>
+<text x="287.0" y="313" fill="#94A3B8" font-size="11" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Identity &amp; privileged access</text>
+<rect x="66.0" y="343" width="199.0" height="72" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.2" opacity="1.0"/>
+<text x="76.0" y="371" fill="#F1F5F9" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Cloud</text>
+<text x="76.0" y="393" fill="#94A3B8" font-size="11" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">CSPM / CNAPP findings</text>
+<rect x="277.0" y="343" width="199.0" height="72" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.2" opacity="1.0"/>
+<text x="287.0" y="371" fill="#F1F5F9" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Ransomware Readiness</text>
+<text x="287.0" y="393" fill="#94A3B8" font-size="11" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Recovery readiness signals</text>
+<rect x="66.0" y="423" width="199.0" height="72" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.2" opacity="1.0"/>
+<text x="76.0" y="451" fill="#F1F5F9" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">VAPT / ASM</text>
+<text x="76.0" y="473" fill="#94A3B8" font-size="11" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Attack surface &amp; vulns</text>
+<rect x="277.0" y="423" width="199.0" height="72" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.2" opacity="1.0"/>
+<text x="287.0" y="451" fill="#F1F5F9" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Phishing / BEC</text>
+<text x="287.0" y="473" fill="#94A3B8" font-size="11" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Human-risk signals</text>
+<rect x="66.0" y="503" width="199.0" height="72" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.2" opacity="1.0"/>
+<text x="76.0" y="531" fill="#F1F5F9" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Compliance</text>
+<text x="76.0" y="553" fill="#94A3B8" font-size="11" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Control / evidence signals</text>
+<rect x="277.0" y="503" width="199.0" height="72" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.2" opacity="1.0"/>
+<text x="287.0" y="531" fill="#F1F5F9" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">PCI DSS</text>
+<text x="287.0" y="553" fill="#94A3B8" font-size="11" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Cardholder-data scope</text>
+<rect x="66.0" y="583" width="199.0" height="72" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.2" opacity="1.0"/>
+<text x="76.0" y="611" fill="#F1F5F9" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">OT / ICS</text>
+<text x="76.0" y="633" fill="#94A3B8" font-size="11" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Industrial control signals</text>
+<rect x="277.0" y="583" width="199.0" height="72" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.2" opacity="1.0"/>
+<text x="287.0" y="611" fill="#F1F5F9" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">AI Governance</text>
+<text x="287.0" y="633" fill="#94A3B8" font-size="11" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">AI risk / policy signals</text>
+<rect x="66.0" y="663" width="199.0" height="72" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.2" opacity="1.0"/>
+<text x="76.0" y="691" fill="#F1F5F9" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Third-Party Risk</text>
+<text x="76.0" y="713" fill="#94A3B8" font-size="11" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Vendor / supply chain</text>
+<rect x="277.0" y="663" width="199.0" height="72" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.2" opacity="1.0"/>
+<text x="287.0" y="691" fill="#F1F5F9" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">vCISO / Cyber CoE</text>
+<text x="287.0" y="713" fill="#94A3B8" font-size="11" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Advisory / CoE inputs</text>
+<rect x="66" y="1285" width="418" height="52" rx="6" fill="#1E3A5F" stroke="#38BDF8" stroke-width="1.2" opacity="1.0"/>
+<text x="78" y="1313" fill="#38BDF8" font-size="13" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">ECC aggregates signals from domain solutions;</text>
+<text x="78" y="1331" fill="#38BDF8" font-size="13" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">it does not replace them.</text>
+<rect x="538.0" y="245" width="404" height="78" rx="8" fill="#1A2740" stroke="#38BDF8" stroke-width="1.8" opacity="1.0"/>
+<text x="740.0" y="273.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Connectors / Adapters</text>
+<text x="740.0" y="288.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">REST · Webhooks · Events</text>
+<text x="740.0" y="303.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Scheduled pulls · Product adapters</text>
+<line x1="740.0" y1="325" x2="740.0" y2="341" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="538.0" y="345" width="404" height="42" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="740.0" y="371.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Raw Event Intake</text>
+<line x1="740.0" y1="389" x2="740.0" y2="405" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="538.0" y="409" width="404" height="70" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="740.0" y="433.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Raw Event Store</text>
+<text x="740.0" y="448.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Preserve source evidence</text>
+<text x="740.0" y="463.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">for traceability &amp; audit</text>
+<line x1="740.0" y1="481" x2="740.0" y2="497" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="538.0" y="501" width="404" height="70" rx="8" fill="#1A2740" stroke="#F59E0B" stroke-width="1.8" opacity="1.0"/>
+<text x="740.0" y="525.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Schema Validation</text>
+<text x="740.0" y="540.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">payload · required fields</text>
+<text x="740.0" y="555.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">source · tenant</text>
+<text x="740.0" y="595" fill="#94A3B8" font-size="12" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Purpose</text>
+<rect x="538" y="610" width="404" height="90" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="552" y="640" fill="#CBD5E1" font-size="13" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Accept heterogeneous domain payloads</text>
+<text x="552" y="658" fill="#CBD5E1" font-size="13" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Keep original evidence immutable</text>
+<text x="552" y="676" fill="#CBD5E1" font-size="13" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Reject invalid / wrong-tenant events</text>
+<text x="552" y="694" fill="#CBD5E1" font-size="13" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Hand off clean events to normalization</text>
+<rect x="538" y="720" width="404" height="56" rx="6" fill="#1A2030" stroke="#94A3B8" stroke-width="1.5" opacity="1.0"/>
+<text x="552" y="745" fill="#94A3B8" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">No mandatory single protocol —</text>
+<text x="552" y="761" fill="#94A3B8" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">adapters are the integration contract.</text>
+<rect x="538" y="795" width="404" height="200" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="552" y="823" fill="#38BDF8" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Ingestion outcomes</text>
+<text x="552" y="853" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Tenant-scoped event envelope</text>
+<text x="552" y="871" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Provenance (source system / time)</text>
+<text x="552" y="889" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Validation pass → normalize</text>
+<text x="552" y="907" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Validation fail → quarantine / audit</text>
+<text x="552" y="925" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Evidence retained for closed-loop</text>
+<text x="552" y="943" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">  verification later</text>
+<rect x="538" y="1015" width="404" height="100" rx="6" fill="#1E3A5F" stroke="#38BDF8" stroke-width="1.5" opacity="1.0"/>
+<text x="552" y="1047" fill="#38BDF8" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">MVP today: Excel / DB import</text>
+<text x="552" y="1065" fill="#38BDF8" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Future: live domain adapters</text>
+<text x="552" y="1083" fill="#38BDF8" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">feeding this same intake path</text>
+<rect x="1000.0" y="243" width="640" height="36" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="1320.0" y="266.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Raw Security Event</text>
+<line x1="1320.0" y1="281" x2="1320.0" y2="287" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="1000.0" y="291" width="640" height="36" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="1320.0" y="314.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Parser / Source Adapter</text>
+<line x1="1320.0" y1="329" x2="1320.0" y2="335" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="1000.0" y="339" width="640" height="40" rx="8" fill="#1A2740" stroke="#38BDF8" stroke-width="1.8" opacity="1.0"/>
+<text x="1320.0" y="364.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Canonical ECC Event Model</text>
+<line x1="1320.0" y1="381" x2="1320.0" y2="387" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="1000.0" y="391" width="640" height="40" rx="8" fill="#1A2740" stroke="#38BDF8" stroke-width="1.8" opacity="1.0"/>
+<text x="1320.0" y="416.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Common Risk Taxonomy Mapping</text>
+<line x1="1320.0" y1="433" x2="1320.0" y2="439" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="1000.0" y="443" width="640" height="40" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="1320.0" y="468.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Entity / Asset Resolution</text>
+<line x1="1320.0" y1="485" x2="1320.0" y2="491" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="1000.0" y="495" width="640" height="36" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="1320.0" y="518.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Deduplication</text>
+<line x1="1320.0" y1="533" x2="1320.0" y2="539" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="1000.0" y="543" width="640" height="40" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="1320.0" y="568.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Business Context Mapping</text>
+<line x1="1320.0" y1="585" x2="1320.0" y2="591" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="1000.0" y="595" width="640" height="44" rx="8" fill="#1A2740" stroke="#EF4444" stroke-width="1.8" opacity="1.0"/>
+<text x="1320.0" y="622.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Cross-Domain Correlation</text>
+<text x="1004" y="795" fill="#38BDF8" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Entity / Asset Resolution</text>
+<rect x="1000" y="809" width="88" height="26" rx="4" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="1044.0" y="827" fill="#CBD5E1" font-size="11" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">IP</text>
+<rect x="1094" y="809" width="88" height="26" rx="4" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="1138.0" y="827" fill="#CBD5E1" font-size="11" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Hostname</text>
+<rect x="1188" y="809" width="120" height="26" rx="4" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="1248.0" y="827" fill="#CBD5E1" font-size="11" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Application</text>
+<rect x="1314" y="809" width="120" height="26" rx="4" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="1374.0" y="827" fill="#CBD5E1" font-size="11" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Cloud Resource</text>
+<rect x="1440" y="809" width="88" height="26" rx="4" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="1484.0" y="827" fill="#CBD5E1" font-size="11" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">User</text>
+<rect x="1534" y="809" width="88" height="26" rx="4" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="1578.0" y="827" fill="#CBD5E1" font-size="11" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">CVE</text>
+<rect x="1000" y="841" width="130" height="26" rx="4" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="1065.0" y="859" fill="#CBD5E1" font-size="11" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Business Process</text>
+<line x1="1320.0" y1="873" x2="1320.0" y2="889" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="1060" y="893" width="520" height="36" rx="6" fill="#1E3A5F" stroke="#38BDF8" stroke-width="1.5" opacity="1.0"/>
+<text x="1320.0" y="917" fill="#38BDF8" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Canonical Asset / Business Entity</text>
+<rect x="996" y="951" width="318.0" height="130" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<rect x="1326.0" y="951" width="318.0" height="130" rx="6" fill="#1A2740" stroke="#EF4444" stroke-width="1.5" opacity="1.0"/>
+<text x="1008" y="975" fill="#F59E0B" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Deduplication</text>
+<text x="1008" y="999" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Same asset + same issue</text>
+<text x="1008" y="1015" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">+ same event identity</text>
+<text x="1008" y="1031" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">→ One logical finding</text>
+<text x="1008" y="1047" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">/ risk item</text>
+<text x="1338.0" y="975" fill="#EF4444" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Cross-Domain Correlation</text>
+<text x="1338.0" y="999" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">VAPT + SOC + IAM</text>
+<text x="1338.0" y="1015" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">+ Compliance + Business</text>
+<text x="1338.0" y="1031" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">→ Correlated Risk Context</text>
+<text x="1338.0" y="1047" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">(business-relevant)</text>
+<rect x="1696" y="239" width="366.0" height="420" rx="8" fill="#1A1520" stroke="#EAB308" stroke-width="1.8" opacity="1.0"/>
+<rect x="2070.0" y="239" width="366.0" height="420" rx="8" fill="#1A1520" stroke="#F59E0B" stroke-width="1.8" opacity="1.0"/>
+<text x="1879.0" y="267" fill="#EAB308" font-size="14" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">A. LIKELIHOOD ENGINE</text>
+<text x="2253.0" y="267" fill="#F59E0B" font-size="14" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">B. BUSINESS IMPACT ENGINE</text>
+<rect x="1708" y="285" width="342.0" height="100" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="1720" y="307" fill="#94A3B8" font-size="11" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Technical Evidence (inputs may include)</text>
+<text x="1720" y="329" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">exploitability · exposure · attack evidence</text>
+<text x="1720" y="345" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">vulnerability age · control weakness</text>
+<text x="1720" y="361" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">threat context</text>
+<line x1="1879.0" y1="389" x2="1879.0" y2="407" stroke="#EAB308" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="1708" y="411" width="342.0" height="50" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="1879.0" y="443" fill="#F1F5F9" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Normalize Factors</text>
+<line x1="1879.0" y1="465" x2="1879.0" y2="483" stroke="#EAB308" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="1708" y="487" width="342.0" height="70" rx="6" fill="#2A2410" stroke="#EAB308" stroke-width="1.5" opacity="1.0"/>
+<text x="1879.0" y="517" fill="#EAB308" font-size="14" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Likelihood Score  0–100</text>
+<text x="1879.0" y="541" fill="#94A3B8" font-size="11" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Policy / Rules-Based Likelihood Model</text>
+<text x="1879.0" y="630" fill="#94A3B8" font-size="10" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">(Proposed implementation — not fixed weights)</text>
+<rect x="2082.0" y="285" width="342.0" height="100" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="2094.0" y="307" fill="#94A3B8" font-size="11" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Business Context (inputs may include)</text>
+<text x="2094.0" y="329" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">financial exposure · downtime</text>
+<text x="2094.0" y="345" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">business criticality · affected BU</text>
+<text x="2094.0" y="361" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">compliance scope · data/process criticality</text>
+<line x1="2253.0" y1="389" x2="2253.0" y2="407" stroke="#F59E0B" stroke-width="2" marker-end="url(#arrowOrange)"/>
+<rect x="2082.0" y="411" width="342.0" height="50" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="2253.0" y="443" fill="#F1F5F9" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Normalize Impact Factors</text>
+<line x1="2253.0" y1="465" x2="2253.0" y2="483" stroke="#F59E0B" stroke-width="2" marker-end="url(#arrowOrange)"/>
+<rect x="2082.0" y="487" width="342.0" height="70" rx="6" fill="#2A1E10" stroke="#F59E0B" stroke-width="1.5" opacity="1.0"/>
+<text x="2253.0" y="517" fill="#F59E0B" font-size="14" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Business Impact Score  0–100</text>
+<text x="2253.0" y="541" fill="#94A3B8" font-size="11" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Business Impact Quantification</text>
+<text x="2253.0" y="630" fill="#94A3B8" font-size="10" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">(Proposed implementation — policy engine)</text>
+<rect x="1696" y="685" width="748" height="120" rx="10" fill="#2A1218" stroke="#EF4444" stroke-width="2.5" opacity="1.0"/>
+<text x="2070.0" y="717" fill="#EF4444" font-size="14" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">RISK CALCULATION</text>
+<text x="2070.0" y="747" fill="#F1F5F9" font-size="16" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">LIKELIHOOD   ×   BUSINESS IMPACT   =   RISK SCORE (0–100)</text>
+<text x="2070.0" y="777" fill="#94A3B8" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Risk = f(Likelihood, Impact)   ·   conceptual product — no fabricated weights</text>
+<rect x="1720.0" y="825" width="700" height="36" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="2070.0" y="848.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Risk Severity / Classification</text>
+<line x1="2070.0" y1="863" x2="2070.0" y2="871" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="1720.0" y="875" width="700" height="36" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="2070.0" y="898.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Risk Prioritization</text>
+<line x1="2070.0" y1="913" x2="2070.0" y2="921" stroke="#38BDF8" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="1720.0" y="925" width="700" height="40" rx="8" fill="#1A2740" stroke="#38BDF8" stroke-width="1.8" opacity="1.0"/>
+<text x="2070.0" y="950.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Enterprise Risk Register</text>
+<rect x="1696" y="1095" width="748" height="200" rx="8" fill="#1A2740" stroke="#F59E0B" stroke-width="2" opacity="1.0"/>
+<text x="1712" y="1123" fill="#F59E0B" font-size="14" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">EXECUTIVE RISK TOLERANCE</text>
+<text x="1712" y="1147" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Org + Business Unit + Asset Criticality + Configured Risk Appetite</text>
+<text x="1712" y="1165" fill="#CBD5E1" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">→ Risk Threshold   ·   compare Calculated Risk vs Allowed Tolerance</text>
+<rect x="1780" y="1195" width="580" height="72" rx="6" fill="#2A2010" stroke="#F59E0B" stroke-width="2" opacity="1.0"/>
+<text x="2070.0" y="1227" fill="#F59E0B" font-size="15" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Exceeds Executive Risk Tolerance?</text>
+<text x="2070.0" y="1251" fill="#CBD5E1" font-size="12" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">YES → Escalate    ·    NO → Continue Monitoring</text>
+<rect x="2500.0" y="243" width="560" height="36" rx="8" fill="#1A2740" stroke="#EF4444" stroke-width="1.8" opacity="1.0"/>
+<text x="2780.0" y="266.0" fill="#F1F5F9" font-size="14" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Executive Escalation</text>
+<line x1="2780.0" y1="281" x2="2780.0" y2="291" stroke="#EF4444" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="2500.0" y="295" width="560" height="40" rx="8" fill="#1A2740" stroke="#38BDF8" stroke-width="1.8" opacity="1.0"/>
+<text x="2780.0" y="320.0" fill="#F1F5F9" font-size="14" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">ECC Executive Dashboard</text>
+<rect x="2496" y="375" width="568" height="420" rx="10" fill="#141C2C" stroke="#F59E0B" stroke-width="2" opacity="1.0"/>
+<text x="2512" y="407" fill="#F59E0B" font-size="13" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">EXECUTIVE RISK CARD</text>
+<rect x="2508" y="425" width="544" height="58" rx="6" fill="#1A2740" stroke="#EF4444" stroke-width="1.5" opacity="1.0"/>
+<text x="2522" y="447" fill="#EF4444" font-size="12" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">RISK</text>
+<text x="2522" y="469" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Critical internet-facing vulnerability</text>
+<rect x="2508" y="495" width="544" height="58" rx="6" fill="#1A2740" stroke="#F59E0B" stroke-width="1.5" opacity="1.0"/>
+<text x="2522" y="517" fill="#F59E0B" font-size="12" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">IMPACT</text>
+<text x="2522" y="539" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Financial exposure · Downtime · PCI / compliance</text>
+<rect x="2508" y="565" width="544" height="58" rx="6" fill="#1A2740" stroke="#EAB308" stroke-width="1.5" opacity="1.0"/>
+<text x="2522" y="587" fill="#EAB308" font-size="12" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">RECOMMENDATION</text>
+<text x="2522" y="609" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Emergency remediation</text>
+<rect x="2508" y="635" width="544" height="100" rx="6" fill="#1A2740" stroke="#38BDF8" stroke-width="1.5" opacity="1.0"/>
+<text x="2522" y="657" fill="#38BDF8" font-size="12" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">EXECUTIVE ACTION</text>
+<rect x="2520" y="667" width="110" height="24" rx="4" fill="#0F1828" stroke="#22C55E" stroke-width="1.5" opacity="1.0"/>
+<text x="2575" y="684" fill="#22C55E" font-size="11" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Approve</text>
+<rect x="2640" y="667" width="110" height="24" rx="4" fill="#0F1828" stroke="#38BDF8" stroke-width="1.5" opacity="1.0"/>
+<text x="2695" y="684" fill="#38BDF8" font-size="11" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Request Info</text>
+<rect x="2520" y="695" width="110" height="24" rx="4" fill="#0F1828" stroke="#EF4444" stroke-width="1.5" opacity="1.0"/>
+<text x="2575" y="712" fill="#EF4444" font-size="11" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Decline</text>
+<rect x="2640" y="695" width="110" height="24" rx="4" fill="#0F1828" stroke="#94A3B8" stroke-width="1.5" opacity="1.0"/>
+<text x="2695" y="712" fill="#94A3B8" font-size="11" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Acknowledge</text>
+<rect x="2510.0" y="815" width="540" height="34" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="2780.0" y="837.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Decision Record</text>
+<line x1="2780.0" y1="851" x2="2780.0" y2="857" stroke="#F59E0B" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="2510.0" y="861" width="540" height="34" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="2780.0" y="883.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Decision Status</text>
+<line x1="2780.0" y1="897" x2="2780.0" y2="903" stroke="#F59E0B" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="2510.0" y="907" width="540" height="40" rx="8" fill="#1A2740" stroke="#22C55E" stroke-width="1.8" opacity="1.0"/>
+<text x="2780.0" y="932.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Assigned Action Owner</text>
+<rect x="3120.0" y="243" width="650" height="56" rx="8" fill="#1A2740" stroke="#22C55E" stroke-width="1.8" opacity="1.0"/>
+<text x="3445.0" y="268.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Action Owner</text>
+<text x="3445.0" y="283.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">SOC · IT · Infra · Compliance · BU</text>
+<line x1="3445.0" y1="301" x2="3445.0" y2="309" stroke="#22C55E" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="3120.0" y="313" width="650" height="36" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="3445.0" y="336.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Remediation</text>
+<line x1="3445.0" y1="351" x2="3445.0" y2="359" stroke="#22C55E" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="3120.0" y="363" width="650" height="70" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="3445.0" y="387.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Verification / Evidence</text>
+<text x="3445.0" y="402.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">rescan · control evidence</text>
+<text x="3445.0" y="417.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">remediation confirmation</text>
+<line x1="3445.0" y1="435" x2="3445.0" y2="443" stroke="#22C55E" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="3120.0" y="447" width="650" height="40" rx="8" fill="#1A2740" stroke="#38BDF8" stroke-width="1.8" opacity="1.0"/>
+<text x="3445.0" y="472.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Updated Security Signal</text>
+<line x1="3445.0" y1="489" x2="3445.0" y2="497" stroke="#22C55E" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="3120.0" y="501" width="650" height="34" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="3445.0" y="523.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Re-ingestion</text>
+<line x1="3445.0" y1="537" x2="3445.0" y2="545" stroke="#22C55E" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="3120.0" y="549" width="650" height="34" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="3445.0" y="571.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Re-normalization</text>
+<line x1="3445.0" y1="585" x2="3445.0" y2="593" stroke="#22C55E" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="3120.0" y="597" width="650" height="34" rx="8" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.3" opacity="1.0"/>
+<text x="3445.0" y="619.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Re-correlation</text>
+<line x1="3445.0" y1="633" x2="3445.0" y2="641" stroke="#22C55E" stroke-width="2" marker-end="url(#arrowCyan)"/>
+<rect x="3120.0" y="645" width="650" height="40" rx="8" fill="#1A2740" stroke="#EF4444" stroke-width="1.8" opacity="1.0"/>
+<text x="3445.0" y="670.0" fill="#F1F5F9" font-size="13" font-weight="600" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Recalculate Risk</text>
+<rect x="3116" y="1265" width="658" height="70" rx="8" fill="#0F2A1A" stroke="#22C55E" stroke-width="2" opacity="1.0"/>
+<text x="3445.0" y="1303" fill="#22C55E" font-size="15" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">CLOSED-LOOP FEEDBACK</text>
+<text x="3445.0" y="1325" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Evidence re-enters the pipeline · risk is recomputed</text>
+<line x1="504" y1="205" x2="516" y2="205" stroke="#38BDF8" stroke-width="3" marker-end="url(#arrowCyan)"/>
+<line x1="964" y1="205" x2="976" y2="205" stroke="#38BDF8" stroke-width="3" marker-end="url(#arrowCyan)"/>
+<line x1="1664" y1="205" x2="1676" y2="205" stroke="#38BDF8" stroke-width="3" marker-end="url(#arrowCyan)"/>
+<line x1="2464" y1="205" x2="2476" y2="205" stroke="#38BDF8" stroke-width="3" marker-end="url(#arrowCyan)"/>
+<line x1="3084" y1="205" x2="3096" y2="205" stroke="#38BDF8" stroke-width="3" marker-end="url(#arrowCyan)"/>
+<path d="M 3445.0 1353 L 3445.0 1383 L 1320.0 1383 L 1320.0 1353" fill="none" stroke="#22C55E" stroke-width="3" stroke-dasharray="10 7" marker-end="url(#arrowGreen)"/>
+<path d="M 3180 1383 L 2070.0 1383 L 2070.0 1353" fill="none" stroke="#22C55E" stroke-width="2.5" stroke-dasharray="10 7" marker-end="url(#arrowGreen)"/>
+<text x="1800" y="1371" fill="#22C55E" font-size="14" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="middle">Closed-Loop Feedback  →  Normalization / Correlation  &amp;  Risk Engine</text>
+<rect x="50" y="1410" width="1180" height="195" rx="10" fill="#1A1520" stroke="#EF4444" stroke-width="2" opacity="1.0"/>
+<text x="70" y="1440" fill="#EF4444" font-size="15" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">PAYMENT GATEWAY EXAMPLE  (illustrative walkthrough)</text>
+<text x="70" y="1468" fill="#CBD5E1" font-size="13" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">VAPT: Critical CVE  +  SOC: Exploit attempt  +  IAM: Privileged service account</text>
+<text x="70" y="1486" fill="#CBD5E1" font-size="13" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">+  PCI: Payment system in scope  +  Business: High financial / downtime exposure</text>
+<text x="70" y="1520" fill="#EAB308" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">→ Correlation  →  HIGH LIKELIHOOD + HIGH IMPACT  →  HIGH RISK  →  EXCEEDS TOLERANCE</text>
+<text x="70" y="1550" fill="#F59E0B" font-size="13" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">→ ECC Escalation  →  Executive Decision: “Approve Emergency Patch Window”</text>
+<text x="70" y="1582" fill="#94A3B8" font-size="12" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Visually mirrors sections 03 → 04 → 05 of the main pipeline</text>
+<rect x="50" y="1625" width="3740" height="200" rx="10" fill="#121A2B" stroke="#38BDF8" stroke-width="1.8" opacity="1.0"/>
+<text x="70" y="1657" fill="#38BDF8" font-size="16" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">DATA LAYER  (logical entities from ECC ERD / schema — not every column)</text>
+<rect x="70" y="1673" width="408" height="88" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="82" y="1695" fill="#38BDF8" font-size="11" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">TENANCY &amp; IDENTITY</text>
+<text x="82" y="1717" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Organizations</text>
+<text x="82" y="1735" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Users</text>
+<rect x="490" y="1673" width="448" height="88" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="502" y="1695" fill="#38BDF8" font-size="11" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">RISK</text>
+<text x="502" y="1717" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Risk Domains</text>
+<text x="502" y="1735" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Domain / Enterprise Snapshots</text>
+<rect x="950" y="1673" width="448" height="88" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="962" y="1695" fill="#F59E0B" font-size="11" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">FINDINGS &amp; IMPACT</text>
+<text x="962" y="1717" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Risk Findings</text>
+<text x="962" y="1735" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Business Impact Assessments</text>
+<rect x="1410" y="1673" width="428" height="88" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="1422" y="1695" fill="#F59E0B" font-size="11" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">EXECUTIVE DECISIONS</text>
+<text x="1422" y="1717" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Executive Decisions</text>
+<text x="1422" y="1735" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Decision Action Log</text>
+<rect x="1850" y="1673" width="348" height="88" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="1862" y="1695" fill="#94A3B8" font-size="11" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">COMPLIANCE</text>
+<text x="1862" y="1717" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Frameworks</text>
+<text x="1862" y="1735" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Org Compliance Status</text>
+<rect x="2210" y="1673" width="348" height="88" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="2222" y="1695" fill="#94A3B8" font-size="11" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">ACTIVITY / REPORTS</text>
+<text x="2222" y="1717" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Activity</text>
+<text x="2222" y="1735" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Generated Reports</text>
+<rect x="2570" y="1673" width="268" height="88" rx="6" fill="#1A2740" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="2582" y="1695" fill="#94A3B8" font-size="11" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">AUDIT</text>
+<text x="2582" y="1717" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">• Audit Log</text>
+<rect x="70" y="1773" width="3700" height="42" rx="6" fill="#2A1218" stroke="#EF4444" stroke-width="2" opacity="1.0"/>
+<text x="90" y="1801" fill="#EF4444" font-size="13" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">CORE RELATIONSHIP:</text>
+<text x="320" y="1801" fill="#F1F5F9" font-size="14" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Finding  →  Business Impact  →  Executive Decision  →  Decision Action Log     ·     Risk → Impact → Decision → Action</text>
+<rect x="50" y="1845" width="2600" height="110" rx="8" fill="#121A2B" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="70" y="1873" fill="#94A3B8" font-size="14" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">REPRESENTATIVE TECHNOLOGY LAYER  (implementation technologies — not mandated vendors)</text>
+<text x="80" y="1907" fill="#38BDF8" font-size="12" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Ingestion</text>
+<text x="180" y="1907" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">API / Webhook / Event Connectors</text>
+<text x="940" y="1907" fill="#38BDF8" font-size="12" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Processing</text>
+<text x="1040" y="1907" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Backend · Rules · Correlation</text>
+<text x="1800" y="1907" fill="#38BDF8" font-size="12" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Data</text>
+<text x="1900" y="1907" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">PostgreSQL + Evidence Store</text>
+<text x="80" y="1933" fill="#38BDF8" font-size="12" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">API</text>
+<text x="190" y="1933" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">REST / Service APIs</text>
+<text x="940" y="1933" fill="#38BDF8" font-size="12" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Presentation</text>
+<text x="1050" y="1933" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">React Executive Dashboard</text>
+<text x="1800" y="1933" fill="#38BDF8" font-size="12" font-weight="700" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Reporting</text>
+<text x="1910" y="1933" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Report Generation Service</text>
+<rect x="2720" y="1845" width="1070" height="110" rx="8" fill="#121A2B" stroke="#2E3F5C" stroke-width="1.5" opacity="1.0"/>
+<text x="2740" y="1873" fill="#F1F5F9" font-size="14" font-weight="800" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">LEGEND</text>
+<rect x="2740" y="1883" width="16" height="16" rx="3" fill="#38BDF8" stroke="#38BDF8" stroke-width="1.5" opacity="1.0"/>
+<text x="2766" y="1895" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">BLUE — Data / processing</text>
+<rect x="3260" y="1883" width="16" height="16" rx="3" fill="#F59E0B" stroke="#F59E0B" stroke-width="1.5" opacity="1.0"/>
+<text x="3286" y="1895" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">ORANGE — Decision / policy</text>
+<rect x="2740" y="1911" width="16" height="16" rx="3" fill="#EF4444" stroke="#EF4444" stroke-width="1.5" opacity="1.0"/>
+<text x="2766" y="1923" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">RED — Risk / escalation</text>
+<rect x="3260" y="1911" width="16" height="16" rx="3" fill="#22C55E" stroke="#22C55E" stroke-width="1.5" opacity="1.0"/>
+<text x="3286" y="1923" fill="#CBD5E1" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">GREEN — Remediation / closed loop</text>
+<text x="2740" y="1945" fill="#94A3B8" font-size="12" font-weight="500" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">Solid arrow = primary flow    ·    Dashed arrow = feedback / async</text>
+<text x="80" y="2132" fill="#94A3B8" font-size="13" font-weight="400" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" text-anchor="start">YVI DWAN ECC · Future-state architecture for presentation · Source concepts: High-Level Flow, ERD, schema, HTML reference</text>
+</svg>

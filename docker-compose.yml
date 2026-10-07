@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ecc-postgres
+    environment:
+      POSTGRES_USER: ecc
+      POSTGRES_PASSWORD: ecc_dev_password
+      POSTGRES_DB: cyber_command_center
+    ports:
+      - "5433:5432"
+    volumes:
+      - ecc_pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecc -d cyber_command_center"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  ecc_pgdata:

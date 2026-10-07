@@ -1,0 +1,94 @@
+%%{init: {'theme': 'dark', 'themeVariables': { 'primaryColor': '#162033', 'primaryTextColor': '#F1F5F9', 'lineColor': '#38BDF8', 'secondaryColor': '#1A2740', 'tertiaryColor': '#0B1220'}}}%%
+flowchart LR
+  subgraph S1["01 DOMAIN SOURCES<br/>12 Domain Security / Compliance Solutions"]
+    SOC["SOC / MDR"]
+    IAM["IAM / PAM"]
+    CLD["Cloud CSPM/CNAPP"]
+    RAN["Ransomware Readiness"]
+    VAPT["VAPT / ASM"]
+    PHISH["Phishing / BEC"]
+    COMP["Compliance"]
+    PCI["PCI DSS"]
+    OT["OT / ICS"]
+    AI["AI Governance"]
+    TPR["Third-Party Risk"]
+    VCISO["vCISO / Cyber CoE"]
+  end
+
+  subgraph S2["02 INGESTION"]
+    CONN["Connectors / Adapters<br/>REST · Webhooks · Events · Pulls"]
+    RAW["Raw Event Intake"]
+    STORE["Raw Event Store<br/>source evidence"]
+    VAL["Schema Validation<br/>payload · fields · source · tenant"]
+    CONN --> RAW --> STORE --> VAL
+  end
+
+  subgraph S3["03 NORMALIZATION & CORRELATION"]
+    PARSE["Parser / Source Adapter"]
+    CANON["Canonical ECC Event Model"]
+    TAX["Common Risk Taxonomy Mapping"]
+    ENT["Entity / Asset Resolution<br/>IP·Host·App·Cloud·User·CVE·Process"]
+    DEDUP["Deduplication<br/>same asset + issue + identity"]
+    BIZ["Business Context Mapping"]
+    CORR["Cross-Domain Correlation<br/>→ Correlated Risk Context"]
+    PARSE --> CANON --> TAX --> ENT --> DEDUP --> BIZ --> CORR
+  end
+
+  subgraph S4["04 RISK / IMPACT ENGINE"]
+    direction TB
+    subgraph L["Likelihood Engine"]
+      TE["Technical Evidence"]
+      NL["Normalize Factors"]
+      LS["Likelihood Score 0–100<br/>Policy / Rules-Based Model"]
+      TE --> NL --> LS
+    end
+    subgraph I["Business Impact Engine"]
+      BC["Business Context"]
+      NI["Normalize Impact Factors"]
+      IS["Business Impact Score 0–100<br/>Impact Quantification"]
+      BC --> NI --> IS
+    end
+    LS --> RISK
+    IS --> RISK
+    RISK["Risk = f(Likelihood, Impact)<br/>Risk Score 0–100"]
+    SEV["Severity / Classification"]
+    PRI["Risk Prioritization"]
+    REG["Enterprise Risk Register"]
+    TOL{"Exceeds Executive<br/>Risk Tolerance?"}
+    RISK --> SEV --> PRI --> REG --> TOL
+    TOL -->|YES| ESC["Executive Escalation"]
+    TOL -->|NO| MON["Continue Monitoring"]
+  end
+
+  subgraph S5["05 EXECUTIVE DECISION"]
+    DASH["ECC Executive Dashboard"]
+    CARD["Risk → Impact → Recommendation → Action"]
+    DEC["Decision Record"]
+    STAT["Decision Status"]
+    OWN["Assigned Action Owner"]
+    ESC --> DASH --> CARD --> DEC --> STAT --> OWN
+  end
+
+  subgraph S6["06 ACTION & FEEDBACK"]
+    ACT["Action Owner<br/>SOC·IT·Infra·Compliance·BU"]
+    REM["Remediation"]
+    VER["Verification / Evidence"]
+    SIG["Updated Security Signal"]
+    RECALC["Recalculate Risk"]
+    ACT --> REM --> VER --> SIG --> RECALC
+  end
+
+  S1 --> S2 --> S3 --> S4
+  OWN --> ACT
+  RECALC -.->|Closed-Loop Feedback| S3
+  RECALC -.->|Closed-Loop Feedback| S4
+
+  subgraph DATA["DATA LAYER"]
+    T["Tenancy: Orgs · Users"]
+    R["Risk: Domains · Snapshots"]
+    F["Findings · Business Impact"]
+    E["Executive Decisions · Action Log"]
+    C["Compliance · Activity · Reports · Audit"]
+  end
+
+  note["Payment Gateway Example:<br/>VAPT CVE + SOC exploit + IAM priv + PCI scope + high $ exposure<br/>→ HIGH risk → exceeds tolerance → Approve Emergency Patch Window"]

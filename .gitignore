@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.venv-ecc/
+server/generated/
+*.log
+.DS_Store
+web/dist/
+server/dist/
