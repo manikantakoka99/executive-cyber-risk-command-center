@@ -5,6 +5,8 @@ Usage:
   .venv-ecc/bin/python db/import_sample_data.py [--xlsx PATH] [--database-url URL] [--reset]
 
 --reset truncates all ECC tables before load (safe reload).
+Compatible with ECC v2 foundation (RBAC + assets); maps workbook `users.role`
+into user_roles and backfills assets from finding.affected_asset.
 """
 
 from __future__ import annotations
@@ -29,9 +31,41 @@ DEFAULT_URL = os.environ.get(
     "postgresql://ecc:ecc_dev_password@localhost:5433/cyber_command_center",
 )
 
-# Load order respects FKs. risk_domains / compliance_frameworks come from workbook
-# (UUIDs must match sample), so we clear schema seed rows on reset.
+# Child → parent truncate order (v2 + MVP)
 TABLE_ORDER = [
+    "schema_migrations",  # keep — removed from truncate below
+    "risk_verifications",
+    "scenario_evidence",
+    "scenario_controls",
+    "risk_assessment_factors",
+    "risk_assessments",
+    "likelihood_assessments",
+    "impact_assessments",
+    "risk_scenario_signals",
+    "risk_scenario_findings",
+    "risk_scenario_assets",
+    "risk_scenario_domains",
+    "actions",
+    "compliance_assessments",
+    "framework_controls",
+    "security_signals",
+    "raw_events",
+    "connector_sync_runs",
+    "connectors",
+    "asset_relationships",
+    "asset_business_processes",
+    "asset_identifiers",
+    "assets",
+    "business_processes",
+    "business_units",
+    "evidence",
+    "controls",
+    "risk_scenarios",
+    "risk_tolerance_rules",
+    "risk_policy_factors",
+    "risk_policies",
+    "role_permissions",
+    "user_roles",
     "audit_log",
     "decision_action_log",
     "executive_decisions",
@@ -47,7 +81,10 @@ TABLE_ORDER = [
     "organizations",
     "risk_domains",
     "compliance_frameworks",
+    # roles / permissions retained (system seed)
 ]
+
+TRUNCATE_SKIP = {"schema_migrations", "roles", "permissions", "role_permissions"}
 
 SHEET_LOAD_ORDER = [
     "organizations",
@@ -64,7 +101,6 @@ SHEET_LOAD_ORDER = [
     "org_compliance_status",
     "command_center_activity",
     "generated_reports",
-    # audit_log intentionally skipped if empty
 ]
 
 
@@ -77,7 +113,6 @@ def sheet_rows(wb: openpyxl.Workbook, name: str) -> tuple[list[str], list[dict[s
         header = next(rows_iter)
     except StopIteration:
         return [], []
-    # Guard against placeholder empty sheets
     if header is None or header[0] is None or str(header[0]).startswith("("):
         return [], []
     cols = [str(c) for c in header]
@@ -85,23 +120,14 @@ def sheet_rows(wb: openpyxl.Workbook, name: str) -> tuple[list[str], list[dict[s
     for r in rows_iter:
         if r is None or all(c is None for c in r):
             continue
-        row = dict(zip(cols, r))
-        out.append(row)
+        out.append(dict(zip(cols, r)))
     return cols, out
 
 
 def coerce(value: Any) -> Any:
     if value is None:
         return None
-    if isinstance(value, datetime):
-        return value
-    if isinstance(value, date):
-        return value
-    if isinstance(value, Decimal):
-        return value
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
+    if isinstance(value, (datetime, date, Decimal, bool, int, float)):
         return value
     if isinstance(value, str):
         s = value.strip()
@@ -116,15 +142,39 @@ def coerce(value: Any) -> Any:
     return value
 
 
+def table_columns(cur, table: str) -> set[str]:
+    cur.execute(
+        """
+        SELECT column_name FROM information_schema.columns
+        WHERE table_schema='public' AND table_name=%s
+        """,
+        (table,),
+    )
+    return {r[0] for r in cur.fetchall()}
+
+
 def reset_tables(cur) -> None:
-    tables = ", ".join(TABLE_ORDER)
-    cur.execute(f"TRUNCATE {tables} RESTART IDENTITY CASCADE;")
+    tables = [t for t in TABLE_ORDER if t not in TRUNCATE_SKIP]
+    # Only truncate tables that exist
+    cur.execute(
+        """
+        SELECT tablename FROM pg_tables WHERE schemaname='public'
+        """
+    )
+    existing = {r[0] for r in cur.fetchall()}
+    to_trunc = [t for t in tables if t in existing]
+    if to_trunc:
+        cur.execute(f"TRUNCATE {', '.join(to_trunc)} RESTART IDENTITY CASCADE;")
 
 
 def upsert_rows(cur, table: str, cols: list[str], rows: list[dict[str, Any]]) -> int:
     if not rows:
         return 0
-    # conflict target: PK columns
+    existing_cols = table_columns(cur, table)
+    cols = [c for c in cols if c in existing_cols]
+    if not cols:
+        return 0
+
     pk_map = {
         "organizations": ["org_id"],
         "users": ["user_id"],
@@ -160,12 +210,80 @@ def upsert_rows(cur, table: str, cols: list[str], rows: list[dict[str, Any]]) ->
     count = 0
     for row in rows:
         values = [coerce(row.get(c)) for c in cols]
-        # Skip rows missing PK
         if any(values[cols.index(pk)] is None for pk in pks if pk in cols):
             continue
         cur.execute(sql, values)
         count += 1
     return count
+
+
+def assign_user_roles(cur, user_rows: list[dict[str, Any]]) -> int:
+    n = 0
+    for row in user_rows:
+        uid = coerce(row.get("user_id"))
+        oid = coerce(row.get("org_id"))
+        role_code = coerce(row.get("role"))
+        if not uid or not oid or not role_code:
+            continue
+        cur.execute(
+            """
+            INSERT INTO user_roles (user_id, role_id, org_id, is_primary)
+            SELECT %s, r.role_id, %s, true
+            FROM roles r WHERE r.code = %s
+            ON CONFLICT (user_id, role_id) DO UPDATE SET is_primary = true, org_id = EXCLUDED.org_id
+            """,
+            (uid, oid, str(role_code)),
+        )
+        n += cur.rowcount
+    return n
+
+
+def backfill_assets_from_findings(cur) -> int:
+    cur.execute(
+        """
+        INSERT INTO assets (org_id, name, asset_type, criticality, environment, internet_exposed, status)
+        SELECT DISTINCT f.org_id, f.affected_asset,
+          CASE
+            WHEN lower(f.affected_asset) LIKE '%gateway%'
+              OR lower(f.affected_asset) LIKE '%portal%'
+              OR lower(f.affected_asset) LIKE '%api%'
+              OR lower(f.affected_asset) LIKE '%checkout%'
+              OR lower(f.affected_asset) LIKE '%service%' THEN 'application'::asset_type
+            WHEN lower(f.affected_asset) LIKE '%infrastructure%' THEN 'host'::asset_type
+            ELSE 'other'::asset_type
+          END,
+          CASE
+            WHEN lower(f.affected_asset) LIKE '%payment%'
+              OR lower(f.affected_asset) LIKE '%gateway%' THEN 'critical'::asset_criticality
+            ELSE 'medium'::asset_criticality
+          END,
+          'production'::asset_environment,
+          (lower(f.affected_asset) LIKE '%public%'
+            OR lower(f.affected_asset) LIKE '%customer%'
+            OR lower(f.affected_asset) LIKE '%online%'
+            OR lower(f.affected_asset) LIKE '%gateway%'),
+          'active'
+        FROM risk_findings f
+        WHERE f.affected_asset IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM assets a WHERE a.org_id = f.org_id AND a.name = f.affected_asset
+          )
+        """
+    )
+    inserted = cur.rowcount
+    cur.execute(
+        """
+        UPDATE risk_findings f
+        SET asset_id = a.asset_id,
+            first_seen_at = COALESCE(f.first_seen_at, f.detected_at),
+            last_seen_at = COALESCE(f.last_seen_at, COALESCE(f.resolved_at, f.updated_at, f.detected_at))
+        FROM assets a
+        WHERE f.affected_asset IS NOT NULL
+          AND a.org_id = f.org_id
+          AND a.name = f.affected_asset
+        """
+    )
+    return inserted
 
 
 def main() -> int:
@@ -190,18 +308,43 @@ def main() -> int:
                 print("Resetting tables…")
                 reset_tables(cur)
 
+            user_sheet_rows: list[dict[str, Any]] = []
             for sheet in SHEET_LOAD_ORDER:
                 cols, rows = sheet_rows(wb, sheet)
                 if not cols:
                     print(f"  {sheet}: skipped (empty)")
                     summary[sheet] = 0
                     continue
-                # Only use columns that exist on the table — filter unknown
+                if sheet == "users":
+                    user_sheet_rows = rows
                 n = upsert_rows(cur, sheet, cols, rows)
                 summary[sheet] = n
                 print(f"  {sheet}: upserted {n}")
 
-            # audit_log sheet may be placeholder
+            if user_sheet_rows:
+                summary["user_roles"] = assign_user_roles(cur, user_sheet_rows)
+                print(f"  user_roles: assigned {summary['user_roles']}")
+
+            summary["assets_backfill"] = backfill_assets_from_findings(cur)
+            print(f"  assets_backfill: {summary['assets_backfill']}")
+
+            # Phase 2: sample workbook has 12 domains — restore controlled unmapped domain
+            cur.execute(
+                """
+                INSERT INTO risk_domains (code, display_name, short_label, yvi_solution, description)
+                VALUES (
+                  'unmapped',
+                  'Unmapped / Unknown Source',
+                  'Unmapped',
+                  NULL,
+                  'Holding domain for signals that could not be mapped to a subscribed ECC domain'
+                )
+                ON CONFLICT (code) DO NOTHING
+                """
+            )
+            summary["unmapped_domain"] = cur.rowcount
+            print(f"  unmapped_domain: ensured")
+
             if "audit_log" in wb.sheetnames:
                 cols, rows = sheet_rows(wb, "audit_log")
                 if cols and rows:
@@ -221,7 +364,7 @@ def main() -> int:
     print("\nImport complete:")
     for k, v in summary.items():
         print(f"  {k}: {v}")
-    print("\nNext: .venv-ecc/bin/python db/validate_import.py")
+    print("\nNext: .venv-ecc/bin/python db/validate_import.py && .venv-ecc/bin/python db/validate_v2.py")
     return 0
 
 

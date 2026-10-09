@@ -3,10 +3,12 @@ import { query } from "../db.js";
 
 export type UserRole =
   | "cxo"
+  | "ciso"
   | "board_member"
   | "program_office"
   | "domain_analyst"
-  | "auditor";
+  | "auditor"
+  | "compliance_manager";
 
 export interface TenantContext {
   orgId: string;
@@ -52,9 +54,12 @@ export async function tenantMiddleware(
     email: string;
     org_name: string;
   }>(
-    `SELECT u.user_id, u.org_id, u.role, u.first_name, u.last_name, u.email, o.name AS org_name
+    `SELECT u.user_id, u.org_id,
+            COALESCE(v.role_code, 'domain_analyst') AS role,
+            u.first_name, u.last_name, u.email, o.name AS org_name
      FROM users u
      JOIN organizations o ON o.org_id = u.org_id
+     LEFT JOIN v_user_primary_role v ON v.user_id = u.user_id
      WHERE u.user_id = $1 AND u.org_id = $2`,
     [userId, orgId],
   );

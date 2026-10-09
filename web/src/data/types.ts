@@ -38,6 +38,41 @@ export interface OverviewResponse {
   riskTrend: TrendPoint[];
   activity: ActivityItem[];
   riskAppetite: number;
+  riskScenarios?: {
+    outsideTolerance: number;
+    increasing: number;
+    aging: number;
+    top: Array<{
+      scenarioId: string;
+      title: string;
+      status: string;
+      priority: string | null;
+      priorityScore: number | null;
+      toleranceState: string;
+      velocity: string;
+      residualRisk: number | null;
+      explanation: string | null;
+      lastSeenAt: string | null;
+      recommendedTreatment?: string | null;
+      decisionRequired?: boolean;
+    }>;
+  };
+  executiveActionQueue?: Array<{
+    scenarioId: string;
+    title: string;
+    priority: string | null;
+    toleranceState: string;
+    velocity: string;
+    residualRisk: number | null;
+    recommendedTreatment: string | null;
+    recommendedAction: string | null;
+    financialExposureAed: number | null;
+    financialKnown: boolean;
+    actionOwner: string | null;
+    dueDate: string | null;
+    agingDays: number | null;
+    decisionRequired: boolean;
+  }>;
 }
 
 export interface DomainCard {

@@ -16,6 +16,12 @@ import {
   DecisionsPage,
   ReportsPage,
 } from "./pages/DecisionsReports";
+import {
+  ScenarioDetailPage,
+  ScenariosPage,
+} from "./pages/ScenariosPage";
+import { IntelligencePage } from "./pages/IntelligencePage";
+import { IngestionProofPage } from "./pages/IngestionProofPage";
 import { api } from "./lib/api";
 import type { OverviewResponse } from "./data/types";
 import { relativeTime } from "./lib/format";
@@ -107,6 +113,10 @@ function EccApp() {
               )
             }
           />
+          <Route path="/intelligence" element={<IntelligencePage />} />
+          <Route path="/scenarios" element={<ScenariosPage />} />
+          <Route path="/scenarios/:id" element={<ScenarioDetailPage />} />
+          <Route path="/ingestion" element={<IngestionProofPage />} />
           <Route path="/risk-domains" element={<DomainsPage />} />
           <Route path="/risk-domains/:id" element={<DomainDetailPage />} />
           <Route path="/findings" element={<FindingsPage />} />

@@ -1,0 +1,73 @@
+%%{init: {'theme': 'dark', 'themeVariables': { 'primaryColor': '#162033', 'primaryTextColor': '#F1F5F9', 'lineColor': '#38BDF8'}}}%%
+erDiagram
+  organizations ||--o{ users : has
+  organizations ||--o{ user_roles : scopes
+  users ||--o{ user_roles : assigned
+  roles ||--o{ user_roles : grants
+  roles ||--o{ role_permissions : has
+  permissions ||--o{ role_permissions : granted
+
+  organizations ||--o{ business_units : has
+  organizations ||--o{ business_processes : has
+  organizations ||--o{ assets : owns
+  assets ||--o{ asset_identifiers : identified_by
+  assets ||--o{ asset_relationships : from
+  assets ||--o{ asset_business_processes : linked
+  business_processes ||--o{ asset_business_processes : uses
+
+  risk_domains ||--o{ org_domain_subscriptions : subscribed
+  organizations ||--o{ org_domain_subscriptions : enables
+  organizations ||--o{ connectors : configures
+  risk_domains ||--o{ connectors : feeds
+  connectors ||--o{ connector_sync_runs : runs
+  connectors ||--o{ raw_events : ingests
+  raw_events ||--o| security_signals : normalizes_to
+  assets ||--o{ security_signals : about
+  risk_domains ||--o{ security_signals : domain
+
+  organizations ||--o{ risk_findings : has
+  risk_domains ||--o{ risk_findings : classifies
+  assets ||--o{ risk_findings : affects
+  risk_findings ||--o| business_impact_assessments : impacts
+
+  organizations ||--o{ risk_scenarios : owns
+  risk_scenarios ||--o{ risk_scenario_domains : spans
+  risk_scenarios ||--o{ risk_scenario_findings : includes
+  risk_scenarios ||--o{ risk_scenario_signals : correlates
+  risk_scenarios ||--o{ risk_scenario_assets : involves
+
+  organizations ||--o{ controls : defines
+  risk_scenarios ||--o{ scenario_controls : mitigated_by
+  controls ||--o{ scenario_controls : applied
+
+  risk_scenarios ||--o{ likelihood_assessments : scored
+  risk_scenarios ||--o{ impact_assessments : scored
+  risk_scenarios ||--o{ risk_assessments : assessed
+  risk_assessments ||--o{ risk_assessment_factors : explains
+
+  organizations ||--o{ risk_tolerance_rules : configures
+  risk_policies ||--o{ risk_policy_factors : weights
+  risk_policies ||--o{ risk_tolerance_rules : governs
+
+  organizations ||--o{ evidence : stores
+  risk_scenarios ||--o{ scenario_evidence : cites
+  evidence ||--o{ scenario_evidence : supports
+
+  organizations ||--o{ executive_decisions : escalates
+  risk_scenarios ||--o{ executive_decisions : decides
+  risk_findings ||--o{ executive_decisions : legacy_link
+  executive_decisions ||--o{ decision_action_log : audited_by
+  executive_decisions ||--o{ actions : creates
+  risk_scenarios ||--o{ actions : remediates
+  actions ||--o{ risk_verifications : verified_by
+  risk_scenarios ||--o{ risk_verifications : closes
+
+  compliance_frameworks ||--o{ framework_controls : contains
+  organizations ||--o{ compliance_assessments : assesses
+  compliance_frameworks ||--o{ org_compliance_status : posture
+
+  organizations ||--o{ domain_risk_snapshots : scores
+  organizations ||--o{ enterprise_risk_score_snapshots : composites
+  organizations ||--o{ command_center_activity : feeds
+  organizations ||--o{ generated_reports : produces
+  organizations ||--o{ audit_log : records

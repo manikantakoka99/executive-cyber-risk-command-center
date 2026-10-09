@@ -61,9 +61,10 @@ export async function getDecision(orgId: string, decisionId: string) {
   if (!rows[0]) return null;
   const history = await query(
     `SELECT l.action_log_id, l.action, l.notes, l.acted_at,
-            u.first_name, u.last_name, u.role
+            u.first_name, u.last_name, v.role_code AS role
      FROM decision_action_log l
      LEFT JOIN users u ON u.user_id = l.actor_user_id
+     LEFT JOIN v_user_primary_role v ON v.user_id = u.user_id
      WHERE l.decision_id = $1
      ORDER BY l.acted_at ASC`,
     [decisionId],

@@ -45,7 +45,9 @@ def main() -> int:
     conn = psycopg2.connect(DB)
     cur = conn.cursor()
     cur.execute(
-        "SELECT user_id FROM users WHERE org_id=%s AND role='cxo' LIMIT 1",
+        """SELECT u.user_id FROM users u
+           JOIN v_user_primary_role v ON v.user_id = u.user_id
+           WHERE u.org_id=%s AND v.role_code='cxo' LIMIT 1""",
         (FALCON,),
     )
     cxo = cur.fetchone()[0]
@@ -109,7 +111,9 @@ def main() -> int:
     conn = psycopg2.connect(DB)
     cur = conn.cursor()
     cur.execute(
-        "SELECT user_id FROM users WHERE org_id=%s AND role='cxo' LIMIT 1",
+        """SELECT u.user_id FROM users u
+           JOIN v_user_primary_role v ON v.user_id = u.user_id
+           WHERE u.org_id=%s AND v.role_code='cxo' LIMIT 1""",
         (cur_org,),
     )
     other = cur.fetchone()[0]

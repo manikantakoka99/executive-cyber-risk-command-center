@@ -21,7 +21,7 @@ DEFAULT_URL = os.environ.get(
 EXPECTED = {
     "organizations": 5,
     "users": 25,
-    "risk_domains": 12,
+    "risk_domains": 13,  # 12 YVI sample domains + Phase 2 `unmapped`
     "org_domain_subscriptions": 60,
     "domain_risk_snapshots": 360,
     "enterprise_risk_score_snapshots": 30,

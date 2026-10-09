@@ -1,6 +1,15 @@
 -- ============================================================================
 -- YVI DWAN CYBER COMMAND CENTER — DATABASE MODEL (PostgreSQL 14+)
 -- ============================================================================
+-- NOTE (Phase 1 / v2 foundation):
+--   This file remains the MVP bootstrap schema used by Docker init.
+--   Enterprise foundation + connector framework applied by:
+--     db/migrations/001_ecc_v2_foundation.sql
+--     db/migrations/002_ecc_connector_signal_framework.sql
+--   (mounted as docker-entrypoint-initdb.d/02_*.sql and 03_*.sql on fresh volumes).
+--   See docs/ecc-database-v2.md and docs/ecc-connector-framework.md.
+--   After init, users.role is migrated to RBAC and dropped; use v_user_primary_role.
+-- ============================================================================
 -- Scope: the executive aggregation layer sitting above YVI Tech's 12 domain
 --        solutions (SOC/MDR, IAM/PAM, CSPM/CNAPP, Ransomware Readiness,
 --        VAPT/ASM, Phishing/BEC, Compliance Engine, PCI DSS, OT/ICS,

@@ -94,4 +94,88 @@ export const api = {
       body: JSON.stringify({ reportType }),
     }),
   audit: () => request<{ audit: any[] }>("/api/ecc/audit"),
+  scenarios: (params?: Record<string, string>) => {
+    const qs = params
+      ? "?" + new URLSearchParams(params).toString()
+      : "";
+    return request<{ scenarios: any[] }>(`/api/ecc/scenarios${qs}`);
+  },
+  scenario: (id: string) => request<{ scenario: any }>(`/api/ecc/scenarios/${id}`),
+  recalculateScenario: (id: string) =>
+    request<any>(`/api/ecc/scenarios/${id}/recalculate`, { method: "POST" }),
+  seedDemoScenarios: () =>
+    request<{ scenarioIds: string[]; heroScenarioId?: string | null }>(
+      "/api/ecc/scenarios/demo/seed",
+      { method: "POST" },
+    ),
+  seedClosedLoopDemos: () =>
+    request<any>("/api/ecc/scenarios/demo/closed-loop", { method: "POST" }),
+  prepareManagerDemo: () =>
+    request<any>("/api/ecc/demo/prepare", { method: "POST" }),
+  demoHero: () =>
+    request<{
+      heroScenarioId: string | null;
+      heroTitle: string;
+      demoAsOf: string;
+      demoDueDate: string;
+      demoOwnerLabel: string;
+      ownerUserId: string;
+      path: string | null;
+    }>("/api/ecc/demo/hero"),
+  demoVerify: () => request<any>("/api/ecc/demo/verify"),
+  scenarioDecision: (id: string, body: Record<string, unknown>) =>
+    request<any>(`/api/ecc/scenarios/${id}/decision`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  patchAction: (id: string, body: Record<string, unknown>) =>
+    request<any>(`/api/ecc/actions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  verifyAction: (id: string, body: Record<string, unknown>) =>
+    request<{ verification: any }>(`/api/ecc/actions/${id}/verification`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  portfolio: (params?: Record<string, string>) => {
+    const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+    return request<any>(`/api/ecc/portfolio${qs}`);
+  },
+  trends: (window = "30d") =>
+    request<any>(`/api/ecc/trends?window=${encodeURIComponent(window)}`),
+  hotspots: () => request<any>("/api/ecc/hotspots"),
+  decisionCenter: () => request<any>("/api/ecc/decision-center"),
+  compliancePosture: () => request<any>("/api/ecc/compliance/posture"),
+  controlPosture: () => request<any>("/api/ecc/controls/posture"),
+  executiveBriefing: () => request<any>("/api/ecc/executive-briefing"),
+  materialChanges: () => request<{ changes: any[] }>("/api/ecc/material-changes"),
+  connectorCatalog: () => request<any>("/api/ecc/connectors/catalog"),
+  orgSettings: () => request<any>("/api/ecc/org/settings"),
+  reportSnapshots: () =>
+    request<{ reports: any[] }>("/api/ecc/reports/snapshots"),
+  reportSnapshot: (id: string) =>
+    request<{ report: any }>(`/api/ecc/reports/${id}`),
+  generateExecutiveReport: (window = "30d") =>
+    request<any>("/api/ecc/reports/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        reportType: "executive_report",
+        window,
+        snapshot: true,
+      }),
+    }),
+  sampleWorkbookReset: () =>
+    request<any>("/api/ecc/ingestion/sample-workbook/reset", { method: "POST" }),
+  sampleWorkbookRun: () =>
+    request<any>("/api/ecc/ingestion/sample-workbook/run", {
+      method: "POST",
+      body: JSON.stringify({ correlate: true }),
+    }),
+  sampleWorkbookStatus: () =>
+    request<any>("/api/ecc/ingestion/sample-workbook/status"),
+  sampleWorkbookResults: () =>
+    request<any>("/api/ecc/ingestion/sample-workbook/results"),
+  sampleWorkbookTrace: (signalId: string) =>
+    request<any>(`/api/ecc/ingestion/sample-workbook/trace/${signalId}`),
 };

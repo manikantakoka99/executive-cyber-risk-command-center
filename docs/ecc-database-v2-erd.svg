@@ -1,0 +1,78 @@
+<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1600" viewBox="0 0 2400 1600">
+<rect width="2400" height="1600" fill="#0B1220"/>
+<text x="40" y="48" fill="#F1F5F9" font-size="28" font-family="Segoe UI,Arial" font-weight="700">ECC Database v2 — Logical ERD (Phase 1 Foundation)</text>
+<text x="40" y="72" fill="#94A3B8" font-size="14" font-family="Segoe UI,Arial">Preserved MVP tables + new foundation. No scoring formulas.</text>
+<rect x="40" y="80" width="560" height="520" rx="10" fill="#162033" stroke="#38BDF8" stroke-width="2"/>
+<rect x="40" y="80" width="8" height="520" fill="#38BDF8"/>
+<text x="64" y="108" fill="#38BDF8" font-size="16" font-family="Segoe UI,Arial" font-weight="700">TENANCY / RBAC</text>
+<text x="64" y="138" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• organizations</text>
+<text x="64" y="166" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• users</text>
+<text x="64" y="194" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• roles</text>
+<text x="64" y="222" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• permissions</text>
+<text x="64" y="250" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• user_roles</text>
+<text x="64" y="278" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• role_permissions</text>
+<text x="64" y="306" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• v_user_primary_role</text>
+<rect x="640" y="80" width="560" height="520" rx="10" fill="#162033" stroke="#38BDF8" stroke-width="2"/>
+<rect x="640" y="80" width="8" height="520" fill="#38BDF8"/>
+<text x="664" y="108" fill="#38BDF8" font-size="16" font-family="Segoe UI,Arial" font-weight="700">BUSINESS CONTEXT</text>
+<text x="664" y="138" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• business_units</text>
+<text x="664" y="166" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• business_processes</text>
+<text x="664" y="194" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• assets</text>
+<text x="664" y="222" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• asset_identifiers</text>
+<text x="664" y="250" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• asset_relationships</text>
+<text x="664" y="278" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• asset_business_processes</text>
+<rect x="1240" y="80" width="560" height="300" rx="10" fill="#162033" stroke="#38BDF8" stroke-width="2"/>
+<rect x="1240" y="80" width="8" height="300" fill="#38BDF8"/>
+<text x="1264" y="108" fill="#38BDF8" font-size="16" font-family="Segoe UI,Arial" font-weight="700">DOMAINS (preserved)</text>
+<text x="1264" y="138" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• risk_domains</text>
+<text x="1264" y="166" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• org_domain_subscriptions</text>
+<text x="1264" y="194" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• domain_risk_snapshots</text>
+<text x="1264" y="222" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• enterprise_risk_score_snapshots</text>
+<rect x="1240" y="400" width="560" height="200" rx="10" fill="#162033" stroke="#F59E0B" stroke-width="2"/>
+<rect x="1240" y="400" width="8" height="200" fill="#F59E0B"/>
+<text x="1264" y="428" fill="#F59E0B" font-size="16" font-family="Segoe UI,Arial" font-weight="700">CONNECTORS</text>
+<text x="1264" y="458" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• connectors</text>
+<text x="1264" y="486" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• connector_sync_runs</text>
+<rect x="1840" y="80" width="520" height="520" rx="10" fill="#162033" stroke="#F59E0B" stroke-width="2"/>
+<rect x="1840" y="80" width="8" height="520" fill="#F59E0B"/>
+<text x="1864" y="108" fill="#F59E0B" font-size="16" font-family="Segoe UI,Arial" font-weight="700">INGEST / SIGNALS</text>
+<text x="1864" y="138" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• raw_events</text>
+<text x="1864" y="166" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• security_signals</text>
+<rect x="40" y="640" width="560" height="420" rx="10" fill="#162033" stroke="#EF4444" stroke-width="2"/>
+<rect x="40" y="640" width="8" height="420" fill="#EF4444"/>
+<text x="64" y="668" fill="#EF4444" font-size="16" font-family="Segoe UI,Arial" font-weight="700">FINDINGS / SCENARIOS</text>
+<text x="64" y="698" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• risk_findings (+asset_id)</text>
+<text x="64" y="726" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• business_impact_assessments</text>
+<text x="64" y="754" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• risk_scenarios</text>
+<text x="64" y="782" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• scenario M2M junctions</text>
+<rect x="640" y="640" width="560" height="420" rx="10" fill="#162033" stroke="#EF4444" stroke-width="2"/>
+<rect x="640" y="640" width="8" height="420" fill="#EF4444"/>
+<text x="664" y="668" fill="#EF4444" font-size="16" font-family="Segoe UI,Arial" font-weight="700">ASSESSMENT / POLICY</text>
+<text x="664" y="698" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• likelihood_assessments</text>
+<text x="664" y="726" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• impact_assessments</text>
+<text x="664" y="754" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• risk_assessments</text>
+<text x="664" y="782" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• risk_assessment_factors</text>
+<text x="664" y="810" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• risk_policies</text>
+<text x="664" y="838" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• risk_tolerance_rules</text>
+<text x="664" y="866" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• controls / scenario_controls</text>
+<rect x="1240" y="640" width="560" height="420" rx="10" fill="#162033" stroke="#22C55E" stroke-width="2"/>
+<rect x="1240" y="640" width="8" height="420" fill="#22C55E"/>
+<text x="1264" y="668" fill="#22C55E" font-size="16" font-family="Segoe UI,Arial" font-weight="700">DECISION / LOOP</text>
+<text x="1264" y="698" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• executive_decisions (+scenario_id)</text>
+<text x="1264" y="726" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• decision_action_log</text>
+<text x="1264" y="754" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• actions</text>
+<text x="1264" y="782" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• evidence</text>
+<text x="1264" y="810" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• risk_verifications</text>
+<rect x="1840" y="640" width="520" height="420" rx="10" fill="#162033" stroke="#94A3B8" stroke-width="2"/>
+<rect x="1840" y="640" width="8" height="420" fill="#94A3B8"/>
+<text x="1864" y="668" fill="#94A3B8" font-size="16" font-family="Segoe UI,Arial" font-weight="700">COMPLIANCE / AUDIT</text>
+<text x="1864" y="698" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• compliance_frameworks</text>
+<text x="1864" y="726" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• org_compliance_status</text>
+<text x="1864" y="754" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• framework_controls</text>
+<text x="1864" y="782" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• compliance_assessments</text>
+<text x="1864" y="810" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">• activity / reports / audit_log</text>
+<text x="40" y="1120" fill="#38BDF8" font-size="15" font-family="Segoe UI,Arial" font-weight="700">Core chain:</text>
+<text x="40" y="1150" fill="#F1F5F9" font-size="14" font-family="Segoe UI,Arial">raw_events → security_signals → assets/findings → risk_scenarios → assessments → executive_decisions → actions → risk_verifications</text>
+<text x="40" y="1185" fill="#F59E0B" font-size="14" font-family="Segoe UI,Arial">Finding → Business Impact → Executive Decision → Decision Action Log (MVP preserved)</text>
+<text x="40" y="1560" fill="#94A3B8" font-size="12" font-family="Segoe UI,Arial">See docs/ecc-database-v2.md · migration 001_ecc_v2_foundation.sql</text>
+</svg>

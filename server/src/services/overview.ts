@@ -168,10 +168,110 @@ export async function getOverview(orgId: string) {
     [orgId],
   );
 
+  const scenarios = await query<{
+    scenario_id: string;
+    title: string;
+    status: string;
+    priority: string | null;
+    priority_score: string | null;
+    tolerance_state: string;
+    velocity: string;
+    residual_risk: string | null;
+    explanation: string | null;
+    last_seen_at: Date | null;
+    decision_required: boolean;
+    recommended_treatment: string | null;
+    recommended_action: string | null;
+    financial_exposure_aed: string | null;
+    financial_known: boolean | null;
+    owner_name: string | null;
+    target_date: Date | null;
+    first_seen_at: Date | null;
+  }>(
+    `SELECT s.scenario_id, s.title, s.status::text, s.priority::text,
+            s.priority_score::text, s.tolerance_state::text, s.velocity::text,
+            ra.residual_risk::text, s.explanation, s.last_seen_at,
+            s.decision_required, s.first_seen_at,
+            rr.recommended_treatment::text, rr.recommended_action,
+            sbi.financial_exposure_aed::text, sbi.financial_known,
+            CASE WHEN u.first_name IS NOT NULL
+              THEN trim(u.first_name || ' ' || COALESCE(u.last_name,'')) END AS owner_name,
+            tp.target_date
+     FROM risk_scenarios s
+     LEFT JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
+     LEFT JOIN risk_recommendations rr ON rr.recommendation_id = s.current_recommendation_id
+     LEFT JOIN scenario_business_impacts sbi ON sbi.scenario_impact_id = s.current_impact_id
+     LEFT JOIN treatment_plans tp ON tp.treatment_plan_id = s.current_treatment_plan_id
+     LEFT JOIN users u ON u.user_id = tp.owner_user_id
+     WHERE s.org_id = $1
+       AND s.status NOT IN ('closed')
+     ORDER BY COALESCE(s.priority_score, 0) DESC, s.last_seen_at DESC NULLS LAST
+     LIMIT 8`,
+    [orgId],
+  );
+
+  const execQueue = await query<{
+    scenario_id: string;
+    title: string;
+    priority: string | null;
+    tolerance_state: string;
+    velocity: string;
+    residual_risk: string | null;
+    recommended_treatment: string | null;
+    recommended_action: string | null;
+    financial_exposure_aed: string | null;
+    financial_known: boolean | null;
+    owner_name: string | null;
+    target_date: Date | null;
+    first_seen_at: Date | null;
+    last_seen_at: Date | null;
+  }>(
+    `SELECT s.scenario_id, s.title, s.priority::text, s.tolerance_state::text,
+            s.velocity::text, ra.residual_risk::text,
+            rr.recommended_treatment::text, rr.recommended_action,
+            sbi.financial_exposure_aed::text, sbi.financial_known,
+            CASE WHEN u.first_name IS NOT NULL
+              THEN trim(u.first_name || ' ' || COALESCE(u.last_name,'')) END AS owner_name,
+            tp.target_date, s.first_seen_at, s.last_seen_at
+     FROM risk_scenarios s
+     LEFT JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
+     LEFT JOIN risk_recommendations rr ON rr.recommendation_id = s.current_recommendation_id
+     LEFT JOIN scenario_business_impacts sbi ON sbi.scenario_impact_id = s.current_impact_id
+     LEFT JOIN treatment_plans tp ON tp.treatment_plan_id = s.current_treatment_plan_id
+     LEFT JOIN users u ON u.user_id = tp.owner_user_id
+     WHERE s.org_id = $1
+       AND s.status NOT IN ('closed','accepted','mitigated')
+       AND (
+         s.decision_required = true
+         OR s.tolerance_state = 'outside'
+         OR rr.recommended_treatment IN ('mitigate','transfer','avoid')
+       )
+     ORDER BY
+       CASE s.tolerance_state WHEN 'outside' THEN 0 WHEN 'near' THEN 1 ELSE 2 END,
+       COALESCE(s.priority_score, 0) DESC
+     LIMIT 12`,
+    [orgId],
+  );
+
+  const scenarioStats = await query<{
+    outside: string;
+    increasing: string;
+    aging: string;
+  }>(
+    `SELECT
+       COUNT(*) FILTER (WHERE tolerance_state = 'outside')::text AS outside,
+       COUNT(*) FILTER (WHERE velocity = 'increasing')::text AS increasing,
+       COUNT(*) FILTER (WHERE velocity = 'aging')::text AS aging
+     FROM risk_scenarios
+     WHERE org_id = $1 AND status NOT IN ('closed')`,
+    [orgId],
+  );
+
   const asOfCandidates = [
     latest?.snapshot_at,
     ...domains.rows.map((d) => d.snapshot_at),
     ...activity.rows.map((a) => a.occurred_at),
+    ...scenarios.rows.map((s) => s.last_seen_at).filter(Boolean),
   ].filter(Boolean) as Date[];
   const asOf =
     asOfCandidates.length === 0
@@ -246,6 +346,59 @@ export async function getOverview(orgId: string) {
       occurredAt: a.occurred_at.toISOString(),
       domainLabel: a.short_label,
     })),
-    riskAppetite: Number(process.env.DEFAULT_RISK_APPETITE ?? 50),
+    riskAppetite: await (async () => {
+      try {
+        const { rows: settings } = await query<{ default_risk_appetite: string }>(
+          `SELECT default_risk_appetite::text FROM org_settings WHERE org_id=$1`,
+          [orgId],
+        );
+        if (settings[0]) return Number(settings[0].default_risk_appetite);
+      } catch {
+        /* org_settings may be absent before migration 005 */
+      }
+      return Number(process.env.DEFAULT_RISK_APPETITE ?? 50);
+    })(),
+    riskScenarios: {
+      outsideTolerance: Number(scenarioStats.rows[0]?.outside ?? 0),
+      increasing: Number(scenarioStats.rows[0]?.increasing ?? 0),
+      aging: Number(scenarioStats.rows[0]?.aging ?? 0),
+      top: scenarios.rows.map((s) => ({
+        scenarioId: s.scenario_id,
+        title: s.title,
+        status: s.status,
+        priority: s.priority,
+        priorityScore: s.priority_score != null ? Number(s.priority_score) : null,
+        toleranceState: s.tolerance_state,
+        velocity: s.velocity,
+        residualRisk: s.residual_risk != null ? Number(s.residual_risk) : null,
+        explanation: s.explanation,
+        lastSeenAt: s.last_seen_at?.toISOString() ?? null,
+        recommendedTreatment: s.recommended_treatment,
+        decisionRequired: s.decision_required,
+      })),
+    },
+    executiveActionQueue: execQueue.rows.map((s) => ({
+      scenarioId: s.scenario_id,
+      title: s.title,
+      priority: s.priority,
+      toleranceState: s.tolerance_state,
+      velocity: s.velocity,
+      residualRisk: s.residual_risk != null ? Number(s.residual_risk) : null,
+      recommendedTreatment: s.recommended_treatment,
+      recommendedAction: s.recommended_action,
+      financialExposureAed:
+        s.financial_known && s.financial_exposure_aed != null
+          ? Number(s.financial_exposure_aed)
+          : null,
+      financialKnown: !!s.financial_known,
+      actionOwner: s.owner_name,
+      dueDate: s.target_date ? String(s.target_date).slice(0, 10) : null,
+      agingDays: s.first_seen_at
+        ? Math.floor(
+            (Date.now() - new Date(s.first_seen_at).getTime()) / 86400000,
+          )
+        : null,
+      decisionRequired: true,
+    })),
   };
 }

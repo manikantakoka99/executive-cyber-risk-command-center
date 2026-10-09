@@ -151,6 +151,108 @@ export function OverviewPage({
         </div>
       </div>
 
+      {data.executiveActionQueue && data.executiveActionQueue.length > 0 && (
+        <>
+          <div className="section-title">
+            Executive Scenario Queue{" "}
+            <span className="count">
+              {data.executiveActionQueue.length} decision-ready
+            </span>
+          </div>
+          <div className="card">
+            {data.executiveActionQueue.map((s) => (
+              <article key={s.scenarioId} className="decision-item decision-item-emphasis">
+                <div className="di-top">
+                  <div>
+                    <div className="di-title">
+                      <Link className="text-link" to={`/scenarios/${s.scenarioId}`}>
+                        {s.title}
+                      </Link>
+                    </div>
+                    <div className="di-domain">
+                      Treatment: {s.recommendedTreatment ?? "—"} · Residual{" "}
+                      {s.residualRisk ?? "—"} · {s.toleranceState}
+                      {s.agingDays != null ? ` · aging ${s.agingDays}d` : ""}
+                      {s.actionOwner ? ` · owner ${s.actionOwner}` : ""}
+                      {s.dueDate ? ` · due ${s.dueDate}` : ""}
+                    </div>
+                    <div className="di-domain">
+                      Exposure:{" "}
+                      {s.financialKnown && s.financialExposureAed != null
+                        ? formatAed(s.financialExposureAed)
+                        : "unknown"}
+                    </div>
+                  </div>
+                  <div className={`dc-status ${severityBadge(s.priority ?? "medium")}`}>
+                    {(s.priority ?? "n/a").toUpperCase()}
+                  </div>
+                </div>
+                <p className="di-domain">{s.recommendedAction}</p>
+                <div className="di-actions">
+                  <Link className="di-btn defer" to={`/scenarios/${s.scenarioId}`}>
+                    Decide on scenario
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+
+      {data.riskScenarios && (
+        <>
+          <div className="section-title">
+            Enterprise Risk Scenarios{" "}
+            <span className="count">
+              {data.riskScenarios.outsideTolerance} outside tolerance ·{" "}
+              {data.riskScenarios.increasing} increasing ·{" "}
+              {data.riskScenarios.aging} aging
+            </span>
+          </div>
+          <div className="card">
+            {!data.riskScenarios.top.length ? (
+              <p className="empty">
+                No correlated risk scenarios yet. Sync connectors or open{" "}
+                <Link className="text-link" to="/scenarios">
+                  Risk Scenarios
+                </Link>{" "}
+                to load synthetic demos.
+              </p>
+            ) : (
+              data.riskScenarios.top.map((s) => (
+                <article key={s.scenarioId} className="decision-item">
+                  <div className="di-top">
+                    <div>
+                      <div className="di-title">
+                        <Link className="text-link" to={`/scenarios/${s.scenarioId}`}>
+                          {s.title}
+                        </Link>
+                      </div>
+                      <div className="di-domain">
+                        Residual {s.residualRisk ?? "—"} · {s.velocity} ·{" "}
+                        {s.toleranceState}
+                        {s.recommendedTreatment
+                          ? ` · ${s.recommendedTreatment}`
+                          : ""}
+                        {s.lastSeenAt ? ` · ${relativeTime(s.lastSeenAt)}` : ""}
+                      </div>
+                    </div>
+                    <div className={`dc-status ${severityBadge(s.priority ?? "medium")}`}>
+                      {(s.priority ?? "n/a").toUpperCase()}
+                    </div>
+                  </div>
+                </article>
+              ))
+            )}
+            <div style={{ marginTop: 12 }}>
+              <Link className="text-link" to="/scenarios">
+                View all risk scenarios →
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Decisions first after KPIs — strongest interaction */}
       <div className="section-title">
         Decisions Awaiting Executive Action{" "}

@@ -14,7 +14,11 @@ const FAL = "e5082391-0ae2-4ed1-93d6-c11650b39dbb";
 
 async function user(orgId: string, role: string) {
   const { rows } = await query<{ user_id: string; first_name: string; email: string }>(
-    `SELECT user_id, first_name, email FROM users WHERE org_id=$1 AND role=$2::user_role_name LIMIT 1`,
+    `SELECT u.user_id, u.first_name, u.email
+     FROM users u
+     JOIN v_user_primary_role v ON v.user_id = u.user_id
+     WHERE u.org_id=$1 AND v.role_code=$2
+     LIMIT 1`,
     [orgId, role],
   );
   assert.ok(rows[0], `missing ${role} for ${orgId}`);

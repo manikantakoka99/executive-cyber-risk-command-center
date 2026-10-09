@@ -5,6 +5,9 @@ import { initials, roleLabel } from "../lib/format";
 
 const NAV = [
   { to: "/", label: "Overview", end: true },
+  { to: "/intelligence", label: "Intelligence" },
+  { to: "/scenarios", label: "Risk Scenarios" },
+  { to: "/ingestion", label: "Ingestion" },
   { to: "/risk-domains", label: "Risk Domains" },
   { to: "/findings", label: "Findings" },
   { to: "/decisions", label: "Decisions" },
@@ -125,6 +128,12 @@ export function Shell({
           </div>
         </div>
       </header>
+      <div className="demo-strip" role="note">
+        <strong>DEMO MODE</strong>
+        {" · "}
+        Synthetic demonstration data · vendor connectors are architecture-ready, not
+        claimed as live production integrations · use Al Dhabi + CXO for the walkthrough
+      </div>
       {(error || dataError) && (
         <div className="banner-error" role="alert">
           {error || dataError}

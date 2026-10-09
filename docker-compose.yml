@@ -11,6 +11,12 @@ services:
     volumes:
       - ecc_pgdata:/var/lib/postgresql/data
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/migrations/001_ecc_v2_foundation.sql:/docker-entrypoint-initdb.d/02_ecc_v2_foundation.sql:ro
+      - ./db/migrations/002_ecc_connector_signal_framework.sql:/docker-entrypoint-initdb.d/03_ecc_connector_signal.sql:ro
+      - ./db/migrations/003_ecc_correlation_risk_engine.sql:/docker-entrypoint-initdb.d/04_ecc_correlation_risk.sql:ro
+      - ./db/migrations/004_ecc_executive_closed_loop.sql:/docker-entrypoint-initdb.d/05_ecc_executive_closed_loop.sql:ro
+      - ./db/migrations/005_ecc_enterprise_intelligence.sql:/docker-entrypoint-initdb.d/06_ecc_enterprise_intelligence.sql:ro
+      - ./db/migrations/006_ecc_sample_ingestion_proof.sql:/docker-entrypoint-initdb.d/07_ecc_sample_ingestion.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ecc -d cyber_command_center"]
       interval: 3s

@@ -409,9 +409,10 @@ export async function generateReport(
 
 export async function getAudit(orgId: string, limit = 100) {
   const { rows } = await query(
-    `SELECT a.*, u.first_name, u.last_name, u.role
+    `SELECT a.*, u.first_name, u.last_name, v.role_code AS role
      FROM audit_log a
      LEFT JOIN users u ON u.user_id = a.user_id
+     LEFT JOIN v_user_primary_role v ON v.user_id = u.user_id
      WHERE a.org_id = $1
      ORDER BY a.created_at DESC
      LIMIT $2`,
