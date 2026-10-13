@@ -8,12 +8,26 @@ Data-backed **YVI DWAN Cyber Command Center** — executive aggregation of 12 se
 
 ### 1. Database
 
+**Option A — local Docker (default)**
+
 ```bash
 docker compose up -d
 # waits on localhost:5433 (5432 often taken locally)
 ```
 
-### 2. Import sample data
+**Option B — Supabase**
+
+1. In Supabase: **Project Settings → Database → Connection string → URI** (Session or Direct).
+2. Put it in `.env` as `DATABASE_URL` (add `?sslmode=require` if missing).
+3. Apply schema + migrations (+ optional sample load):
+
+```bash
+python3 -m venv .venv-ecc
+.venv-ecc/bin/pip install psycopg2-binary openpyxl
+.venv-ecc/bin/python db/migrate_to_supabase.py --import-sample --reset
+```
+
+### 2. Import sample data (local Docker)
 
 ```bash
 python3 -m venv .venv-ecc
