@@ -202,14 +202,6 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <div className="demo-strip" role="note">
-          <span className="live-pill">
-            <i /> DEMO
-          </span>
-          <span>
-            Sample snapshot 5 Sep 2026 · {me?.capability}
-          </span>
-        </div>
         {error && (
           <div className="banner-error" role="alert">
             {error}

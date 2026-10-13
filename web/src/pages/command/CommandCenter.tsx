@@ -145,7 +145,6 @@ export function CommandCenter() {
           </button>
         ))}
       </div>
-      <p className="capability">{workspace.capability}</p>
       {view === "headline" && workspace.headline && (
         <HeadlineView data={workspace.headline} compliance={workspace.complianceLive} onOpen={(id) => void openEvidence(id)} />
       )}
