@@ -1133,18 +1133,6 @@ textarea {
 }
 
 /* —— Manager demo / presentation readability —— */
-.demo-strip {
-  background: linear-gradient(90deg, #132028, #1a2e38);
-  border-bottom: 1px solid var(--border2);
-  color: var(--text2);
-  font-size: 12.5px;
-  padding: 8px 22px;
-  letter-spacing: 0.02em;
-}
-.demo-strip strong {
-  color: var(--accent, #37b6e8);
-  font-weight: 650;
-}
 .btn-row {
   display: flex;
   gap: 10px;
