@@ -14,3 +14,10 @@ INSERT INTO permissions (code, display_name) VALUES
   ('ecc.command.loss', 'Financial exposure'),
   ('ecc.admin.users', 'Manage users and roles')
 ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO schema_migrations (version, description) VALUES
+  (
+    '007_ecc_command_rbac',
+    'Command-center demo roles (soc_analyst, org_admin) and command permission codes'
+  )
+ON CONFLICT (version) DO NOTHING;
