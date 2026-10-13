@@ -1,0 +1,191 @@
+import { query } from "../db.js";
+import { isRoleCode, type RoleCode } from "./rbac.js";
+import {
+  DEMO_ORG_ID,
+  DEMO_ORG_NAME,
+  PERSONAS,
+  effectivePersonaRole,
+  findPersona,
+  personasForOrg,
+  setRoleOverride,
+  type Persona,
+} from "./personas.js";
+
+export interface DirectoryUser {
+  userId: string;
+  orgId: string;
+  firstName: string;
+  lastName: string | null;
+  email: string;
+  role: string;
+  title: string;
+}
+
+export interface DirectoryOrg {
+  orgId: string;
+  name: string;
+  industry: string | null;
+  hqCountry: string | null;
+}
+
+const DEMO_ORG: DirectoryOrg = {
+  orgId: DEMO_ORG_ID,
+  name: DEMO_ORG_NAME,
+  industry: "Holding company",
+  hqCountry: "AE",
+};
+
+export async function listOrganizations(): Promise<{ organizations: DirectoryOrg[]; source: "database" | "demo" }> {
+  try {
+    const { rows } = await query<{
+      org_id: string;
+      name: string;
+      industry: string | null;
+      hq_country: string | null;
+    }>(`SELECT org_id, name, industry, hq_country FROM organizations ORDER BY name`);
+    if (rows.length) {
+      return {
+        source: "database",
+        organizations: rows.map((org) => ({
+          orgId: org.org_id,
+          name: org.name,
+          industry: org.industry,
+          hqCountry: org.hq_country,
+        })),
+      };
+    }
+  } catch {
+    /* demo directory */
+  }
+  return { source: "demo", organizations: [DEMO_ORG] };
+}
+
+export async function listUsers(orgId: string): Promise<DirectoryUser[]> {
+  const merged = new Map<string, DirectoryUser>();
+  try {
+    const { rows } = await query<{
+      user_id: string;
+      first_name: string;
+      last_name: string | null;
+      email: string;
+      role: string;
+    }>(
+      `SELECT u.user_id, u.first_name, u.last_name, u.email,
+              COALESCE(v.role_code, 'domain_analyst') AS role
+       FROM users u
+       LEFT JOIN v_user_primary_role v ON v.user_id = u.user_id
+       WHERE u.org_id = $1
+       ORDER BY u.first_name`,
+      [orgId],
+    );
+    for (const row of rows) {
+      const persona = findPersona(row.user_id);
+      merged.set(row.user_id, {
+        userId: row.user_id,
+        orgId,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        email: row.email,
+        role: effectivePersonaRole(row.user_id, (isRoleCode(row.role) ? row.role : "domain_analyst")),
+        title: persona?.title ?? titleFor(row.role),
+      });
+    }
+  } catch {
+    /* database unavailable */
+  }
+  for (const persona of personasForOrg(orgId)) {
+    if ([...merged.values()].some((user) => user.email === persona.email || user.userId === persona.userId)) {
+      continue;
+    }
+    merged.set(persona.userId, toDirectory(persona));
+  }
+  return [...merged.values()].sort((a, b) => a.title.localeCompare(b.title) || a.firstName.localeCompare(b.firstName));
+}
+
+function toDirectory(persona: Persona): DirectoryUser {
+  return {
+    userId: persona.userId,
+    orgId: persona.orgId,
+    firstName: persona.firstName,
+    lastName: persona.lastName,
+    email: persona.email,
+    role: effectivePersonaRole(persona.userId, persona.role),
+    title: persona.title,
+  };
+}
+
+function titleFor(role: string): string {
+  if (role === "cxo") return "CxO";
+  if (role === "ciso") return "CISO";
+  if (role === "board_member") return "Board Member";
+  if (role === "org_admin") return "Admin";
+  if (role === "soc_analyst") return "SOC Analyst";
+  if (role === "security_analyst") return "Security Analyst";
+  return role.replaceAll("_", " ");
+}
+
+export async function assignRole(userId: string, orgId: string, role: RoleCode): Promise<boolean> {
+  const users = await listUsers(orgId);
+  const user = users.find((row) => row.userId === userId);
+  if (!user) return false;
+  setRoleOverride(userId, role);
+  try {
+    const { rows: roleRows } = await query<{ role_id: string }>(
+      `SELECT role_id FROM roles WHERE code = $1`,
+      [role],
+    );
+    if (!roleRows[0]) return true;
+    await query(
+      `UPDATE user_roles SET is_primary = false WHERE user_id = $1 AND org_id = $2`,
+      [userId, orgId],
+    );
+    await query(
+      `INSERT INTO user_roles (user_id, role_id, org_id, is_primary)
+       VALUES ($1, $2, $3, true)
+       ON CONFLICT (user_id, role_id) DO UPDATE SET is_primary = true`,
+      [userId, roleRows[0].role_id, orgId],
+    );
+  } catch {
+    /* override still applies for this process */
+  }
+  return true;
+}
+
+export async function seedCommandDirectory(): Promise<void> {
+  let db = false;
+  try {
+    await query(`SELECT 1`);
+    db = true;
+  } catch {
+    return;
+  }
+  if (!db) return;
+  await query(
+    `INSERT INTO roles (code, display_name, description) VALUES
+      ('soc_analyst', 'SOC Analyst', 'Security operations analyst'),
+      ('org_admin', 'Admin', 'Organization administrator')
+     ON CONFLICT (code) DO NOTHING`,
+  );
+  const { rows: orgs } = await query(`SELECT 1 FROM organizations WHERE org_id = $1`, [DEMO_ORG_ID]);
+  if (!orgs[0]) return;
+  for (const persona of PERSONAS) {
+    await query(
+      `INSERT INTO users (user_id, org_id, first_name, last_name, email)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (email) DO NOTHING`,
+      [persona.userId, persona.orgId, persona.firstName, persona.lastName, persona.email],
+    );
+    await query(
+      `INSERT INTO user_roles (user_id, role_id, org_id, is_primary)
+       SELECT u.user_id, r.role_id, u.org_id, true
+       FROM users u
+       JOIN roles r ON r.code = $2
+       WHERE u.email = $1
+         AND NOT EXISTS (
+           SELECT 1 FROM user_roles ur WHERE ur.user_id = u.user_id AND ur.is_primary = true
+         )
+       ON CONFLICT (user_id, role_id) DO NOTHING`,
+      [persona.email, persona.role],
+    );
+  }
+}

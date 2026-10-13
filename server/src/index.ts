@@ -9,6 +9,19 @@ import "dotenv/config";
 
 import { query } from "./db.js";
 import { requireRoles, tenantMiddleware } from "./middleware/tenant.js";
+import { listOrganizations, listUsers, seedCommandDirectory } from "./command/directory.js";
+import { registerCommandRoutes } from "./command/routes.js";
+import {
+  capabilityFor,
+  hasPermission,
+  homeFor,
+  landingFor,
+  permissionsFor,
+  redactFinding,
+  redactFinancial,
+  requiredPermission,
+  viewsFor,
+} from "./command/rbac.js";
 import { getOverview } from "./services/overview.js";
 import {
   applyDecisionAction,
@@ -107,39 +120,13 @@ await app.register(rateLimit, {
 app.get("/health", async () => ({ ok: true }));
 
 app.get("/api/ecc/organizations", async () => {
-  const { rows } = await query(
-    `SELECT org_id, name, industry, hq_country FROM organizations ORDER BY name`,
-  );
-  return {
-    organizations: rows.map((o) => ({
-      orgId: o.org_id,
-      name: o.name,
-      industry: o.industry,
-      hqCountry: o.hq_country,
-    })),
-  };
+  const { organizations } = await listOrganizations();
+  return { organizations };
 });
 
-app.get("/api/ecc/organizations/:orgId/users", async (req, reply) => {
+app.get("/api/ecc/organizations/:orgId/users", async (req) => {
   const { orgId } = req.params as { orgId: string };
-  const { rows } = await query(
-    `SELECT u.user_id, u.first_name, u.last_name, u.email,
-            COALESCE(v.role_code, 'domain_analyst') AS role
-     FROM users u
-     LEFT JOIN v_user_primary_role v ON v.user_id = u.user_id
-     WHERE u.org_id = $1
-     ORDER BY role, u.first_name`,
-    [orgId],
-  );
-  return {
-    users: rows.map((u) => ({
-      userId: u.user_id,
-      firstName: u.first_name,
-      lastName: u.last_name,
-      email: u.email,
-      role: u.role,
-    })),
-  };
+  return { users: await listUsers(orgId) };
 });
 
 app.addHook("preHandler", async (req, reply) => {
@@ -159,15 +146,35 @@ app.get("/api/ecc/me", async (req) => ({
     orgId: req.tenant.orgId,
     orgName: req.tenant.orgName,
     role: req.tenant.role,
+    title: req.tenant.title ?? req.tenant.role,
     name: `${req.tenant.firstName}${req.tenant.lastName ? ` ${req.tenant.lastName}` : ""}`,
     email: req.tenant.email,
+    permissions: permissionsFor(req.tenant.role),
+    views: viewsFor(req.tenant.role),
+    landing: landingFor(req.tenant.role),
+    capability: capabilityFor(req.tenant.role),
+    home: homeFor(req.tenant.role),
   },
 }));
+
+app.addHook("preHandler", async (req, reply) => {
+  if (reply.sent || !req.url.startsWith("/api/ecc") || !req.tenant) return;
+  const permission = requiredPermission(req.method, req.url);
+  if (!permission || permission === "self") return;
+  if (!hasPermission(req.tenant.role, permission)) {
+    return reply.code(403).send({
+      error: {
+        code: "forbidden",
+        message: `Role ${req.tenant.role} cannot access this resource.`,
+      },
+    });
+  }
+});
 
 app.get("/api/ecc/overview", async (req, reply) => {
   const data = await getOverview(req.tenant.orgId);
   if (!data) return reply.code(404).send({ error: { code: "not_found", message: "Org not found" } });
-  return data;
+  return redactFinancial(req.tenant.role, data as unknown as Record<string, unknown>);
 });
 
 app.get("/api/ecc/risk-domains", async (req) => ({
@@ -182,14 +189,16 @@ app.get("/api/ecc/risk-domains/:id", async (req, reply) => {
 });
 
 app.get("/api/ecc/findings", async (req) => ({
-  findings: await listFindings(req.tenant.orgId),
+  findings: (await listFindings(req.tenant.orgId)).map((finding) =>
+    redactFinding(req.tenant.role, finding as unknown as Record<string, unknown>),
+  ),
 }));
 
 app.get("/api/ecc/findings/:id", async (req, reply) => {
   const { id } = req.params as { id: string };
   const data = await getFinding(req.tenant.orgId, id);
   if (!data) return reply.code(404).send({ error: { code: "not_found", message: "Finding not found" } });
-  return data;
+  return redactFinding(req.tenant.role, data as unknown as Record<string, unknown>);
 });
 
 app.get("/api/ecc/decisions", async (req) => {
@@ -1049,6 +1058,11 @@ app.get("/api/ecc/ingestion/sample-workbook/trace/:signalId", async (req, reply)
       error: { code: "trace_failed", message: err?.message ?? "Trace failed" },
     });
   }
+});
+
+await registerCommandRoutes(app);
+seedCommandDirectory().catch((err) => {
+  app.log.warn({ err }, "command directory seed skipped");
 });
 
 const port = Number(process.env.PORT ?? 4000);

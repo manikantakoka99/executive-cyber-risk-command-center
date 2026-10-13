@@ -86,17 +86,33 @@ export function decisionStatusBadge(status: string): string {
 export function roleLabel(role: string): string {
   switch (role) {
     case "cxo":
-      return "CXO";
+      return "CxO";
+    case "ciso":
+      return "CISO";
     case "board_member":
-      return "Board";
+      return "Board Member";
+    case "security_analyst":
+      return "Security Analyst";
+    case "soc_analyst":
+      return "SOC Analyst";
+    case "risk_manager":
+      return "Risk Lead";
+    case "org_admin":
+    case "super_admin":
+    case "platform_admin":
+      return "Admin";
     case "program_office":
       return "Program Office";
     case "domain_analyst":
-      return "Analyst";
+      return "Domain Analyst";
+    case "compliance_manager":
+      return "Compliance";
     case "auditor":
       return "Auditor";
+    case "business_owner":
+      return "Business Owner";
     default:
-      return role;
+      return role.replaceAll("_", " ");
   }
 }
 

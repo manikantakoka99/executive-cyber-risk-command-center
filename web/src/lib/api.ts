@@ -1,3 +1,4 @@
+import type { CommandMutation, CommandWorkspace, EvidenceView } from "../data/commandTypes";
 import type { Organization, OverviewResponse, UserRef } from "../data/types";
 
 export class ApiError extends Error {
@@ -62,10 +63,35 @@ export const api = {
         orgId: string;
         orgName: string;
         role: string;
+        title: string;
         name: string;
         email: string;
+        permissions: string[];
+        views: string[];
+        landing: string;
+        capability: string;
+        home: string;
       };
     }>("/api/ecc/me"),
+  commandWorkspace: () => request<CommandWorkspace>("/api/ecc/command/workspace"),
+  commandDomain: (id: string) =>
+    request<{ evidence: EvidenceView }>(`/api/ecc/command/domains/${id}`),
+  commandWhatIf: (body: Record<string, unknown>) =>
+    request<CommandMutation>("/api/ecc/command/whatif", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  commandPost: (path: string, body?: Record<string, unknown>) =>
+    request<CommandMutation>(`/api/ecc/command/${path}`, {
+      method: "POST",
+      body: JSON.stringify(body ?? {}),
+    }),
+  adminUsers: () => request<{ users: UserRef[] }>("/api/ecc/admin/users"),
+  adminSetRole: (userId: string, role: string) =>
+    request<{ ok: boolean; users: UserRef[] }>(`/api/ecc/admin/users/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    }),
   overview: () => request<OverviewResponse>("/api/ecc/overview"),
   domains: () => request<{ domains: unknown[] }>("/api/ecc/risk-domains"),
   domain: (id: string) => request<any>(`/api/ecc/risk-domains/${id}`),

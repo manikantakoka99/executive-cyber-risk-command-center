@@ -17,6 +17,7 @@ services:
       - ./db/migrations/004_ecc_executive_closed_loop.sql:/docker-entrypoint-initdb.d/05_ecc_executive_closed_loop.sql:ro
       - ./db/migrations/005_ecc_enterprise_intelligence.sql:/docker-entrypoint-initdb.d/06_ecc_enterprise_intelligence.sql:ro
       - ./db/migrations/006_ecc_sample_ingestion_proof.sql:/docker-entrypoint-initdb.d/07_ecc_sample_ingestion.sql:ro
+      - ./db/migrations/007_ecc_command_rbac.sql:/docker-entrypoint-initdb.d/08_ecc_command_rbac.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ecc -d cyber_command_center"]
       interval: 3s
