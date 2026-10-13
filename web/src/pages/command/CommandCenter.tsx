@@ -101,8 +101,17 @@ export function CommandCenter() {
   if (!me) return null;
   if (loading && !workspace) {
     return (
-      <div className="page">
-        <div className="skeleton" />
+      <div className="cc">
+        <div className="skeleton-stack">
+          <div className="skeleton" style={{ minHeight: 64 }} />
+          <div className="kpi-row">
+            <div className="skeleton" style={{ minHeight: 120 }} />
+            <div className="skeleton" style={{ minHeight: 120 }} />
+            <div className="skeleton" style={{ minHeight: 120 }} />
+            <div className="skeleton" style={{ minHeight: 120 }} />
+          </div>
+          <div className="skeleton" style={{ minHeight: 220 }} />
+        </div>
         <p className="empty">Loading the command center…</p>
       </div>
     );

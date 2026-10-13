@@ -26,6 +26,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { ScenarioDetailPage, ScenariosPage } from "./pages/ScenariosPage";
 import "./index.css";
+import "./design.css";
 import "./command.css";
 
 function Permit({
