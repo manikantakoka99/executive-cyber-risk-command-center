@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 import { query } from "../db.js";
+import { CANONICAL } from "../command/canonical.js";
+import { BASELINE, ENTERPRISE_LOSS } from "../command/model.js";
+import { DEMO_ORG_ID } from "../command/personas.js";
 import { getOverview } from "./overview.js";
 
 export type PortfolioFilters = {
@@ -141,27 +144,51 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
   );
 
   const s = stats[0];
+  const scenarioByPriority = {
+    critical: Number(s?.critical ?? 0),
+    high: Number(s?.high ?? 0),
+    medium: Number(s?.medium ?? 0),
+    low: Number(s?.low ?? 0),
+  };
+  // Al Dhabi demo: executive portfolio posture uses canonical domain bands + annual loss
+  // (same source as command Headline), not raw scenario-priority tallies.
+  const demoPosture =
+    orgId === DEMO_ORG_ID
+      ? {
+          byPriority: {
+            critical: CANONICAL.domainSpread.Critical,
+            high: CANONICAL.domainSpread.High,
+            medium: CANONICAL.domainSpread.Medium,
+            low: CANONICAL.domainSpread.Low,
+          },
+          outsideTolerance: CANONICAL.outsideAppetite,
+          domainCount: CANONICAL.domainCount,
+          knownFinancialExposureAed: Math.round(ENTERPRISE_LOSS.ale * 1_000_000),
+          annualLossAedM: { ...ENTERPRISE_LOSS },
+          domainBands: BASELINE.counts,
+        }
+      : null;
+
   return {
     asOf: new Date().toISOString(),
-    methodology:
-      "Portfolio aggregates Risk Scenarios only — does not average domain scores.",
+    methodology: demoPosture
+      ? "Enterprise portfolio posture uses the 12 risk-domain bands and canonical annual loss; scenario list is separate and is not averaged into the headline."
+      : "Portfolio aggregates Risk Scenarios only — does not average domain scores.",
     filters,
     totals: {
       activeScenarios: Number(s?.active ?? 0),
-      byPriority: {
-        critical: Number(s?.critical ?? 0),
-        high: Number(s?.high ?? 0),
-        medium: Number(s?.medium ?? 0),
-        low: Number(s?.low ?? 0),
-      },
-      outsideTolerance: Number(s?.outside ?? 0),
+      byPriority: demoPosture?.byPriority ?? scenarioByPriority,
+      outsideTolerance: demoPosture?.outsideTolerance ?? Number(s?.outside ?? 0),
+      domainCount: demoPosture?.domainCount ?? null,
       increasing: Number(s?.increasing ?? 0),
       aging: Number(s?.aging ?? 0),
       accepted: Number(s?.accepted ?? 0),
       mitigated: Number(s?.mitigated ?? 0),
       closed: Number(s?.closed ?? 0),
       knownFinancialExposureAed:
-        s?.known_exposure != null ? Number(s.known_exposure) : null,
+        demoPosture?.knownFinancialExposureAed ??
+        (s?.known_exposure != null ? Number(s.known_exposure) : null),
+      annualLossAedM: demoPosture?.annualLossAedM ?? null,
       unknownFinancialExposureCount: Number(s?.unknown_financial ?? 0),
       confidence: {
         high: Number(s?.conf_high ?? 0),
@@ -170,6 +197,7 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
       },
       remediationBacklog: Number(backlog[0]?.open_actions ?? 0),
       overdueActions: Number(backlog[0]?.overdue ?? 0),
+      scenarioByPriority,
     },
     topRisks: top.map((r) => ({
       scenarioId: r.scenario_id,

@@ -1,3 +1,4 @@
+import { tierWord } from "./bands.js";
 import type { RiskPolicyConfig } from "./policy.js";
 
 export type FactorValue = {
@@ -214,13 +215,6 @@ export function buildExplanation(parts: {
     `Tolerance: ${parts.tolerance}`,
     `Confidence is ${parts.confidenceLabel} (${parts.confidenceNotes.slice(0, 3).join("; ")}).`,
   ].join(" ");
-}
-
-function tierWord(score: number): string {
-  if (score >= 80) return "critical";
-  if (score >= 60) return "high";
-  if (score >= 35) return "medium";
-  return "low";
 }
 
 function round2(n: number): number {

@@ -1,4 +1,6 @@
 import { query } from "../db.js";
+import { ENTERPRISE_LOSS } from "../command/model.js";
+import { DEMO_ORG_ID } from "../command/personas.js";
 
 const OPEN_FINDING_STATUSES = ["open", "acknowledged", "in_remediation"];
 
@@ -294,7 +296,16 @@ export async function getOverview(orgId: string) {
               : null,
         }
       : null,
-    businessImpactExposureAed: Number(exposure.rows[0]?.total ?? 0),
+    // Al Dhabi demo: one source of truth with command Headline (AED millions → absolute).
+    businessImpactExposureAed:
+      orgId === DEMO_ORG_ID
+        ? Math.round(ENTERPRISE_LOSS.ale * 1_000_000)
+        : Number(exposure.rows[0]?.total ?? 0),
+    annualLossAedM: orgId === DEMO_ORG_ID ? { ...ENTERPRISE_LOSS } : null,
+    p90BadYearAed:
+      orgId === DEMO_ORG_ID ? Math.round(ENTERPRISE_LOSS.p90 * 1_000_000) : null,
+    p95BadYearAed:
+      orgId === DEMO_ORG_ID ? Math.round(ENTERPRISE_LOSS.p95 * 1_000_000) : null,
     compliancePosturePct:
       compliancePosturePct == null
         ? null

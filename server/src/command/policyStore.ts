@@ -138,20 +138,66 @@ export function listPolicyBundle(orgId: string) {
   };
 }
 
+export function withdrawPolicy(
+  orgId: string,
+  role: string,
+  actor: { userId: string; name: string },
+  policyId: string,
+): { ok: true } | { ok: false; status: 403 | 400 | 404; message: string } {
+  if (!hasPermission(role, "policy.propose")) {
+    return { ok: false, status: 403, message: "Only the proposer (CISO) can withdraw a draft policy." };
+  }
+  const state = getOrg(orgId);
+  const policy = state.policies.find((p) => p.policyId === policyId);
+  if (!policy) return { ok: false, status: 404, message: "Policy version not found." };
+  if (policy.status !== "draft") {
+    return { ok: false, status: 400, message: "Only draft policies can be withdrawn." };
+  }
+  if (policy.proposedByUserId && policy.proposedByUserId !== actor.userId) {
+    return { ok: false, status: 403, message: "Only the proposer can withdraw this draft." };
+  }
+  state.policies = state.policies.filter((p) => p.policyId !== policyId);
+  return { ok: true };
+}
+
 export function proposePolicy(
   orgId: string,
   role: string,
   actor: { userId: string; name: string },
-  input: Partial<Pick<PolicyVersion, "notes" | "unobservedDefault" | "bandCriticalMin" | "bandHighMin" | "bandMediumMin" | "floorEnabled" | "floorBand">>,
+  input: Partial<Pick<PolicyVersion, "notes" | "unobservedDefault" | "bandCriticalMin" | "bandHighMin" | "bandMediumMin" | "floorEnabled" | "floorBand">> & {
+    replaceDraft?: boolean;
+  },
 ): { ok: true; policy: PolicyVersion } | { ok: false; status: 403 | 400; message: string } {
   if (!hasPermission(role, "policy.propose")) {
     return { ok: false, status: 403, message: "Only roles with policy.propose (CISO) can draft scoring policy." };
   }
   const state = getOrg(orgId);
-  if (state.policies.some((p) => p.status === "draft")) {
-    return { ok: false, status: 400, message: "A draft policy already exists. Approve or retire it before proposing another." };
+  const existingDraft = state.policies.find((p) => p.status === "draft");
+  if (existingDraft) {
+    if (input.replaceDraft && existingDraft.proposedByUserId === actor.userId) {
+      state.policies = state.policies.filter((p) => p.policyId !== existingDraft.policyId);
+    } else {
+      return {
+        ok: false,
+        status: 400,
+        message:
+          "A draft policy already exists. Withdraw or replace your draft before proposing another.",
+      };
+    }
   }
   const base = state.policies.find((p) => p.status === "approved") ?? state.policies[0];
+  const notes = input.notes?.trim() ?? "";
+  const changed =
+    Boolean(notes) ||
+    input.unobservedDefault != null ||
+    input.bandMediumMin != null ||
+    input.bandHighMin != null ||
+    input.bandCriticalMin != null ||
+    input.floorEnabled != null ||
+    input.floorBand != null;
+  if (!changed) {
+    return { ok: false, status: 400, message: "Empty policy proposal rejected. Provide notes or band changes." };
+  }
   const policy: PolicyVersion = {
     policyId: id("pol"),
     version: state.nextPolicyVersion++,
@@ -162,7 +208,7 @@ export function proposePolicy(
     bandCriticalMin: input.bandCriticalMin ?? base?.bandCriticalMin ?? 70,
     floorEnabled: input.floorEnabled ?? base?.floorEnabled ?? true,
     floorBand: input.floorBand ?? base?.floorBand ?? "high",
-    notes: input.notes?.trim() || "Draft scoring policy proposal.",
+    notes: notes || "Draft scoring policy proposal.",
     proposedByUserId: actor.userId,
     proposedByName: actor.name,
     approvedByUserId: null,
@@ -222,13 +268,16 @@ export function approvePolicy(
   role: string,
   actor: { userId: string; name: string },
   policyId: string,
-): { ok: true; policy: PolicyVersion } | { ok: false; status: 403 | 400 | 404; message: string } {
+): { ok: true; policy: PolicyVersion } | { ok: false; status: 403 | 400 | 404 | 409; message: string } {
   if (!hasPermission(role, "policy.approve")) {
     return { ok: false, status: 403, message: "Only roles with approve_policy (Board/CxO) can lock a policy version." };
   }
   const state = getOrg(orgId);
   const policy = state.policies.find((p) => p.policyId === policyId);
   if (!policy) return { ok: false, status: 404, message: "Policy version not found." };
+  if (policy.status === "approved" || policy.status === "retired") {
+    return { ok: false, status: 409, message: "already approved and locked" };
+  }
   if (policy.status !== "draft") {
     return { ok: false, status: 400, message: "Only draft policies can be approved. Approved versions are immutable." };
   }

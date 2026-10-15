@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it, before } from "node:test";
+import { ENTERPRISE_LOSS } from "./command/model.js";
 import { query } from "./db.js";
 import { getOverview } from "./services/overview.js";
 
@@ -27,7 +28,8 @@ describe("overview aggregates", () => {
     assert.equal(o.domainsMonitored, 12);
     assert.ok(o.enterpriseRisk);
     assert.equal(o.enterpriseRisk.score, 42.83);
-    assert.ok(o.businessImpactExposureAed > 5_000_000);
+    assert.equal(o.businessImpactExposureAed, Math.round(ENTERPRISE_LOSS.ale * 1_000_000));
+    assert.deepEqual(o.annualLossAedM, ENTERPRISE_LOSS);
     assert.equal(o.compliancePosturePct, 80);
     assert.equal(o.decisionsAwaitingCxo, 0);
     assert.equal(o.pendingDecisions.length, 0);

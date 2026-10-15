@@ -28,9 +28,14 @@ before(async () => {
 describe("Phase 5 portfolio + trends", () => {
   it("aggregates enterprise portfolio without averaging domains", async () => {
     const p = await getPortfolio(AL);
-    assert.match(p.methodology, /does not average/i);
+    assert.match(p.methodology, /not averaged|does not average/i);
     assert.ok(typeof p.totals.activeScenarios === "number");
     assert.ok(p.totals.byPriority);
+    assert.equal(p.totals.byPriority.critical, 2);
+    assert.equal(p.totals.byPriority.high, 2);
+    assert.equal(p.totals.byPriority.medium, 4);
+    assert.equal(p.totals.byPriority.low, 4);
+    assert.equal(p.totals.outsideTolerance, 5);
     assert.ok(Array.isArray(p.topRisks));
   });
 

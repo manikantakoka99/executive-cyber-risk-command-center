@@ -13,6 +13,7 @@ import { listOrganizations, listUsers, seedCommandDirectory } from "./command/di
 import { registerCommandRoutes } from "./command/routes.js";
 import {
   canAcceptRisk,
+  canViewFinancials,
   capabilityFor,
   hasPermission,
   homeFor,
@@ -173,6 +174,20 @@ app.addHook("preHandler", async (req, reply) => {
         message: `Role ${req.tenant.role} cannot access this resource.`,
       },
     });
+  }
+});
+
+/** Central financial strip — every /api/ecc JSON response for non-financial roles. */
+app.addHook("onSend", async (req, reply, payload) => {
+  if (!req.tenant || !req.url?.startsWith("/api/ecc")) return payload;
+  if (canViewFinancials(req.tenant.role)) return payload;
+  if (reply.statusCode >= 400) return payload;
+  if (typeof payload !== "string" || !payload) return payload;
+  try {
+    const data = JSON.parse(payload) as unknown;
+    return JSON.stringify(redactFinancial(req.tenant.role, data));
+  } catch {
+    return payload;
   }
 });
 
@@ -917,7 +932,7 @@ app.post(
 // ---------------------------------------------------------------------------
 app.get("/api/ecc/portfolio", async (req) => {
   const q = req.query as Record<string, string | undefined>;
-  return getPortfolio(req.tenant.orgId, {
+  const data = await getPortfolio(req.tenant.orgId, {
     businessUnit: q.business_unit,
     businessProcess: q.business_process,
     domain: q.domain,
@@ -925,8 +940,10 @@ app.get("/api/ecc/portfolio", async (req) => {
     priority: q.priority,
     tolerance: q.tolerance,
     status: q.status,
+    // period_days parsing left as-is; request validation lands on a separate branch
     periodDays: q.period_days ? Number(q.period_days) : undefined,
   });
+  return redactFinancial(req.tenant.role, data as unknown as Record<string, unknown>);
 });
 
 app.get("/api/ecc/trends", async (req) => {

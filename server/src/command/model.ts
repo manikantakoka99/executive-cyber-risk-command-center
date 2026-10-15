@@ -4,13 +4,16 @@
  * Snapshot anchor: 5 Sep 2026. Loss figures are AED millions per year.
  */
 
+import { BAND_THRESHOLDS, bandOf, type Band } from "../risk/bands.js";
+
+export { BAND_THRESHOLDS, bandOf };
+export type { Band };
+
 export const UNOBSERVED_ASSUMPTION = 60;
 export const FLOOR_BAND: Band = "High";
 export const SNAPSHOT_ISO = "2026-09-05";
 export const MONTHS = ["Apr", "May", "Jun", "Jul", "Aug", "Sep"] as const;
 export const BOARD_MONTH_INDEX = 2;
-
-export type Band = "Critical" | "High" | "Medium" | "Low";
 
 export interface DomainDef {
   id: string;
@@ -100,13 +103,6 @@ export interface Scorecard {
 
 export function adjustedScore(raw: number, coverage: number): number {
   return coverage * raw + (1 - coverage) * Math.max(raw, UNOBSERVED_ASSUMPTION);
-}
-
-export function bandOf(score: number): Band {
-  if (score >= 70) return "Critical";
-  if (score >= 55) return "High";
-  if (score >= 35) return "Medium";
-  return "Low";
 }
 
 export function confidenceOf(domain: DomainDef): number {

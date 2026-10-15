@@ -8,6 +8,7 @@ import {
   proposeAppetite,
   proposePolicy,
   resetPolicyStoreForTests,
+  withdrawPolicy,
 } from "./policyStore.js";
 
 const CISO = { userId: "c1500001-a090-41a0-8ecc-000000000001", name: "Layla Al Hashimi, CISO" };
@@ -97,11 +98,50 @@ describe("policy approval rule (Board + CxO; no self-approve; immutable)", () =>
     assert.equal(editApproved.status, 400);
     assert.match(editApproved.message, /immutable|locked/i);
 
-    // Re-approve also rejected
+    // Re-approve → 409 already approved and locked
     const reApprove = approvePolicy(org, "cxo", CXO, proposed.policy.policyId);
     assert.equal(reApprove.ok, false);
     if (reApprove.ok) return;
-    assert.equal(reApprove.status, 400);
+    assert.equal(reApprove.status, 409);
+    assert.match(reApprove.message, /already approved and locked/i);
+  });
+
+  it("rejects empty proposals and out-of-order bands; allows withdraw/replace draft", () => {
+    const org = "org-policy-draft";
+    const empty = proposePolicy(org, "ciso", CISO, {});
+    assert.equal(empty.ok, false);
+    if (empty.ok) return;
+    assert.equal(empty.status, 400);
+
+    const badBands = proposePolicy(org, "ciso", CISO, {
+      notes: "Bad bands",
+      bandMediumMin: 70,
+      bandHighMin: 55,
+      bandCriticalMin: 40,
+    });
+    assert.equal(badBands.ok, false);
+    if (badBands.ok) return;
+    assert.equal(badBands.status, 400);
+
+    const first = proposePolicy(org, "ciso", CISO, { notes: "First draft", bandCriticalMin: 71 });
+    assert.equal(first.ok, true);
+    if (!first.ok) return;
+
+    const blocked = proposePolicy(org, "ciso", CISO, { notes: "Second without replace" });
+    assert.equal(blocked.ok, false);
+
+    const replaced = proposePolicy(org, "ciso", CISO, {
+      notes: "Replacement draft",
+      bandHighMin: 56,
+      replaceDraft: true,
+    });
+    assert.equal(replaced.ok, true);
+    if (!replaced.ok) return;
+    assert.notEqual(replaced.policy.policyId, first.policy.policyId);
+
+    const withdrawn = withdrawPolicy(org, "ciso", CISO, replaced.policy.policyId);
+    assert.equal(withdrawn.ok, true);
+    assert.equal(listPolicyBundle(org).versions.some((p) => p.status === "draft"), false);
   });
 
   it("locks appetite with proposer ≠ approver (Board or CxO)", () => {

@@ -289,7 +289,7 @@ const DWAN_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "decisions.read",
     "policy.read",
   ],
-  // Auditor: read-only pack/compliance/audit + findings + connectors.
+  // Auditor: read-only + technical evidence (schema view_technical_evidence=true).
   auditor: [
     "command.headline",
     "command.posture",
@@ -304,7 +304,11 @@ const DWAN_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "decisions.read",
     "register.read",
     "policy.read",
+    "domains.read",
+    "domains.technical",
     "findings.read",
+    "findings.technical",
+    "scenarios.read",
     "connectors.read",
   ],
   admin: ["admin.users", "admin.roles", "audit.read"],
@@ -353,7 +357,7 @@ export const CAPABILITY: Record<RoleCode, string> = {
     "You can verify findings, inspect feed confidence and open technical evidence. Money and approvals are outside this role.",
   program_office: "You prepare the board pack and compliance reports. Technical verification stays with security.",
   auditor:
-    "You can read findings, connectors, the audit trail, compliance evidence and packs. You cannot change decisions.",
+    "You can read findings, risk domains, scenarios, connectors, the audit trail, compliance evidence and packs. You cannot change decisions.",
   admin: "You manage users and roles for this organization. Cyber decisions are outside this role.",
 };
 
@@ -471,28 +475,43 @@ export function requiredPermission(method: string, path: string): Permission | "
   return null;
 }
 
-const FINANCIAL_KEY = /(aed|financial|exposure|^loss$|loss[A-Z]|expectedLoss|ale|p90|p95|lossAvoided)/i;
-/** String payloads that still carry money after key-based nulling (e.g. free-text notes). */
-const AED_VALUE = /\bAED\b|\bP9[05]\b/i;
+const FINANCIAL_KEY =
+  /(aed|financial|exposure|^loss$|loss[A-Z]|expectedLoss|ale|p90|p95|lossAvoided|knownExposure|businessImpact)/i;
+/** String payloads that still carry money after key stripping (e.g. free-text notes). */
+const AED_VALUE = /\bAED\b|\bP9[05]\b|\bdirham/i;
+
+/** Roles without view_financials / command.loss must not receive money fields at all. */
+export function canViewFinancials(role: string): boolean {
+  return hasPermission(role, "command.loss");
+}
 
 export function redactFinancial<T>(role: string, value: T): T {
-  if (hasPermission(role, "command.loss")) return value;
+  if (canViewFinancials(role)) return value;
   return stripFinancial(value) as T;
 }
 
 function stripFinancial(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stripFinancial);
-  if (typeof value === "string") return AED_VALUE.test(value) ? null : value;
+  if (typeof value === "string") return AED_VALUE.test(value) ? "[redacted]" : value;
   if (!value || typeof value !== "object") return value;
   const copy: Record<string, unknown> = {};
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    if (FINANCIAL_KEY.test(key)) {
-      copy[key] = null;
-      continue;
-    }
+    if (FINANCIAL_KEY.test(key)) continue; // omit field entirely
     copy[key] = stripFinancial(child);
   }
   return copy;
+}
+
+/** True when a JSON value still contains money keys or AED literals. */
+export function hasFinancialLeak(value: unknown): boolean {
+  if (typeof value === "string") return AED_VALUE.test(value);
+  if (Array.isArray(value)) return value.some(hasFinancialLeak);
+  if (!value || typeof value !== "object") return false;
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (FINANCIAL_KEY.test(key)) return true;
+    if (hasFinancialLeak(child)) return true;
+  }
+  return false;
 }
 
 export function redactFinding<T extends Record<string, unknown>>(role: string, finding: T): T {

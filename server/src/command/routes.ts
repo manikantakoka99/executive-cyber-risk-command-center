@@ -10,6 +10,7 @@ import {
   listPolicyBundle,
   proposeAppetite,
   proposePolicy,
+  withdrawPolicy,
 } from "./policyStore.js";
 import { presentEvidence, presentWorkspace, type ComplianceLive } from "./present.js";
 import {
@@ -257,6 +258,7 @@ export async function registerCommandRoutes(app: FastifyInstance) {
         bandCriticalMin: z.number().min(0).max(100).optional(),
         floorEnabled: z.boolean().optional(),
         floorBand: z.enum(["high", "critical"]).optional(),
+        replaceDraft: z.boolean().optional(),
       })
       .safeParse(req.body ?? {});
     if (!body.success) {
@@ -266,8 +268,35 @@ export async function registerCommandRoutes(app: FastifyInstance) {
       userId: req.tenant.userId,
       name: actorLabel(req.tenant.userId, req.tenant.role),
     }, body.data);
-    if (!result.ok) return reply.code(result.status).send({ error: { code: "forbidden", message: result.message } });
+    if (!result.ok) {
+      return reply.code(result.status).send({
+        error: {
+          code: result.status === 400 ? "invalid" : "forbidden",
+          message: result.message,
+        },
+      });
+    }
     return { ok: true, policy: result.policy, ...listPolicyBundle(req.tenant.orgId) };
+  });
+
+  app.delete("/api/ecc/policy/:id", async (req, reply) => {
+    if (!requirePermission(req, reply, "policy.propose")) return;
+    const { id } = req.params as { id: string };
+    const result = withdrawPolicy(
+      req.tenant.orgId,
+      req.tenant.role,
+      { userId: req.tenant.userId, name: actorLabel(req.tenant.userId, req.tenant.role) },
+      id,
+    );
+    if (!result.ok) {
+      return reply.code(result.status).send({
+        error: {
+          code: result.status === 404 ? "not_found" : result.status === 400 ? "invalid" : "forbidden",
+          message: result.message,
+        },
+      });
+    }
+    return { ok: true, ...listPolicyBundle(req.tenant.orgId) };
   });
 
   app.patch("/api/ecc/policy/:id", async (req, reply) => {
@@ -312,7 +341,17 @@ export async function registerCommandRoutes(app: FastifyInstance) {
       userId: req.tenant.userId,
       name: actorLabel(req.tenant.userId, req.tenant.role),
     }, id);
-    if (!result.ok) return reply.code(result.status).send({ error: { code: "forbidden", message: result.message } });
+    if (!result.ok) {
+      const code =
+        result.status === 409
+          ? "conflict"
+          : result.status === 404
+            ? "not_found"
+            : result.status === 400
+              ? "invalid"
+              : "forbidden";
+      return reply.code(result.status).send({ error: { code, message: result.message } });
+    }
     return { ok: true, policy: result.policy, ...listPolicyBundle(req.tenant.orgId) };
   });
 

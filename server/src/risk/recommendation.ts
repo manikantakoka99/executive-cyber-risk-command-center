@@ -1,4 +1,5 @@
 import { query } from "../db.js";
+import { BAND_THRESHOLDS, bandOf } from "./bands.js";
 import { getScenarioImpact } from "./scenarioImpact.js";
 
 export type TreatmentType = "mitigate" | "transfer" | "avoid" | "accept" | "monitor";
@@ -77,15 +78,15 @@ export async function generateRecommendation(orgId: string, scenarioId: string) 
   let priority: "critical" | "high" | "medium" | "low" =
     (scen[0].priority as any) ?? "medium";
 
-  if (scen[0].tolerance_state === "outside" || residual >= 60) {
+  if (scen[0].tolerance_state === "outside" || residual >= BAND_THRESHOLDS.highMin) {
     treatment = "mitigate";
     recommendedAction =
       "Approve mitigation: assign remediation owner, improve ineffective controls, and verify risk reduction.";
-    priority = residual >= 80 ? "critical" : "high";
+    priority = bandOf(residual).toLowerCase() as "critical" | "high" | "medium" | "low";
   } else if (
     impact?.financialKnown &&
     !economicsJustified &&
-    residual >= 45 &&
+    residual >= BAND_THRESHOLDS.mediumMin &&
     impact.financialExposureAed != null &&
     impact.financialExposureAed > 5_000_000
   ) {
@@ -95,7 +96,7 @@ export async function generateRecommendation(orgId: string, scenarioId: string) 
       "Consider risk transfer or accept with compensating controls; remediation cost evidence is incomplete.";
     reasonCodes.push("REMEDIATION_COST_UNCERTAIN");
     priority = "high";
-  } else if (scen[0].tolerance_state === "within" && residual < 45) {
+  } else if (scen[0].tolerance_state === "within" && residual < BAND_THRESHOLDS.mediumMin) {
     treatment = "monitor";
     recommendedAction =
       "Acknowledge and continue monitoring; no remediation required at this time.";
