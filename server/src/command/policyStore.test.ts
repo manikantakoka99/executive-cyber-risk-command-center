@@ -1,68 +1,121 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, beforeEach } from "node:test";
 import {
   approveAppetite,
   approvePolicy,
+  editPolicy,
   listPolicyBundle,
   proposeAppetite,
   proposePolicy,
+  resetPolicyStoreForTests,
 } from "./policyStore.js";
 
-const ORG = "org-policy-test";
+const CISO = { userId: "c1500001-a090-41a0-8ecc-000000000001", name: "Layla Al Hashimi, CISO" };
+const BOARD = { userId: "c1500001-a090-41a0-8ecc-000000000006", name: "Hessa Al Ketbi, Board Member" };
+const CXO = { userId: "c1500001-a090-41a0-8ecc-000000000002", name: "Omar Al Mansoori, CEO" };
 
-describe("policy / appetite propose-approve lock", () => {
-  it("lets CISO propose and Board approve; blocks self-approve and CISO approve", () => {
-    const proposed = proposePolicy(
-      ORG,
-      "ciso",
-      { userId: "ciso-1", name: "CISO" },
-      { notes: "Tighten critical band", bandCriticalMin: 68 },
-    );
+describe("policy approval rule (Board + CxO; no self-approve; immutable)", () => {
+  beforeEach(() => {
+    resetPolicyStoreForTests();
+  });
+
+  it("board approve ok", () => {
+    const org = "org-policy-board";
+    const proposed = proposePolicy(org, "ciso", CISO, { notes: "Board path", bandCriticalMin: 68 });
     assert.equal(proposed.ok, true);
     if (!proposed.ok) return;
 
-    const self = approvePolicy(ORG, "ciso", { userId: "ciso-1", name: "CISO" }, proposed.policy.policyId);
-    assert.equal(self.ok, false);
-
-    const board = approvePolicy(
-      ORG,
-      "board_member",
-      { userId: "board-1", name: "Board" },
-      proposed.policy.policyId,
-    );
+    const board = approvePolicy(org, "board_member", BOARD, proposed.policy.policyId);
     assert.equal(board.ok, true);
     if (!board.ok) return;
     assert.equal(board.policy.status, "approved");
-
-    const again = approvePolicy(
-      ORG,
-      "board_member",
-      { userId: "board-1", name: "Board" },
-      proposed.policy.policyId,
-    );
-    assert.equal(again.ok, false);
-
-    const bundle = listPolicyBundle(ORG);
-    assert.equal(bundle.active?.policyId, proposed.policy.policyId);
+    assert.equal(board.policy.approvedByUserId, BOARD.userId);
+    assert.equal(listPolicyBundle(org).active?.policyId, proposed.policy.policyId);
   });
 
-  it("locks appetite with proposer ≠ approver", () => {
-    const draft = proposeAppetite(
-      ORG,
-      "ciso",
-      { userId: "ciso-1", name: "CISO" },
-      { domainCode: "soc", maxScore: 42 },
+  it("CxO approve ok", () => {
+    const org = "org-policy-cxo";
+    const proposed = proposePolicy(org, "ciso", CISO, { notes: "CxO path", bandHighMin: 56 });
+    assert.equal(proposed.ok, true);
+    if (!proposed.ok) return;
+
+    const cxo = approvePolicy(org, "cxo", CXO, proposed.policy.policyId);
+    assert.equal(cxo.ok, true);
+    if (!cxo.ok) return;
+    assert.equal(cxo.policy.status, "approved");
+    assert.equal(cxo.policy.approvedByUserId, CXO.userId);
+  });
+
+  it("CISO self-approve 403", () => {
+    const org = "org-policy-self";
+    const proposed = proposePolicy(org, "ciso", CISO, { notes: "Self-approve attempt" });
+    assert.equal(proposed.ok, true);
+    if (!proposed.ok) return;
+
+    // CISO lacks approve_policy → 403
+    const asCiso = approvePolicy(org, "ciso", CISO, proposed.policy.policyId);
+    assert.equal(asCiso.ok, false);
+    if (asCiso.ok) return;
+    assert.equal(asCiso.status, 403);
+
+    // Same userId as proposer cannot approve even when calling with an approve role
+    const sameUser = approvePolicy(
+      org,
+      "board_member",
+      { userId: CISO.userId, name: "Impersonated" },
+      proposed.policy.policyId,
     );
+    assert.equal(sameUser.ok, false);
+    if (sameUser.ok) return;
+    assert.equal(sameUser.status, 403);
+    assert.match(sameUser.message, /proposer cannot approve/i);
+  });
+
+  it("edit approved version rejected", () => {
+    const org = "org-policy-immutable";
+    const proposed = proposePolicy(org, "ciso", CISO, { notes: "Will lock" });
+    assert.equal(proposed.ok, true);
+    if (!proposed.ok) return;
+
+    // Draft edit is allowed
+    const draftEdit = editPolicy(org, "ciso", CISO, proposed.policy.policyId, {
+      notes: "Draft tweak",
+      bandCriticalMin: 72,
+    });
+    assert.equal(draftEdit.ok, true);
+
+    const locked = approvePolicy(org, "board_member", BOARD, proposed.policy.policyId);
+    assert.equal(locked.ok, true);
+    if (!locked.ok) return;
+
+    const editApproved = editPolicy(org, "ciso", CISO, proposed.policy.policyId, {
+      notes: "Illegal mutation",
+      bandCriticalMin: 80,
+    });
+    assert.equal(editApproved.ok, false);
+    if (editApproved.ok) return;
+    assert.equal(editApproved.status, 400);
+    assert.match(editApproved.message, /immutable|locked/i);
+
+    // Re-approve also rejected
+    const reApprove = approvePolicy(org, "cxo", CXO, proposed.policy.policyId);
+    assert.equal(reApprove.ok, false);
+    if (reApprove.ok) return;
+    assert.equal(reApprove.status, 400);
+  });
+
+  it("locks appetite with proposer ≠ approver (Board or CxO)", () => {
+    const org = "org-appetite";
+    const draft = proposeAppetite(org, "ciso", CISO, { domainCode: "soc", maxScore: 42 });
     assert.equal(draft.ok, true);
     if (!draft.ok) return;
-    const denied = approveAppetite(ORG, "ciso", { userId: "ciso-1", name: "CISO" }, draft.appetite.appetiteId);
+
+    const denied = approveAppetite(org, "ciso", CISO, draft.appetite.appetiteId);
     assert.equal(denied.ok, false);
-    const ok = approveAppetite(
-      ORG,
-      "board_member",
-      { userId: "board-1", name: "Board" },
-      draft.appetite.appetiteId,
-    );
+    if (denied.ok) return;
+    assert.equal(denied.status, 403);
+
+    const ok = approveAppetite(org, "cxo", CXO, draft.appetite.appetiteId);
     assert.equal(ok.ok, true);
   });
 });

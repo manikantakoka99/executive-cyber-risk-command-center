@@ -1609,7 +1609,7 @@ REVOKE INSERT ON domain_scores, domain_score_components, enterprise_scores, ente
 -- ============================================================================
 INSERT INTO role_capabilities VALUES
 --  role              fin    tech   decide accept policy verify pack   users
---  Policy: CISO proposes drafts; Board (approve_policy) locks. CISO has no approve_policy.
+--  Policy: CISO proposes drafts; Board and CxO (approve_policy) lock. CISO has no approve_policy.
 --  Accept risk: CxO and Risk Lead (product decision).
   ('board_member',   true,  false, false, false, true,  false, true,  false),
   ('cxo',            true,  false, true,  true,  true,  false, true,  false),

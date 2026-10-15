@@ -54,8 +54,10 @@ SELECT pg_temp.ok(fn_user_can('approve_decisions', pg_temp.f('cxoA')) AND NOT fn
   AND NOT fn_user_can('view_financials', pg_temp.f('anA'))
   AND fn_user_can('accept_risk', pg_temp.f('cxoA')) AND fn_user_can('accept_risk', pg_temp.f('riskA'))
   AND NOT fn_user_can('accept_risk', pg_temp.f('cisoA'))
-  AND fn_user_can('approve_policy', pg_temp.f('boardA')) AND NOT fn_user_can('approve_policy', pg_temp.f('cisoA')),
-  'role capabilities: accept=cxo+risk_lead; policy approve=board not ciso; analyst sees no money');
+  AND fn_user_can('approve_policy', pg_temp.f('boardA'))
+  AND fn_user_can('approve_policy', pg_temp.f('cxoA'))
+  AND NOT fn_user_can('approve_policy', pg_temp.f('cisoA')),
+  'role capabilities: accept=cxo+risk_lead; policy approve=board+cxo not ciso; analyst sees no money');
 
 -- ------------------------------------------------------------------ policy (CISO proposes, Board approves; lock on approve)
 INSERT INTO scoring_policy(org_id, version, proposed_by) VALUES (pg_temp.f('orgA'), 1, pg_temp.f('cisoA'));
@@ -81,6 +83,13 @@ SELECT pg_temp.fails($$INSERT INTO policy_sla(policy_id, org_id, severity, days)
 INSERT INTO scoring_policy(org_id, version, proposed_by) VALUES (pg_temp.f('orgA'), 2, pg_temp.f('cisoA'));
 SELECT pg_temp.fails($$UPDATE scoring_policy SET status='approved', proposed_by=(SELECT id FROM fx WHERE k='cisoA'), approved_by=(SELECT id FROM fx WHERE k='boardA'), approved_at=now(), effective_from=now() WHERE org_id=(SELECT id FROM fx WHERE k='orgA') AND version=2$$,
   'ex_policy_no_overlap', 'two approved policies cannot have overlapping effective windows');
+-- Close v1 window, then CxO may approve v2 (approve_policy kept for CxO per schema)
+UPDATE scoring_policy SET status='retired', effective_to=now() WHERE policy_id=pg_temp.f('pol1');
+UPDATE scoring_policy SET status='approved', proposed_by=pg_temp.f('cisoA'), approved_by=pg_temp.f('cxoA'), approved_at=now(), effective_from=now()
+  WHERE org_id=pg_temp.f('orgA') AND version=2;
+INSERT INTO fx SELECT 'pol2', policy_id FROM scoring_policy WHERE version=2 AND org_id=pg_temp.f('orgA');
+SELECT pg_temp.ok(fn_active_policy(pg_temp.f('orgA')) = pg_temp.f('pol2'), 'policy v2 proposed by CISO, approved by CxO, and active');
+SELECT pg_temp.fails($$UPDATE scoring_policy SET band_critical_min = 75 WHERE policy_id=(SELECT id FROM fx WHERE k='pol2')$$, 'immutable', 'CxO-approved policy is immutable');
 SELECT pg_temp.ok(fn_band(54.99, pg_temp.f('pol1')) = 'medium' AND fn_band(55, pg_temp.f('pol1')) = 'high' AND fn_band(70, pg_temp.f('pol1')) = 'critical' AND fn_band(34.99, pg_temp.f('pol1')) = 'low',
   'band thresholds: <35 low, 35-54 medium, 55-69 high, >=70 critical');
 

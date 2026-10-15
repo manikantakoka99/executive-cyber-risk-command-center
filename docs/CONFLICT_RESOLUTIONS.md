@@ -12,7 +12,7 @@
 | 6 | Approver identity | Capability-based user ≠ finding owner (not a free-text CFO dropdown alone). |
 | 7 | Board pack | **Reviewer ≠ approver**; approve freezes pack; export records SHA-256. |
 | 8 | Source tags | Use `enterprise_scores` / current table names (not `_v2`). |
-| 9 | Policy / appetite | **CISO proposes** (`proposed_by`); **Board (or other `approve_policy`) locks**. Proposer ≠ approver; approved versions are immutable. CISO has `approve_policy=false`. |
+| 9 | Policy / appetite | **CISO proposes** (`proposed_by`); **Board and CxO** (`approve_policy`) may lock. Proposer ≠ approver; approved versions are immutable. CISO has `approve_policy=false`. |
 | 10 | Board technical screens | Board **does not** get Trust, What-if, Closure technical ops, or technical posture columns. Tabs: Headline, Posture (exec), Changed, Pack (+ Compliance read). |
 | 11 | Extra screens | Built: Compliance, Audit, Admin users/roles, Policy & appetite, Tenant selector, Risk register, Remediation, Connector health. |
 | 12 | Trends | Seed/UI use HTML `tr` arrays reconciled with June board baseline + Sep snapshot. |

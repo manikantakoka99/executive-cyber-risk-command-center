@@ -1,6 +1,6 @@
 /**
  * In-memory scoring policy + appetite (DWAN rules for the command demo path).
- * CISO proposes; Board (approve_policy) locks; proposer ≠ approver; approved versions immutable.
+ * CISO proposes; Board and CxO (approve_policy) lock; approver ≠ proposer; approved versions immutable.
  */
 import { hasPermission } from "./rbac.js";
 
@@ -49,6 +49,12 @@ interface OrgPolicyState {
 }
 
 const byOrg = new Map<string, OrgPolicyState>();
+
+/** Test helper — clear in-memory org state. */
+export function resetPolicyStoreForTests(orgId?: string) {
+  if (orgId) byOrg.delete(orgId);
+  else byOrg.clear();
+}
 
 const DOMAIN_APPETITE: { code: string | null; name: string; max: number }[] = [
   { code: null, name: "Enterprise", max: 50 },
@@ -172,6 +178,45 @@ export function proposePolicy(
   return { ok: true, policy };
 }
 
+export function editPolicy(
+  orgId: string,
+  role: string,
+  actor: { userId: string; name: string },
+  policyId: string,
+  input: Partial<Pick<PolicyVersion, "notes" | "unobservedDefault" | "bandCriticalMin" | "bandHighMin" | "bandMediumMin" | "floorEnabled" | "floorBand">>,
+): { ok: true; policy: PolicyVersion } | { ok: false; status: 403 | 400 | 404; message: string } {
+  if (!hasPermission(role, "policy.propose")) {
+    return { ok: false, status: 403, message: "Only roles with policy.propose (CISO) can edit draft scoring policy." };
+  }
+  const state = getOrg(orgId);
+  const policy = state.policies.find((p) => p.policyId === policyId);
+  if (!policy) return { ok: false, status: 404, message: "Policy version not found." };
+  if (policy.status !== "draft") {
+    return {
+      ok: false,
+      status: 400,
+      message: "Approved versions are locked and immutable. Propose a new version instead.",
+    };
+  }
+  if (policy.proposedByUserId && policy.proposedByUserId !== actor.userId) {
+    return { ok: false, status: 403, message: "Only the proposer can edit this draft policy." };
+  }
+  const next = {
+    notes: input.notes?.trim() ?? policy.notes,
+    unobservedDefault: input.unobservedDefault ?? policy.unobservedDefault,
+    bandMediumMin: input.bandMediumMin ?? policy.bandMediumMin,
+    bandHighMin: input.bandHighMin ?? policy.bandHighMin,
+    bandCriticalMin: input.bandCriticalMin ?? policy.bandCriticalMin,
+    floorEnabled: input.floorEnabled ?? policy.floorEnabled,
+    floorBand: input.floorBand ?? policy.floorBand,
+  };
+  if (!(next.bandMediumMin < next.bandHighMin && next.bandHighMin < next.bandCriticalMin)) {
+    return { ok: false, status: 400, message: "Band thresholds must satisfy medium < high < critical." };
+  }
+  Object.assign(policy, next);
+  return { ok: true, policy };
+}
+
 export function approvePolicy(
   orgId: string,
   role: string,
@@ -188,8 +233,9 @@ export function approvePolicy(
     return { ok: false, status: 400, message: "Only draft policies can be approved. Approved versions are immutable." };
   }
   if (!policy.proposedByUserId) {
-    return { ok: false, status: 400, message: "proposed_by is required (CISO proposes, Board approves)." };
+    return { ok: false, status: 400, message: "proposed_by is required (CISO proposes; Board or CxO approves)." };
   }
+  // Server-enforced: approver ≠ proposer (even if the actor has approve_policy).
   if (policy.proposedByUserId === actor.userId) {
     return { ok: false, status: 403, message: "The proposer cannot approve their own policy proposal." };
   }

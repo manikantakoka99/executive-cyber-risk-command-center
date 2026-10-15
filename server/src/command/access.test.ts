@@ -70,6 +70,8 @@ describe("command RBAC", () => {
     assert.equal(hasPermission("ciso", "policy.approve"), false);
     assert.equal(hasPermission("ciso", "policy.propose"), true);
     assert.equal(hasPermission("board_member", "policy.approve"), true);
+    assert.equal(hasPermission("cxo", "policy.approve"), true);
+    assert.equal(hasPermission("cxo", "policy.propose"), false);
     assert.equal(hasPermission("risk_lead", "command.queue.act"), false);
     assert.equal(hasPermission("risk_lead", "command.queue.accept"), true);
   });

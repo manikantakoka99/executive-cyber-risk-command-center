@@ -15,8 +15,8 @@ Source of truth: `db/dwan_schema.sql` `role_capabilities` + server `command/rbac
 
 ## Product decisions locked
 1. **Accept risk:** CxO **and** Risk Lead (`accept_risk=true`). Enforced in DB triggers and API (`canAcceptRisk` / `command.queue.accept`).
-2. **Scoring policy & appetite:** CISO proposes (`proposed_by`); Board (or other `approve_policy`) locks. Proposer ≠ approver. Approval freezes that version.
-3. CISO has `approve_policy=false` so they cannot self-approve.
+2. **Scoring policy & appetite:** CISO proposes (`proposed_by`); Board and CxO (`approve_policy`) may lock. Proposer ≠ approver. Approval freezes that version.
+3. CISO has `approve_policy=false` and server enforces approver ≠ proposer, so they cannot self-approve.
 
 ## Tests per role (server + data, not only UI)
 1. Money: roles without financials get NULL money from the API.

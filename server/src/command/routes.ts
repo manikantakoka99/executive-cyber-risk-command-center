@@ -6,6 +6,7 @@ import { actorLabel } from "./personas.js";
 import {
   approveAppetite,
   approvePolicy,
+  editPolicy,
   listPolicyBundle,
   proposeAppetite,
   proposePolicy,
@@ -266,6 +267,41 @@ export async function registerCommandRoutes(app: FastifyInstance) {
       name: actorLabel(req.tenant.userId, req.tenant.role),
     }, body.data);
     if (!result.ok) return reply.code(result.status).send({ error: { code: "forbidden", message: result.message } });
+    return { ok: true, policy: result.policy, ...listPolicyBundle(req.tenant.orgId) };
+  });
+
+  app.patch("/api/ecc/policy/:id", async (req, reply) => {
+    if (!requirePermission(req, reply, "policy.propose")) return;
+    const { id } = req.params as { id: string };
+    const body = z
+      .object({
+        notes: z.string().max(2000).optional(),
+        unobservedDefault: z.number().min(0).max(100).optional(),
+        bandMediumMin: z.number().min(0).max(100).optional(),
+        bandHighMin: z.number().min(0).max(100).optional(),
+        bandCriticalMin: z.number().min(0).max(100).optional(),
+        floorEnabled: z.boolean().optional(),
+        floorBand: z.enum(["high", "critical"]).optional(),
+      })
+      .safeParse(req.body ?? {});
+    if (!body.success) {
+      return reply.code(400).send({ error: { code: "invalid_body", message: body.error.message } });
+    }
+    const result = editPolicy(
+      req.tenant.orgId,
+      req.tenant.role,
+      { userId: req.tenant.userId, name: actorLabel(req.tenant.userId, req.tenant.role) },
+      id,
+      body.data,
+    );
+    if (!result.ok) {
+      return reply.code(result.status).send({
+        error: {
+          code: result.status === 400 ? "immutable" : "forbidden",
+          message: result.message,
+        },
+      });
+    }
     return { ok: true, policy: result.policy, ...listPolicyBundle(req.tenant.orgId) };
   });
 

@@ -345,8 +345,8 @@ export const ROLE_LABEL: Record<RoleCode, string> = {
 export const CAPABILITY: Record<RoleCode, string> = {
   board_member:
     "You can view risk posture, trends, financial exposure and the board pack. You approve scoring policy and appetite proposals. Technical feeds and what-if are outside this role.",
-  cxo: "You can approve decisions, accept risk with an expiry, and run what-if funding against expected loss. Findings and technical evidence stay with security roles.",
-  ciso: "You can see technical evidence, assign owners, propose scoring policy and appetite, and verify closures. Board locks approved versions.",
+  cxo: "You can approve decisions, accept risk with an expiry, approve scoring policy and appetite, and run what-if funding against expected loss. Findings and technical evidence stay with security roles.",
+  ciso: "You can see technical evidence, assign owners, propose scoring policy and appetite, and verify closures. Board or CxO locks approved versions; you cannot approve your own proposal.",
   risk_lead:
     "You can accept risk with an expiry, manage the acceptance register, run verification scans and the audit trail. General Decide stays with CxO/CISO.",
   domain_analyst:

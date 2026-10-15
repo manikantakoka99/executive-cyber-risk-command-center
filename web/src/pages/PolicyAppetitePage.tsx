@@ -141,7 +141,7 @@ export function PolicyAppetitePage() {
           <p className="eyebrow">Governance</p>
           <h1 className="page-title">Scoring policy & appetite</h1>
           <p className="page-sub">
-            CISO proposes drafts. Board (or CxO with approve_policy) locks the version. The proposer
+            CISO proposes drafts. Board and CxO may approve and lock the version. The proposer
             cannot approve their own proposal; approved versions are immutable.
           </p>
         </div>
