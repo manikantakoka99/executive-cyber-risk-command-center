@@ -13,7 +13,8 @@ import {
 } from "./services/intelligence.js";
 import { getOverview } from "./services/overview.js";
 import { createIsolatedScenario } from "./services/closedLoop.js";
-import { isSeededTestText } from "./command/testFixtures.js";
+import { isSeededTestScenarioTitle, isSeededTestText } from "./command/testFixtures.js";
+import { listScenarios, seedDemoScenarios } from "./services/scenarios.js";
 
 const AL = "2accc7de-f693-4b19-8fe8-6db501be05e2";
 
@@ -28,6 +29,11 @@ describe("seeded test text helper", () => {
     );
     assert.equal(isSeededTestText("Critical vulnerability on internet-facing business API"), false);
     assert.equal(isSeededTestText("Generated immutable executive report"), false);
+    // Scenario titles are start-anchored. A real seed that merely contains a token stays.
+    assert.equal(isSeededTestScenarioTitle("Payment path P4-al-noted exposure"), false);
+    assert.equal(isSeededTestScenarioTitle("P4-al-1792082404151"), true);
+    assert.equal(isSeededTestScenarioTitle("Branch recovery posture (DEMO)"), false);
+    assert.equal(isSeededTestText("Branch recovery posture (DEMO)"), true);
   });
 });
 
@@ -139,5 +145,154 @@ describe("intelligence and operations counts share one source", () => {
         (row: { status?: string }) => row.status === "awaiting_decision",
       ),
     );
+  });
+});
+
+/** Deterministic demo-seed residuals (same scorer as 7bcc5be). */
+const SEEDED_SCENARIOS: Array<{ title: string; residual: number }> = [
+  {
+    title: "Potential compromise of externally exposed payment infrastructure",
+    residual: 65.4,
+  },
+  {
+    title: "Ransomware resilience risk on critical recovery path",
+    residual: 58.56,
+  },
+  {
+    title: "Critical vulnerability on internet-facing business API",
+    residual: 55.83,
+  },
+  {
+    title: "Credential compromise path via phishing and privileged access",
+    residual: 48.97,
+  },
+];
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+describe("portfolio and scenario list share one filtered set", () => {
+  const extraTitles = [
+    "Payment path P4-al-noted exposure",
+    "Branch recovery posture (DEMO)",
+    "Leaked score 65.4",
+  ];
+
+  async function insertScored(title: string, residual: number, isDemo = false) {
+    const { rows } = await query<{ scenario_id: string }>(
+      `INSERT INTO risk_scenarios (
+         org_id, title, description, status, scenario_type, priority, priority_score, is_demo
+       ) VALUES (
+         $1, $2, 'regression fixture', 'active', 'correlated',
+         'high'::priority_tier, 90, $3
+       ) RETURNING scenario_id`,
+      [AL, title, isDemo],
+    );
+    const scenarioId = rows[0]!.scenario_id;
+    const { rows: ra } = await query<{ risk_assessment_id: string }>(
+      `INSERT INTO risk_assessments (
+         org_id, scenario_id, residual_risk, inherent_risk, likelihood_score, impact_score,
+         confidence, priority_score, priority_tier, is_current, explanation
+       ) VALUES (
+         $1, $2, $3, $3, 50, 50, 70, 90, 'high'::priority_tier, true, 'regression'
+       ) RETURNING risk_assessment_id`,
+      [AL, scenarioId, residual],
+    );
+    await query(
+      `UPDATE risk_scenarios SET current_assessment_id = $2
+       WHERE org_id = $1 AND scenario_id = $3`,
+      [AL, ra[0]!.risk_assessment_id, scenarioId],
+    );
+    return scenarioId;
+  }
+
+  it("keeps the seeded residuals, hides test rows, and counts the visible list", async () => {
+    await seedDemoScenarios(AL);
+    // Unanchored "P4-al-" and a trailing (DEMO) used to drop real rows.
+    const keptMid = await insertScored("Payment path P4-al-noted exposure", 52.82);
+    const keptDemo = await insertScored("Branch recovery posture (DEMO)", 33.7);
+    const leak = await insertScored("Leaked score 65.4", 65.4, false);
+    const { rows: domains } = await query<{ risk_domain_id: string }>(
+      `SELECT risk_domain_id FROM risk_domains LIMIT 1`,
+    );
+    const { rows: sig } = await query<{ signal_id: string }>(
+      `INSERT INTO security_signals (
+         org_id, risk_domain_id, event_type, severity, observed_at, title,
+         source_type, source_name, lifecycle_status
+       ) VALUES (
+         $1, $2, 'suspicious_process', 'critical', now(), 'leaked 65.4 signal',
+         'soc', 'p4_test', 'ready_for_correlation'
+       ) RETURNING signal_id`,
+      [AL, domains[0]!.risk_domain_id],
+    );
+    await query(
+      `INSERT INTO risk_scenario_signals (scenario_id, signal_id, org_id) VALUES ($1,$2,$3)`,
+      [leak, sig[0]!.signal_id, AL],
+    );
+    // A test signal linked onto a real demo seed must not remove that seed.
+    const portfolioBeforeLink = await getPortfolio(AL);
+    const hero = portfolioBeforeLink.topRisks.find(
+      (row: { title?: string }) => row.title === SEEDED_SCENARIOS[0]!.title,
+    );
+    assert.ok(hero?.scenarioId);
+    await query(
+      `INSERT INTO risk_scenario_signals (scenario_id, signal_id, org_id) VALUES ($1,$2,$3)`,
+      [hero.scenarioId, sig[0]!.signal_id, AL],
+    );
+
+    try {
+      const portfolio = await getPortfolio(AL);
+      const scenarios = await listScenarios(AL, { limit: 200 });
+      const listedIds = new Set(scenarios.map((row) => row.scenarioId));
+
+      assert.equal(portfolio.totals.activeScenarios, portfolio.topRisks.length);
+      for (const row of portfolio.topRisks) {
+        assert.ok(listedIds.has(row.scenarioId), row.title);
+      }
+
+      for (const expected of SEEDED_SCENARIOS) {
+        const card = portfolio.topRisks.find(
+          (row: { title?: string }) => row.title === expected.title,
+        );
+        const listed = scenarios.find((row) => row.title === expected.title);
+        assert.ok(card, expected.title);
+        assert.ok(listed, expected.title);
+        assert.equal(round2(card.residualRisk), expected.residual);
+        assert.equal(round2(Number(listed.residualRisk)), expected.residual);
+        assert.equal(card.scenarioId, listed.scenarioId);
+      }
+
+      const residuals = portfolio.topRisks.map((row: { residualRisk?: number }) =>
+        round2(Number(row.residualRisk)),
+      );
+      assert.ok(residuals.includes(52.82));
+      assert.ok(residuals.includes(33.7));
+      assert.ok(portfolio.topRisks.some((row: { scenarioId?: string }) => row.scenarioId === keptMid));
+      assert.ok(portfolio.topRisks.some((row: { scenarioId?: string }) => row.scenarioId === keptDemo));
+      assert.equal(
+        portfolio.topRisks.some((row: { scenarioId?: string }) => row.scenarioId === leak),
+        false,
+      );
+      assert.equal(
+        scenarios.some((row) => row.scenarioId === leak),
+        false,
+      );
+      assert.ok(
+        !portfolio.topRisks.some((row: { title?: string }) =>
+          /^P4 isolated|^P4-base-|^p3-corr-/i.test(String(row.title ?? "")),
+        ),
+      );
+
+      // Headline figures stay canonical.
+      assert.equal(portfolio.totals.enterpriseScore, Number(CANONICAL.headlineScore));
+      assert.equal(portfolio.totals.openDecisions, CANONICAL.openDecisions);
+    } finally {
+      await query(`DELETE FROM risk_scenarios WHERE org_id = $1 AND scenario_id = ANY($2::uuid[])`, [
+        AL,
+        [keptMid, keptDemo, leak],
+      ]);
+      await query(`DELETE FROM security_signals WHERE signal_id = $1`, [sig[0]!.signal_id]);
+    }
   });
 });
