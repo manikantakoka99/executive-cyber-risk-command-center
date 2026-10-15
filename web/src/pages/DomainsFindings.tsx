@@ -129,8 +129,10 @@ export function DomainDetailPage() {
                   <div>
                     <div className="di-title">{f.title}</div>
                     <div className="di-domain">
-                      {f.status} · {f.affectedAsset ?? "—"} ·{" "}
-                      {formatAed(f.financialExposureAed)}
+                      {f.status} · {f.affectedAsset ?? "—"}
+                      {f.financialExposureAed != null
+                        ? ` · ${formatAed(f.financialExposureAed)}`
+                        : ""}
                       {f.complianceScopeImpact
                         ? ` · ${f.complianceScopeImpact}`
                         : ""}
@@ -255,7 +257,10 @@ export function FindingsPage() {
             <div>
               <div className="di-title">{f.title}</div>
               <div className="di-domain">
-                {f.domainLabel} · {f.status} · {formatAed(f.financialExposureAed)}
+                {f.domainLabel} · {f.status}
+                {f.financialExposureAed != null
+                  ? ` · ${formatAed(f.financialExposureAed)}`
+                  : ""}
               </div>
             </div>
             <div className={`dc-status ${severityBadge(f.severity)}`}>{f.severity}</div>
@@ -302,9 +307,17 @@ export function FindingDetailPage() {
           </span>
           <span className="arrow">→</span>
           <span className="seg">
-            Impact: {formatAed(data.financialExposureAed)}
+            Impact:
+            {data.financialExposureAed != null
+              ? ` ${formatAed(data.financialExposureAed)}`
+              : ""}
             {data.affectedBusinessUnit ? ` · ${data.affectedBusinessUnit}` : ""}
             {data.complianceScopeImpact ? ` · ${data.complianceScopeImpact}` : ""}
+            {data.financialExposureAed == null &&
+            !data.affectedBusinessUnit &&
+            !data.complianceScopeImpact
+              ? " qualitative only"
+              : ""}
           </span>
           <span className="arrow">→</span>
           <span className="seg">
@@ -328,8 +341,12 @@ export function FindingDetailPage() {
         <div className="card col-main">
           <div className="section-title">Business impact</div>
           <dl className="kv">
-            <div><dt>Financial exposure</dt><dd>{formatAed(data.financialExposureAed)}</dd></div>
-            <div><dt>Downtime cost / hour</dt><dd>{formatAed(data.downtimeCostPerHourAed)}</dd></div>
+            {data.financialExposureAed != null && (
+              <div><dt>Financial exposure</dt><dd>{formatAed(data.financialExposureAed)}</dd></div>
+            )}
+            {data.downtimeCostPerHourAed != null && (
+              <div><dt>Downtime cost / hour</dt><dd>{formatAed(data.downtimeCostPerHourAed)}</dd></div>
+            )}
             <div><dt>Business unit</dt><dd>{data.affectedBusinessUnit ?? "—"}</dd></div>
             <div><dt>Compliance scope</dt><dd>{data.complianceScopeImpact ?? "—"}</dd></div>
             <div><dt>Status</dt><dd>{data.status}</dd></div>

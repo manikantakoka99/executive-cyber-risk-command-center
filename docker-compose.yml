@@ -1,3 +1,9 @@
+# Local Postgres 16 + DWAN schema + two demo tenants (Al Dhabi + Falcon).
+# Usage (Fedora / any host with Docker Compose v2):
+#   docker compose up -d db
+#   cd server && npm install && npm run demo:seed && npm run dev   # :4000
+#   cd web && npm install && npm run dev                          # :5173
+# Or: ./scripts/dev-up.sh  (see README “Fedora local run”)
 services:
   db:
     image: postgres:16-alpine
@@ -10,13 +16,12 @@ services:
       - "5433:5432"
     volumes:
       - ecc_pgdata:/var/lib/postgresql/data
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ./db/migrations/001_ecc_v2_foundation.sql:/docker-entrypoint-initdb.d/02_ecc_v2_foundation.sql:ro
-      - ./db/migrations/002_ecc_connector_signal_framework.sql:/docker-entrypoint-initdb.d/03_ecc_connector_signal.sql:ro
-      - ./db/migrations/003_ecc_correlation_risk_engine.sql:/docker-entrypoint-initdb.d/04_ecc_correlation_risk.sql:ro
-      - ./db/migrations/004_ecc_executive_closed_loop.sql:/docker-entrypoint-initdb.d/05_ecc_executive_closed_loop.sql:ro
-      - ./db/migrations/005_ecc_enterprise_intelligence.sql:/docker-entrypoint-initdb.d/06_ecc_enterprise_intelligence.sql:ro
-      - ./db/migrations/006_ecc_sample_ingestion_proof.sql:/docker-entrypoint-initdb.d/07_ecc_sample_ingestion.sql:ro
+      # Authoritative DWAN consolidated schema (reference data + RLS)
+      - ./db/dwan_schema.sql:/docker-entrypoint-initdb.d/01_dwan_schema.sql:ro
+      - ./db/docker-init/02_app_compat.sql:/docker-entrypoint-initdb.d/02_app_compat.sql:ro
+      - ./db/docker-init/03_seed_tenants.sql:/docker-entrypoint-initdb.d/03_seed_tenants.sql:ro
+      # Formats AED chip text after workbook import when present; no-op on bare tenant seed.
+      - ./db/docker-init/04_format_aed_impact_summaries.sql:/docker-entrypoint-initdb.d/04_format_aed_impact_summaries.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ecc -d cyber_command_center"]
       interval: 3s

@@ -35,7 +35,7 @@ async function ensureSampleConnector(orgId: string): Promise<string> {
        credentials_reference, config_nonsecret, vendor
      ) VALUES (
        $1,$2,'demo',$3,$4,'active',
-       'secret://local/sample-workbook',
+       'configured',
        $5::jsonb,
        'ecc-sample-workbook'
      ) RETURNING connector_id`,
@@ -285,11 +285,18 @@ export async function getSampleWorkbookResults(orgId: string) {
   }>(
     `SELECT d.code::text AS domain_code, d.short_label,
             COUNT(*)::text AS source_records,
-            COUNT(*) FILTER (WHERE s.lifecycle_status IN ('ready_for_correlation','deduplicated','normalized'))::text AS normalized_records,
-            COUNT(*) FILTER (WHERE s.signal_kind = 'posture_metric')::text AS posture,
-            COUNT(*) FILTER (WHERE s.signal_kind = 'event')::text AS events,
-            COUNT(*) FILTER (WHERE s.unresolved_identifiers IS NOT NULL AND s.unresolved_identifiers::text NOT IN ('[]','null'))::text AS unresolved,
-            COUNT(*) FILTER (WHERE s.missing_timestamp)::text AS missing_ts
+            COUNT(*) FILTER (
+              WHERE NOT COALESCE(s.is_duplicate, false)
+                AND s.lifecycle_status IN ('ready_for_correlation','deduplicated','normalized','resolved')
+            )::text AS normalized_records,
+            COUNT(*) FILTER (WHERE s.signal_kind = 'posture_metric' AND NOT COALESCE(s.is_duplicate, false))::text AS posture,
+            COUNT(*) FILTER (WHERE s.signal_kind = 'event' AND NOT COALESCE(s.is_duplicate, false))::text AS events,
+            COUNT(*) FILTER (
+              WHERE NOT COALESCE(s.is_duplicate, false)
+                AND s.unresolved_identifiers IS NOT NULL
+                AND s.unresolved_identifiers::text NOT IN ('[]','null')
+            )::text AS unresolved,
+            COUNT(*) FILTER (WHERE NOT COALESCE(s.is_duplicate, false) AND s.missing_timestamp)::text AS missing_ts
      FROM security_signals s
      JOIN risk_domains d ON d.risk_domain_id = s.risk_domain_id
      WHERE s.org_id=$1 AND s.connector_id=$2
@@ -312,23 +319,75 @@ export async function getSampleWorkbookResults(orgId: string) {
     [orgId, cid],
   );
 
-  const metrics = (status as { result?: Record<string, unknown> }).result ?? null;
+  // Single live inventory query — KPIs and domain cards share the same source of truth
+  // (last-run result_summary alone can show 127 duplicates / 0 stages after idempotent re-run).
+  const { rows: live } = await query<{
+    received_count: string;
+    accepted_count: string;
+    duplicate_count: string;
+    rejected_count: string;
+    posture_metrics: string;
+    event_signals: string;
+    unresolved_assets: string;
+    ready_for_correlation: string;
+    missing_timestamps: string;
+  }>(
+    `SELECT
+       COUNT(*)::text AS received_count,
+       COUNT(*) FILTER (WHERE NOT COALESCE(s.is_duplicate, false))::text AS accepted_count,
+       COUNT(*) FILTER (WHERE COALESCE(s.is_duplicate, false))::text AS duplicate_count,
+       COUNT(*) FILTER (WHERE s.lifecycle_status = 'rejected')::text AS rejected_count,
+       COUNT(*) FILTER (WHERE s.signal_kind = 'posture_metric' AND NOT COALESCE(s.is_duplicate, false))::text AS posture_metrics,
+       COUNT(*) FILTER (WHERE s.signal_kind = 'event' AND NOT COALESCE(s.is_duplicate, false))::text AS event_signals,
+       COUNT(*) FILTER (
+         WHERE NOT COALESCE(s.is_duplicate, false)
+           AND s.unresolved_identifiers IS NOT NULL
+           AND s.unresolved_identifiers::text NOT IN ('[]','null')
+       )::text AS unresolved_assets,
+       COUNT(*) FILTER (
+         WHERE NOT COALESCE(s.is_duplicate, false)
+           AND s.lifecycle_status = 'ready_for_correlation'
+       )::text AS ready_for_correlation,
+       COUNT(*) FILTER (WHERE NOT COALESCE(s.is_duplicate, false) AND s.missing_timestamp)::text AS missing_timestamps
+     FROM security_signals s
+     WHERE s.org_id=$1 AND s.connector_id=$2`,
+    [orgId, cid],
+  );
+
+  const L = live[0];
+  const domainRows = byDomain.map((r) => ({
+    domainCode: r.domain_code,
+    label: r.short_label,
+    sourceRecords: Number(r.source_records),
+    normalizedRecords: Number(r.normalized_records),
+    posture: Number(r.posture),
+    events: Number(r.events),
+    unresolved: Number(r.unresolved),
+    missingTimestamps: Number(r.missing_ts),
+    qualityState:
+      Number(r.missing_ts) > 0 || Number(r.unresolved) > 0 ? "attention" : "ok",
+  }));
+  const domainNormalizedSum = domainRows.reduce((n, d) => n + d.normalizedRecords, 0);
+  const metrics = {
+    receivedCount: Number(L?.received_count ?? 0),
+    acceptedCount: Number(L?.accepted_count ?? 0),
+    duplicateCount: Number(L?.duplicate_count ?? 0),
+    rejectedCount: Number(L?.rejected_count ?? 0),
+    postureMetrics: Number(L?.posture_metrics ?? 0),
+    eventSignals: Number(L?.event_signals ?? 0),
+    unresolvedAssets: Number(L?.unresolved_assets ?? 0),
+    readyForCorrelation: Number(L?.ready_for_correlation ?? 0),
+    missingTimestamps: Number(L?.missing_timestamps ?? 0),
+    // Aligns with sum of domain-card "normalized" when duplicates are excluded.
+    canonicalRecords: Number(L?.accepted_count ?? 0),
+    domainNormalizedSum,
+    source: "live_inventory",
+  };
 
   return {
     status,
     metrics,
-    byDomain: byDomain.map((r) => ({
-      domainCode: r.domain_code,
-      label: r.short_label,
-      sourceRecords: Number(r.source_records),
-      normalizedRecords: Number(r.normalized_records),
-      posture: Number(r.posture),
-      events: Number(r.events),
-      unresolved: Number(r.unresolved),
-      missingTimestamps: Number(r.missing_ts),
-      qualityState:
-        Number(r.missing_ts) > 0 || Number(r.unresolved) > 0 ? "attention" : "ok",
-    })),
+    byDomain: domainRows,
     samples: samples.map((s) => ({
       signalId: s.signal_id,
       title: s.title,

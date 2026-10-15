@@ -47,12 +47,12 @@ async function tenantFor(orgId: string, role: string): Promise<TenantContext> {
   };
 }
 
-let alCxo: TenantContext;
+let falCxo: TenantContext;
 let scenarioId = "";
 
 before(async () => {
-  alCxo = await tenantFor(AL, "cxo");
-  scenarioId = await createIsolatedScenario(AL, {
+  falCxo = await tenantFor(FAL, "cxo");
+  scenarioId = await createIsolatedScenario(FAL, {
     title: `P4-base-${Date.now()}`,
     ineffectiveControl: true,
   });
@@ -60,7 +60,7 @@ before(async () => {
 
 describe("Phase 4 business impact", () => {
   it("derives scenario impact without inventing financial values", async () => {
-    const impact = await deriveScenarioBusinessImpact(AL, scenarioId);
+    const impact = await deriveScenarioBusinessImpact(FAL, scenarioId);
     assert.ok(impact);
     assert.equal(typeof impact.financialKnown, "boolean");
     if (!impact.financialKnown) {
@@ -72,7 +72,7 @@ describe("Phase 4 business impact", () => {
   });
 
   it("unknown financial impact is preserved on refresh", async () => {
-    const impact = await deriveScenarioBusinessImpact(AL, scenarioId);
+    const impact = await deriveScenarioBusinessImpact(FAL, scenarioId);
     if (!impact!.financialKnown) {
       assert.equal(impact!.financialExposureAed, null);
       assert.ok(impact!.derivationMeta);
@@ -82,7 +82,7 @@ describe("Phase 4 business impact", () => {
 
 describe("Phase 4 recommendation + treatment", () => {
   it("recommendation logic is deterministic for outside-tolerance path", async () => {
-    const rec = await generateRecommendation(AL, scenarioId);
+    const rec = await generateRecommendation(FAL, scenarioId);
     assert.ok(rec);
     assert.ok(
       ["mitigate", "transfer", "avoid", "accept", "monitor"].includes(
@@ -93,7 +93,7 @@ describe("Phase 4 recommendation + treatment", () => {
   });
 
   it("creates treatment plan with unknown economics when cost missing", async () => {
-    const plan = await upsertTreatmentPlan(alCxo, scenarioId, {
+    const plan = await upsertTreatmentPlan(falCxo, scenarioId, {
       treatmentType: "mitigate",
       rationale: "Test treatment plan",
       estimatedCostAed: null,
@@ -103,15 +103,15 @@ describe("Phase 4 recommendation + treatment", () => {
     assert.equal(plan!.economicsKnown, false);
     assert.equal(plan!.estimatedCostAed, null);
     assert.match(plan!.economicsNote ?? "", /unknown|not enough/i);
-    const got = await getTreatmentPlan(AL, scenarioId);
+    const got = await getTreatmentPlan(FAL, scenarioId);
     assert.equal(got!.treatmentPlanId, plan!.treatmentPlanId);
   });
 });
 
 describe("Phase 4 decision + action lifecycle", () => {
   it("creates scenario decision and action on approve", async () => {
-    const sid = await createIsolatedScenario(AL, { ineffectiveControl: true });
-    const result = await createScenarioDecision(alCxo, sid, {
+    const sid = await createIsolatedScenario(FAL, { ineffectiveControl: true });
+    const result = await createScenarioDecision(falCxo, sid, {
       outcome: "approve",
       treatmentType: "mitigate",
       rationale: "Approve mitigation for test",
@@ -123,62 +123,62 @@ describe("Phase 4 decision + action lifecycle", () => {
     assert.equal(result!.decision!.status, "approved");
     assert.equal(result!.decision!.treatmentType, "mitigate");
     assert.ok(result!.action);
-    const decisions = await listScenarioDecisions(AL, sid);
+    const decisions = await listScenarioDecisions(FAL, sid);
     assert.ok(decisions.some((d) => d.decisionId === result!.decision!.decisionId));
   });
 
   it("rejects cross-tenant action owner assignment", async () => {
-    const sid = await createIsolatedScenario(AL);
-    const act = await createAction(alCxo, sid, {
+    const sid = await createIsolatedScenario(FAL);
+    const act = await createAction(falCxo, sid, {
       title: "Owner check",
       description: "x",
     });
-    const falUser = await query<{ user_id: string }>(
+    const alUser = await query<{ user_id: string }>(
       `SELECT user_id FROM users WHERE org_id=$1 LIMIT 1`,
-      [FAL],
+      [AL],
     );
     await assert.rejects(
       () =>
-        patchAction(alCxo, act!.actionId, {
-          ownerUserId: falUser.rows[0].user_id,
+        patchAction(falCxo, act!.actionId, {
+          ownerUserId: alUser.rows[0].user_id,
         }),
       /organization|Org B/i,
     );
   });
 
   it("action lifecycle open → completed does not auto-reduce residual", async () => {
-    const sid = await createIsolatedScenario(AL, { ineffectiveControl: true });
-    const before = await getScenario(AL, sid);
+    const sid = await createIsolatedScenario(FAL, { ineffectiveControl: true });
+    const before = await getScenario(FAL, sid);
     const residualBefore = Number(before!.currentAssessment.residual_risk);
-    const act = await createAction(alCxo, sid, {
+    const act = await createAction(falCxo, sid, {
       title: "Complete without verify",
       description: "Should not reduce risk",
     });
-    await patchAction(alCxo, act!.actionId, { status: "completed" });
-    const mid = await getScenario(AL, sid);
+    await patchAction(falCxo, act!.actionId, { status: "completed" });
+    const mid = await getScenario(FAL, sid);
     assert.equal(Number(mid!.currentAssessment.residual_risk), residualBefore);
   });
 
   it("verification required before verify; failed verification does not reduce residual", async () => {
-    const sid = await createIsolatedScenario(AL, { ineffectiveControl: true });
-    const before = await recalculateScenario(AL, sid);
-    const openAct = await createAction(alCxo, sid, {
+    const sid = await createIsolatedScenario(FAL, { ineffectiveControl: true });
+    const before = await recalculateScenario(FAL, sid);
+    const openAct = await createAction(falCxo, sid, {
       title: "Still open",
       description: "cannot verify yet",
     });
     await assert.rejects(
       () =>
-        submitVerification(alCxo, openAct!.actionId, {
+        submitVerification(falCxo, openAct!.actionId, {
           result: "verified",
         }),
       /completed/i,
     );
-    const act2 = await createAction(alCxo, sid, {
+    const act2 = await createAction(falCxo, sid, {
       title: "Fail verify",
       description: "fail",
     });
-    await patchAction(alCxo, act2!.actionId, { status: "completed" });
-    const failed = await submitVerification(alCxo, act2!.actionId, {
+    await patchAction(falCxo, act2!.actionId, { status: "completed" });
+    const failed = await submitVerification(falCxo, act2!.actionId, {
       result: "failed",
       notes: "controls not proven",
     });
@@ -188,18 +188,18 @@ describe("Phase 4 decision + action lifecycle", () => {
   });
 
   it("successful verification recalculates and preserves history", async () => {
-    const sid = await createIsolatedScenario(AL, { ineffectiveControl: true });
-    const before = await getScenario(AL, sid);
+    const sid = await createIsolatedScenario(FAL, { ineffectiveControl: true });
+    const before = await getScenario(FAL, sid);
     const priorId = before!.currentAssessment.risk_assessment_id;
     const residualBefore = Number(before!.currentAssessment.residual_risk);
     const histBefore = before!.assessments.length;
 
-    const act = await createAction(alCxo, sid, {
+    const act = await createAction(falCxo, sid, {
       title: "Verify success",
       description: "closed loop",
     });
-    await patchAction(alCxo, act!.actionId, { status: "completed" });
-    const ver = await submitVerification(alCxo, act!.actionId, {
+    await patchAction(falCxo, act!.actionId, { status: "completed" });
+    const ver = await submitVerification(falCxo, act!.actionId, {
       result: "verified",
       notes: "evidence accepted",
       evidenceReference: "test://verify/ok",
@@ -208,7 +208,7 @@ describe("Phase 4 decision + action lifecycle", () => {
     assert.equal(ver!.status, "verified");
     assert.ok(ver!.verifiedResidualRisk! <= residualBefore);
 
-    const after = await getScenario(AL, sid);
+    const after = await getScenario(FAL, sid);
     assert.ok(after!.assessments.length >= histBefore + 1);
     assert.ok(
       after!.assessments.some(
@@ -221,9 +221,9 @@ describe("Phase 4 decision + action lifecycle", () => {
 
 describe("Phase 4 paths + tenant isolation", () => {
   it("within-tolerance monitoring path", async () => {
-    const sid = await createIsolatedScenario(AL, { ineffectiveControl: false });
-    await refreshScenarioIntelligence(AL, sid);
-    const result = await createScenarioDecision(alCxo, sid, {
+    const sid = await createIsolatedScenario(FAL, { ineffectiveControl: false });
+    await refreshScenarioIntelligence(FAL, sid);
+    const result = await createScenarioDecision(falCxo, sid, {
       outcome: "acknowledge",
       treatmentType: "monitor",
       rationale: "Monitor path",
@@ -233,15 +233,15 @@ describe("Phase 4 paths + tenant isolation", () => {
     assert.equal(result!.action, null);
   });
 
-  it("tenant isolation: cannot view Org B scenario or decide for Org B", async () => {
-    const falId = await createIsolatedScenario(FAL, { title: `P4-fal-${Date.now()}` });
-    const leaked = await getScenario(AL, falId);
+  it("tenant isolation: cannot view Org A scenario or decide for Org A from Falcon", async () => {
+    const alId = await createIsolatedScenario(AL, { title: `P4-al-${Date.now()}` });
+    const leaked = await getScenario(FAL, alId);
     assert.equal(leaked, null);
     await assert.rejects(
-      () => deriveScenarioBusinessImpact(AL, falId),
+      () => deriveScenarioBusinessImpact(FAL, alId),
       (err: any) => err?.statusCode === 404 || /not found/i.test(err?.message),
     );
-    const decision = await createScenarioDecision(alCxo, falId, {
+    const decision = await createScenarioDecision(falCxo, alId, {
       outcome: "approve",
       createAction: false,
     });
@@ -249,10 +249,10 @@ describe("Phase 4 paths + tenant isolation", () => {
   });
 
   it("end-to-end closed loop reduces residual when controls improve", async () => {
-    const sid = await createIsolatedScenario(AL, { ineffectiveControl: true });
-    const before = await recalculateScenario(AL, sid);
-    await refreshScenarioIntelligence(AL, sid);
-    const dec = await createScenarioDecision(alCxo, sid, {
+    const sid = await createIsolatedScenario(FAL, { ineffectiveControl: true });
+    const before = await recalculateScenario(FAL, sid);
+    await refreshScenarioIntelligence(FAL, sid);
+    const dec = await createScenarioDecision(falCxo, sid, {
       outcome: "approve",
       treatmentType: "mitigate",
       rationale: "E2E mitigate",
@@ -260,8 +260,8 @@ describe("Phase 4 paths + tenant isolation", () => {
       estimatedCostAed: 100000,
     });
     const actionId = (dec!.action as { actionId: string }).actionId;
-    await patchAction(alCxo, actionId, { status: "completed" });
-    const ver = await submitVerification(alCxo, actionId, {
+    await patchAction(falCxo, actionId, { status: "completed" });
+    const ver = await submitVerification(falCxo, actionId, {
       result: "verified",
       improveControls: true,
       evidenceReference: "test://e2e",

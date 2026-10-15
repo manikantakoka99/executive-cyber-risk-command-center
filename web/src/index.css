@@ -1,28 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;700&display=swap");
-
-:root {
-  --bg: #0b0f14;
-  --panel: #121820;
-  --panel2: #161e27;
-  --border: #232c36;
-  --border2: #2c3742;
-  --text: #e8edf2;
-  --text2: #94a3b0;
-  --text3: #5c6a75;
-  --cyan: #37b6e8;
-  --cyan-bg: #12303f;
-  --critical: #f0555c;
-  --critical-bg: #3a1518;
-  --high: #f0923e;
-  --high-bg: #3a2413;
-  --medium: #e8c547;
-  --medium-bg: #39320f;
-  --good: #3fb966;
-  --good-bg: #0f3320;
-  --font: "Source Sans 3", "DejaVu Sans", sans-serif;
-  --font-head: "Poppins", sans-serif;
-  --font-mono: "IBM Plex Mono", "DejaVu Sans Mono", monospace;
-}
+/* Component styles only — color/type tokens live in design.css (designer-swappable). */
 
 *,
 *::before,
@@ -102,7 +78,7 @@ textarea {
   width: 38px;
   height: 38px;
   border-radius: 9px;
-  background: linear-gradient(135deg, var(--cyan), #1b4d66);
+  background: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -120,7 +96,7 @@ textarea {
 }
 
 .brand-tag {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text3);
   letter-spacing: 1.6px;
   text-transform: uppercase;
@@ -191,8 +167,8 @@ textarea {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--cyan);
-  color: #062431;
+  background: var(--accent);
+  color: var(--accent-ink);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -597,8 +573,8 @@ textarea {
 }
 
 .di-btn.approve {
-  background: var(--cyan);
-  color: #062431;
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 .di-btn.defer {
@@ -668,20 +644,20 @@ textarea {
 }
 
 .role-chip {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.4px;
   text-transform: uppercase;
-  color: var(--cyan);
-  background: var(--cyan-bg);
-  border: 1px solid #1e4a5c;
-  border-radius: 999px;
+  color: var(--accent);
+  background: var(--accentSoft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 5px 10px;
 }
 
 .role-hint {
-  font-size: 11.5px;
-  color: var(--text3);
+  font-size: 12px;
+  color: var(--muted);
   align-self: center;
 }
 
@@ -939,7 +915,7 @@ textarea {
 
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -1080,18 +1056,6 @@ textarea {
 }
 
 /* —— Manager demo / presentation readability —— */
-.demo-strip {
-  background: linear-gradient(90deg, #132028, #1a2e38);
-  border-bottom: 1px solid var(--border2);
-  color: var(--text2);
-  font-size: 12.5px;
-  padding: 8px 22px;
-  letter-spacing: 0.02em;
-}
-.demo-strip strong {
-  color: var(--accent, #37b6e8);
-  font-weight: 650;
-}
 .btn-row {
   display: flex;
   gap: 10px;
@@ -1099,26 +1063,28 @@ textarea {
   align-items: center;
 }
 .btn-primary {
-  background: #1e6f8c;
-  border-color: #37b6e8;
-  color: #f2f8fb;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
   font-weight: 650;
 }
 .demo-pill {
   display: inline-block;
   margin-left: 10px;
   padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid #c9a227;
-  color: #f0d78c;
-  font-size: 11px;
+  border-radius: var(--radius);
+  border: 1px solid var(--med);
+  color: var(--med);
+  background: var(--medium-bg);
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
   vertical-align: middle;
 }
 .hero-pill {
-  border-color: #37b6e8;
-  color: #9ad8f0;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accentSoft);
 }
 .title-row {
   display: flex;
@@ -1127,8 +1093,8 @@ textarea {
   gap: 4px;
 }
 .hero-scenario-card {
-  outline: 1px solid #37b6e8;
-  box-shadow: 0 0 0 1px rgba(55, 182, 232, 0.25);
+  outline: 1px solid var(--accent);
+  box-shadow: var(--shadow);
 }
 .risk-line strong,
 .risk-inline {
@@ -1146,7 +1112,7 @@ textarea {
   font-size: 32px;
 }
 .risk-number.accent {
-  color: #37b6e8;
+  color: var(--accent);
 }
 .before-after {
   display: grid;
@@ -1211,7 +1177,7 @@ textarea {
 }
 .demo-callout {
   margin: 8px 0 0;
-  color: #f0a35e;
+  color: var(--high);
   font-weight: 600;
   font-size: 14px;
 }
@@ -1228,8 +1194,8 @@ textarea {
 }
 
 .trace-panel {
-  border-color: var(--cyan);
-  box-shadow: inset 0 0 0 1px rgba(55, 182, 232, 0.25);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accentSoft);
   scroll-margin-top: 88px;
 }
 .trace-steps {

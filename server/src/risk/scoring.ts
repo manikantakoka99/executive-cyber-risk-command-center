@@ -1,3 +1,4 @@
+import { priorityBandsConfig, tierWord } from "./bands.js";
 import type { RiskPolicyConfig } from "./policy.js";
 
 export type FactorValue = {
@@ -54,23 +55,18 @@ export function residualRisk(
 
 export function priorityFromResidual(
   residual: number,
-  bands: RiskPolicyConfig["priority_bands"],
-  boosts: { criticalAsset?: boolean; outsideTolerance?: boolean; increasing?: boolean },
+  bands: RiskPolicyConfig["priority_bands"] = priorityBandsConfig(),
+  boosts: { criticalAsset?: boolean; outsideTolerance?: boolean; increasing?: boolean } = {},
 ): { score: number; tier: "critical" | "high" | "medium" | "low" } {
+  // Boosts affect sort score only. Tier always comes from raw residual via bands.ts
+  // so UI labels stay consistent even when stored priority was written with old cutoffs.
+  void bands;
   let score = residual;
   if (boosts.criticalAsset) score += 8;
   if (boosts.outsideTolerance) score += 10;
   if (boosts.increasing) score += 5;
   score = Math.min(100, score);
-  const tier =
-    score >= bands.critical
-      ? "critical"
-      : score >= bands.high
-        ? "high"
-        : score >= bands.medium
-          ? "medium"
-          : "low";
-  return { score: round2(score), tier };
+  return { score: round2(score), tier: tierWord(residual) };
 }
 
 export function toleranceState(
@@ -214,13 +210,6 @@ export function buildExplanation(parts: {
     `Tolerance: ${parts.tolerance}`,
     `Confidence is ${parts.confidenceLabel} (${parts.confidenceNotes.slice(0, 3).join("; ")}).`,
   ].join(" ");
-}
-
-function tierWord(score: number): string {
-  if (score >= 80) return "critical";
-  if (score >= 60) return "high";
-  if (score >= 35) return "medium";
-  return "low";
 }
 
 function round2(n: number): number {

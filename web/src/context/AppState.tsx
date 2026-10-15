@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -18,15 +19,24 @@ interface AppContextValue {
   orgId: string;
   userId: string;
   me: {
+    userId: string;
     name: string;
     role: string;
+    title: string;
     email: string;
     orgName: string;
+    permissions: string[];
+    views: string[];
+    landing: string;
+    capability: string;
+    home: string;
   } | null;
   setOrgId: (id: string) => void;
   setUserId: (id: string) => void;
+  signOut: () => void;
   ready: boolean;
   error: string | null;
+  retry: () => void;
 }
 
 const Ctx = createContext<AppContextValue | null>(null);
@@ -44,12 +54,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [boot, setBoot] = useState(0);
+  const booted = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        setReady(false);
+        if (!booted.current) setReady(false);
         setError(null);
         const { organizations: orgs } = await api.organizations();
         if (cancelled) return;
@@ -61,30 +72,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const { users: orgUsers } = await api.users(selectedOrg);
         if (cancelled) return;
         setUsers(orgUsers);
-        const preferred =
-          orgUsers.find((u) => u.userId === userId) ??
-          orgUsers.find((u) => u.role === "cxo") ??
-          orgUsers[0];
-        if (!preferred) throw new Error("No users for organization");
 
         if (selectedOrg !== orgId) {
           localStorage.setItem("ecc.orgId", selectedOrg);
           setOrgIdState(selectedOrg);
         }
-        if (preferred.userId !== userId) {
-          localStorage.setItem("ecc.userId", preferred.userId);
-          setUserIdState(preferred.userId);
+
+        if (!userId) {
+          setMe(null);
+          setAuthContext(selectedOrg, "");
+          booted.current = true;
+          setReady(true);
+          return;
+        }
+
+        const preferred = orgUsers.find((u) => u.userId === userId);
+        if (!preferred) {
+          localStorage.removeItem("ecc.userId");
+          setUserIdState("");
+          setMe(null);
+          setAuthContext(selectedOrg, "");
+          booted.current = true;
+          setReady(true);
+          return;
         }
 
         setAuthContext(selectedOrg, preferred.userId);
         const { user } = await api.me();
         if (cancelled) return;
         setMe({
+          userId: user.userId,
           name: user.name,
           role: user.role,
+          title: user.title,
           email: user.email,
           orgName: user.orgName,
+          permissions: user.permissions,
+          views: user.views,
+          landing: user.landing,
+          capability: user.capability,
+          home: user.home,
         });
+        booted.current = true;
         setReady(true);
       } catch (e: any) {
         if (!cancelled) {
@@ -108,8 +137,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setUserId = useCallback((id: string) => {
-    localStorage.setItem("ecc.userId", id);
+    if (id) localStorage.setItem("ecc.userId", id);
+    else localStorage.removeItem("ecc.userId");
     setUserIdState(id);
+    setBoot((b) => b + 1);
+  }, []);
+
+  const signOut = useCallback(() => {
+    localStorage.removeItem("ecc.userId");
+    setUserIdState("");
+    setMe(null);
+    setBoot((b) => b + 1);
+  }, []);
+
+  const retry = useCallback(() => {
+    setError(null);
     setBoot((b) => b + 1);
   }, []);
 
@@ -122,10 +164,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       me,
       setOrgId,
       setUserId,
+      signOut,
       ready,
       error,
+      retry,
     }),
-    [organizations, users, orgId, userId, me, setOrgId, setUserId, ready, error],
+    [organizations, users, orgId, userId, me, setOrgId, setUserId, signOut, ready, error, retry],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

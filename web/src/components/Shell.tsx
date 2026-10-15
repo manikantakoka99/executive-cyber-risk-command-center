@@ -1,145 +1,246 @@
-import type { ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ChevronsLeft,
+  ChevronsRight,
+  Command,
+  LogOut,
+  Moon,
+  Search,
+  Sun,
+} from "lucide-react";
 import { useAppState } from "../context/AppState";
+import { useTheme } from "../context/Theme";
 import { initials, roleLabel } from "../lib/format";
+import { navForRole } from "../lib/nav";
+import { NAV_ICONS, Shield } from "./icons";
 
-const NAV = [
-  { to: "/", label: "Overview", end: true },
-  { to: "/intelligence", label: "Intelligence" },
-  { to: "/scenarios", label: "Risk Scenarios" },
-  { to: "/ingestion", label: "Ingestion" },
-  { to: "/risk-domains", label: "Risk Domains" },
-  { to: "/findings", label: "Findings" },
-  { to: "/decisions", label: "Decisions" },
-  { to: "/compliance", label: "Compliance" },
-  { to: "/reports", label: "Reports" },
-  { to: "/audit", label: "Audit" },
-];
-
-export function Shell({
-  children,
-  lastUpdated,
-  refreshing,
-  dataError,
-}: {
-  children: ReactNode;
-  lastUpdated?: string | null;
-  refreshing?: boolean;
-  dataError?: string | null;
-}) {
-  const { organizations, orgId, setOrgId, users, userId, setUserId, me, error } =
+export function Shell({ children }: { children: ReactNode }) {
+  const { organizations, orgId, setOrgId, users, userId, setUserId, me, signOut, error, retry } =
     useAppState();
+  const { theme, toggle } = useTheme();
+  const navigate = useNavigate();
+  const previousUser = useRef(userId);
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem("ecc.sidebar") === "collapsed",
+  );
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const perms = me?.permissions ?? [];
+  const roleTone =
+    me?.role === "board_member"
+      ? "board"
+      : me?.role === "ciso"
+        ? "ciso"
+        : me?.role === "cxo"
+          ? "cxo"
+          : "ops";
 
-  const freshness = (() => {
-    if (dataError) return "Data unavailable";
-    if (refreshing) return "Refreshing…";
-    if (lastUpdated) return `Updated ${lastUpdated} · polled`;
-    return "Waiting for first update";
-  })();
+  useEffect(() => {
+    if (!me || me.userId !== userId) return;
+    if (previousUser.current && previousUser.current !== userId) {
+      // Persona switch: land on role home and drop any stale view state.
+      navigate(me.home, { replace: true });
+    }
+    previousUser.current = userId;
+  }, [userId, me, navigate]);
+
+  useEffect(() => {
+    localStorage.setItem("ecc.sidebar", collapsed ? "collapsed" : "open");
+  }, [collapsed]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen(true);
+      }
+      if (event.key === "Escape") setPaletteOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const nav = useMemo(
+    () => (me ? navForRole(me.role, perms) : []),
+    [me, perms],
+  );
+
+  const paletteItems = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return nav;
+    return nav.filter(
+      (item) =>
+        item.label.toLowerCase().includes(q) ||
+        item.hint.toLowerCase().includes(q) ||
+        item.to.includes(q),
+    );
+  }, [nav, query]);
 
   return (
-    <div className="shell">
-      <header className="topbar">
+    <div className={`app-frame role-${roleTone}${collapsed ? " sidebar-collapsed" : ""}`}>
+      <aside className="sidebar glass" aria-label="Primary">
         <div className="brand">
           <div className="brand-mark" aria-hidden>
-            <svg viewBox="0 0 24 24" fill="none">
-              <path
-                d="M12 2l8 3.5v6c0 5-3.4 8.7-8 10.5-4.6-1.8-8-5.5-8-10.5v-6L12 2z"
-                stroke="#06222E"
-                strokeWidth="1.7"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M9 12l2 2 4-4"
-                stroke="#06222E"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <Shield size={18} />
           </div>
-          <div>
-            <div className="brand-name">YVI DWAN Cyber Command Center</div>
-            <div className="brand-tag">Executive Risk Intelligence</div>
-          </div>
-        </div>
-
-        <nav className="topnav" aria-label="Primary">
-          {NAV.map((n) => (
-            <NavLink
-              key={n.to}
-              to={n.to}
-              end={n.end}
-              className={({ isActive }) => (isActive ? "active" : undefined)}
-            >
-              {n.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="top-right">
-          <label className="sr-only" htmlFor="org-select">
-            Organization
-          </label>
-          <select
-            id="org-select"
-            className="org-select"
-            value={orgId}
-            onChange={(e) => setOrgId(e.target.value)}
-          >
-            {organizations.map((o) => (
-              <option key={o.orgId} value={o.orgId}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-          <label className="sr-only" htmlFor="user-select">
-            Acting as role
-          </label>
-          <select
-            id="user-select"
-            className="org-select"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            title="Demo authentication — user & role"
-          >
-            {users.map((u) => (
-              <option key={u.userId} value={u.userId}>
-                {u.firstName} · {roleLabel(u.role)}
-              </option>
-            ))}
-          </select>
-          {me && (
-            <span className="role-chip" title={me.email}>
-              {roleLabel(me.role)}
-            </span>
+          {!collapsed && (
+            <div>
+              <div className="brand-name">YVI&nbsp;DWAN</div>
+              <div className="brand-tag">Cyber Command</div>
+            </div>
           )}
-          <div
-            className={`live-dot ${dataError ? "stale" : ""}`}
-            title="Overview uses HTTP polling (~45s), not a push live stream"
-            role="status"
-            aria-live="polite"
+        </div>
+
+        {nav.length > 0 && (
+          <nav aria-label="Primary">
+            {!collapsed && <p className="nav-label">Navigate</p>}
+            {nav.map((item) => {
+              const Icon = NAV_ICONS[item.to] ?? Search;
+              return (
+                <NavLink key={item.to} to={item.to} title={item.label}>
+                  <Icon size={18} strokeWidth={1.8} />
+                  {!collapsed && <span>{item.label}</span>}
+                </NavLink>
+              );
+            })}
+          </nav>
+        )}
+
+        <div className="sidebar-foot">
+          <button
+            className="icon-btn"
+            type="button"
+            onClick={() => setCollapsed((value) => !value)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <span className={`d ${refreshing ? "pulse" : ""}`} />
-            {freshness}
-          </div>
-          <div className="avatar" aria-hidden title={me?.email}>
-            {me ? initials(me.name) : "—"}
-          </div>
+            {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
+          </button>
         </div>
-      </header>
-      <div className="demo-strip" role="note">
-        <strong>DEMO MODE</strong>
-        {" · "}
-        Synthetic demonstration data · vendor connectors are architecture-ready, not
-        claimed as live production integrations · use Al Dhabi + CXO for the walkthrough
+      </aside>
+
+      <div className="workspace">
+        <header className="workspace-bar glass">
+          <div className="top-left">
+            <button className="search-trigger" type="button" onClick={() => setPaletteOpen(true)}>
+              <Search size={16} />
+              <span>Search command center…</span>
+              <kbd>
+                <Command size={11} />K
+              </kbd>
+            </button>
+          </div>
+          <div className="top-right">
+            <label className="sr-only" htmlFor="org-select">
+              Organization
+            </label>
+            <select
+              id="org-select"
+              className="org-select"
+              value={orgId}
+              onChange={(event) => setOrgId(event.target.value)}
+            >
+              {organizations.map((org) => (
+                <option key={org.orgId} value={org.orgId}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
+            <label className="sr-only" htmlFor="user-select">
+              Signed in as
+            </label>
+            <select
+              id="user-select"
+              className="org-select"
+              value={userId}
+              onChange={(event) => setUserId(event.target.value)}
+            >
+              {users.map((user) => (
+                <option key={user.userId} value={user.userId}>
+                  {user.firstName} {user.lastName} · {user.title ?? roleLabel(user.role)}
+                </option>
+              ))}
+            </select>
+            {me && <span className="role-chip">{me.title || roleLabel(me.role)}</span>}
+            <button className="icon-btn" type="button" onClick={toggle} aria-label="Toggle theme">
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <button className="btn ghost sm" type="button" onClick={signOut}>
+              <LogOut size={14} /> Sign out
+            </button>
+            <div className="avatar" aria-hidden title={me?.email}>
+              {me ? initials(me.name) : "—"}
+            </div>
+          </div>
+        </header>
+
+        {error && (
+          <div className="banner-error" role="alert">
+            {error}{" "}
+            <button className="btn sm" type="button" onClick={retry}>
+              Retry
+            </button>
+          </div>
+        )}
+        <main className="main">{children}</main>
       </div>
-      {(error || dataError) && (
-        <div className="banner-error" role="alert">
-          {error || dataError}
-        </div>
-      )}
-      <main className="main">{children}</main>
+
+      <AnimatePresence>
+        {paletteOpen && (
+          <motion.div
+            className="palette-scrim"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setPaletteOpen(false)}
+          >
+            <motion.div
+              className="palette glass"
+              role="dialog"
+              aria-label="Command palette"
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="palette-input">
+                <Search size={16} />
+                <input
+                  autoFocus
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Jump to a view…"
+                />
+              </div>
+              <div className="palette-list">
+                {paletteItems.map((item) => {
+                  const Icon = NAV_ICONS[item.to] ?? Search;
+                  return (
+                    <button
+                      key={item.to}
+                      type="button"
+                      onClick={() => {
+                        setPaletteOpen(false);
+                        setQuery("");
+                        navigate(item.to);
+                      }}
+                    >
+                      <Icon size={16} />
+                      <span>
+                        <b>{item.label}</b>
+                        <small>{item.hint}</small>
+                      </span>
+                    </button>
+                  );
+                })}
+                {paletteItems.length === 0 && <p className="empty">No matching views for this role.</p>}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

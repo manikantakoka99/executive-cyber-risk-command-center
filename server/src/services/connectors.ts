@@ -1,4 +1,5 @@
 import { query } from "../db.js";
+import { isPresentationNoiseTitle } from "../command/demoOverlay.js";
 import { getAdapter } from "../ingestion/adapters/registry.js";
 import { ingestAndNormalize } from "../ingestion/pipeline.js";
 import type { IngestionResult, RawEventInput } from "../ingestion/types.js";
@@ -13,7 +14,10 @@ export async function listConnectors(orgId: string) {
      ORDER BY c.name`,
     [orgId],
   );
-  return rows.map(mapConnector);
+  // Hide test-created Generic Security Events <timestamp> fixtures from UI lists.
+  return rows
+    .map(mapConnector)
+    .filter((c) => !isPresentationNoiseTitle(typeof c.name === "string" ? c.name : String(c.name ?? "")));
 }
 
 export async function getConnector(orgId: string, connectorId: string) {
@@ -28,10 +32,11 @@ export async function getConnector(orgId: string, connectorId: string) {
 }
 
 function mapConnector(c: Record<string, unknown>) {
+  const credRef = c.credentials_reference ?? c.secret_ref;
   return {
     connectorId: c.connector_id,
     orgId: c.org_id,
-    name: c.name,
+    name: String(c.name ?? ""),
     vendor: c.vendor,
     connectorType: c.connector_type,
     adapterKey: c.adapter_key,
@@ -43,7 +48,8 @@ function mapConnector(c: Record<string, unknown>) {
     lastSyncAt: c.last_sync_at,
     lastSuccessAt: c.last_success_at,
     lastFailureAt: c.last_failure_at,
-    credentialsReference: c.credentials_reference ?? c.secret_ref,
+    // Never return real credential references — only a configured flag.
+    credentialsConfigured: Boolean(credRef),
     configRef: c.config_ref,
     configuration: c.config_nonsecret,
     createdAt: c.created_at,
@@ -95,7 +101,8 @@ export async function createConnector(
       input.name,
       input.vendor ?? "ecc-demo",
       input.connectorType ?? "demo",
-      input.credentialsReference ?? "secret://local/placeholder",
+      // Persist only an opaque marker — never a secret URI or raw credential.
+      "configured",
       JSON.stringify(cfg),
       adapterKey,
       input.pollingIntervalSeconds ?? null,

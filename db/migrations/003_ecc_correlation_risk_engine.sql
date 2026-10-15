@@ -172,8 +172,8 @@ SELECT NULL, 'ecc_default', '1.1.0', 'ECC Default Risk Policy (dev)', true, now(
       "near_band": 10
     },
     "priority_bands": {
-      "critical": 80,
-      "high": 60,
+      "critical": 70,
+      "high": 55,
       "medium": 35
     }
   }'::jsonb

@@ -1,3 +1,4 @@
+import type { CommandMutation, CommandWorkspace, EvidenceView } from "../data/commandTypes";
 import type { Organization, OverviewResponse, UserRef } from "../data/types";
 
 export class ApiError extends Error {
@@ -62,10 +63,35 @@ export const api = {
         orgId: string;
         orgName: string;
         role: string;
+        title: string;
         name: string;
         email: string;
+        permissions: string[];
+        views: string[];
+        landing: string;
+        capability: string;
+        home: string;
       };
     }>("/api/ecc/me"),
+  commandWorkspace: () => request<CommandWorkspace>("/api/ecc/command/workspace"),
+  commandDomain: (id: string) =>
+    request<{ evidence: EvidenceView }>(`/api/ecc/command/domains/${id}`),
+  commandWhatIf: (body: Record<string, unknown>) =>
+    request<CommandMutation>("/api/ecc/command/whatif", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  commandPost: (path: string, body?: Record<string, unknown>) =>
+    request<CommandMutation>(`/api/ecc/command/${path}`, {
+      method: "POST",
+      body: JSON.stringify(body ?? {}),
+    }),
+  adminUsers: () => request<{ users: UserRef[] }>("/api/ecc/admin/users"),
+  adminSetRole: (userId: string, role: string) =>
+    request<{ ok: boolean; users: UserRef[] }>(`/api/ecc/admin/users/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    }),
   overview: () => request<OverviewResponse>("/api/ecc/overview"),
   domains: () => request<{ domains: unknown[] }>("/api/ecc/risk-domains"),
   domain: (id: string) => request<any>(`/api/ecc/risk-domains/${id}`),
@@ -151,6 +177,25 @@ export const api = {
   executiveBriefing: () => request<any>("/api/ecc/executive-briefing"),
   materialChanges: () => request<{ changes: any[] }>("/api/ecc/material-changes"),
   connectorCatalog: () => request<any>("/api/ecc/connectors/catalog"),
+  connectorHealth: () => request<any>("/api/ecc/connectors/health"),
+  policyBundle: () =>
+    request<{
+      active: any;
+      versions: any[];
+      appetites: any[];
+      rules: Record<string, unknown>;
+      policy?: any;
+    }>("/api/ecc/policy"),
+  proposePolicy: (body: Record<string, unknown>) =>
+    request<any>("/api/ecc/policy", { method: "POST", body: JSON.stringify(body) }),
+  approvePolicy: (id: string) =>
+    request<any>(`/api/ecc/policy/${id}/approve`, { method: "POST", body: "{}" }),
+  proposeAppetite: (body: Record<string, unknown>) =>
+    request<any>("/api/ecc/appetite", { method: "POST", body: JSON.stringify(body) }),
+  approveAppetite: (id: string) =>
+    request<any>(`/api/ecc/appetite/${id}/approve`, { method: "POST", body: "{}" }),
+  register: () => request<any>("/api/ecc/register"),
+  remediation: () => request<any>("/api/ecc/remediation"),
   orgSettings: () => request<any>("/api/ecc/org/settings"),
   reportSnapshots: () =>
     request<{ reports: any[] }>("/api/ecc/reports/snapshots"),

@@ -7,8 +7,25 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import "dotenv/config";
 
-import { query } from "./db.js";
+import { query, runWithRequestTenant } from "./db.js";
 import { requireRoles, tenantMiddleware } from "./middleware/tenant.js";
+import { listOrganizations, listUsers, seedCommandDirectory } from "./command/directory.js";
+import { registerCommandRoutes } from "./command/routes.js";
+import {
+  canAcceptRisk,
+  canViewFinancials,
+  capabilityFor,
+  hasPermission,
+  homeFor,
+  landingFor,
+  permissionsFor,
+  redactFinding,
+  redactFinancial,
+  redactOperationsTechnical,
+  requiredPermission,
+  viewsFor,
+} from "./command/rbac.js";
+import { getConnectorHealth } from "./command/workspaceExtras.js";
 import { getOverview } from "./services/overview.js";
 import {
   applyDecisionAction,
@@ -90,11 +107,16 @@ import {
   resetSampleWorkbookIngestion,
   runSampleWorkbookIngestion,
 } from "./services/sampleWorkbookIngestion.js";
+import { installRequestValidation } from "./middleware/requestValidation.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GENERATED_DIR = path.join(__dirname, "..", "generated");
 
-const app = Fastify({ logger: true });
+export const app = Fastify({ logger: true });
+
+// Before routes so each route's preHandler list ends with validation,
+// which therefore runs after auth, the permission hook, and requireRoles.
+installRequestValidation(app);
 
 await app.register(cors, {
   origin: process.env.CORS_ORIGIN?.split(",") ?? true,
@@ -104,42 +126,21 @@ await app.register(rateLimit, {
   timeWindow: "1 minute",
 });
 
+// Isolate tenant ALS per HTTP request so concurrent /me + /organizations never race.
+app.addHook("onRequest", (_req, _reply, done) => {
+  runWithRequestTenant(() => done());
+});
+
 app.get("/health", async () => ({ ok: true }));
 
 app.get("/api/ecc/organizations", async () => {
-  const { rows } = await query(
-    `SELECT org_id, name, industry, hq_country FROM organizations ORDER BY name`,
-  );
-  return {
-    organizations: rows.map((o) => ({
-      orgId: o.org_id,
-      name: o.name,
-      industry: o.industry,
-      hqCountry: o.hq_country,
-    })),
-  };
+  const { organizations } = await listOrganizations();
+  return { organizations };
 });
 
-app.get("/api/ecc/organizations/:orgId/users", async (req, reply) => {
+app.get("/api/ecc/organizations/:orgId/users", async (req) => {
   const { orgId } = req.params as { orgId: string };
-  const { rows } = await query(
-    `SELECT u.user_id, u.first_name, u.last_name, u.email,
-            COALESCE(v.role_code, 'domain_analyst') AS role
-     FROM users u
-     LEFT JOIN v_user_primary_role v ON v.user_id = u.user_id
-     WHERE u.org_id = $1
-     ORDER BY role, u.first_name`,
-    [orgId],
-  );
-  return {
-    users: rows.map((u) => ({
-      userId: u.user_id,
-      firstName: u.first_name,
-      lastName: u.last_name,
-      email: u.email,
-      role: u.role,
-    })),
-  };
+  return { users: await listUsers(orgId) };
 });
 
 app.addHook("preHandler", async (req, reply) => {
@@ -159,49 +160,95 @@ app.get("/api/ecc/me", async (req) => ({
     orgId: req.tenant.orgId,
     orgName: req.tenant.orgName,
     role: req.tenant.role,
+    title: req.tenant.title ?? req.tenant.role,
     name: `${req.tenant.firstName}${req.tenant.lastName ? ` ${req.tenant.lastName}` : ""}`,
     email: req.tenant.email,
+    permissions: permissionsFor(req.tenant.role),
+    views: viewsFor(req.tenant.role),
+    landing: landingFor(req.tenant.role),
+    capability: capabilityFor(req.tenant.role),
+    home: homeFor(req.tenant.role),
+    canAcceptRisk: canAcceptRisk(req.tenant.role),
+    canApprovePolicy: hasPermission(req.tenant.role, "policy.approve"),
+    canProposePolicy: hasPermission(req.tenant.role, "policy.propose"),
   },
 }));
+
+app.addHook("preHandler", async (req, reply) => {
+  if (reply.sent || !req.url.startsWith("/api/ecc") || !req.tenant) return;
+  const permission = requiredPermission(req.method, req.url);
+  if (!permission || permission === "self") return;
+  if (!hasPermission(req.tenant.role, permission)) {
+    return reply.code(403).send({
+      error: {
+        code: "forbidden",
+        message: `Role ${req.tenant.role} cannot access this resource.`,
+      },
+    });
+  }
+});
+
+/** Central financial strip — every /api/ecc JSON response for non-financial roles. */
+app.addHook("onSend", async (req, reply, payload) => {
+  if (!req.tenant || !req.url?.startsWith("/api/ecc")) return payload;
+  if (canViewFinancials(req.tenant.role)) return payload;
+  if (reply.statusCode >= 400) return payload;
+  if (typeof payload !== "string" || !payload) return payload;
+  try {
+    const data = JSON.parse(payload) as unknown;
+    return JSON.stringify(redactFinancial(req.tenant.role, data));
+  } catch {
+    return payload;
+  }
+});
 
 app.get("/api/ecc/overview", async (req, reply) => {
   const data = await getOverview(req.tenant.orgId);
   if (!data) return reply.code(404).send({ error: { code: "not_found", message: "Org not found" } });
-  return data;
+  const financial = redactFinancial(req.tenant.role, data as unknown as Record<string, unknown>);
+  return redactOperationsTechnical(req.tenant.role, financial);
 });
 
 app.get("/api/ecc/risk-domains", async (req) => ({
-  domains: await listDomains(req.tenant.orgId),
+  domains: (await listDomains(req.tenant.orgId)).map((domain) =>
+    redactFinancial(req.tenant.role, domain as unknown as Record<string, unknown>),
+  ),
 }));
 
 app.get("/api/ecc/risk-domains/:id", async (req, reply) => {
   const { id } = req.params as { id: string };
   const data = await getDomain(req.tenant.orgId, id);
   if (!data) return reply.code(404).send({ error: { code: "not_found", message: "Domain not found" } });
-  return data;
+  return redactFinancial(req.tenant.role, data as unknown as Record<string, unknown>);
 });
 
 app.get("/api/ecc/findings", async (req) => ({
-  findings: await listFindings(req.tenant.orgId),
+  findings: (await listFindings(req.tenant.orgId)).map((finding) =>
+    redactFinding(req.tenant.role, finding as unknown as Record<string, unknown>),
+  ),
 }));
 
 app.get("/api/ecc/findings/:id", async (req, reply) => {
   const { id } = req.params as { id: string };
   const data = await getFinding(req.tenant.orgId, id);
   if (!data) return reply.code(404).send({ error: { code: "not_found", message: "Finding not found" } });
-  return data;
+  return redactFinding(req.tenant.role, data as unknown as Record<string, unknown>);
 });
 
 app.get("/api/ecc/decisions", async (req) => {
   const q = req.query as { status?: string };
-  return { decisions: await listDecisions(req.tenant.orgId, q.status) };
+  return {
+    decisions: (await listDecisions(req.tenant.orgId, q.status)).map((decision) =>
+      redactFinancial(req.tenant.role, decision as unknown as Record<string, unknown>),
+    ),
+  };
 });
 
 app.get("/api/ecc/decisions/:id", async (req, reply) => {
   const { id } = req.params as { id: string };
   const data = await getDecision(req.tenant.orgId, id);
   if (!data) return reply.code(404).send({ error: { code: "not_found", message: "Decision not found" } });
-  return data;
+  return redactFinancial(req.tenant.role, data as unknown as Record<string, unknown>);
 });
 
 const actionBody = z.object({ notes: z.string().max(2000).optional() });
@@ -367,6 +414,15 @@ app.get("/api/ecc/reports/:id/content", async (req, reply) => {
 // ---------------------------------------------------------------------------
 // Phase 2 — Connector + Canonical Signal ingestion APIs
 // ---------------------------------------------------------------------------
+app.get("/api/ecc/connectors/health", async (req, reply) => {
+  if (!hasPermission(req.tenant.role, "connectors.read")) {
+    return reply.code(403).send({
+      error: { code: "forbidden", message: `Role ${req.tenant.role} cannot access connectors.read.` },
+    });
+  }
+  return getConnectorHealth(req.tenant.orgId, req.tenant.role);
+});
+
 app.get("/api/ecc/connectors", async (req) => ({
   connectors: await listConnectors(req.tenant.orgId),
 }));
@@ -704,7 +760,7 @@ app.get("/api/ecc/scenarios/:id/decisions", async (req, reply) => {
 
 app.post(
   "/api/ecc/scenarios/:id/decision",
-  { preHandler: requireRoles("cxo", "program_office") },
+  { preHandler: requireRoles("cxo", "risk_lead", "program_office", "ciso") },
   async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = z
@@ -735,12 +791,19 @@ app.post(
         error: { code: "invalid_body", message: body.error.message },
       });
     }
-    if (
-      ["approve", "decline", "accept_risk"].includes(body.data.outcome) &&
-      req.tenant.role !== "cxo"
+    const role = req.tenant.role;
+    if (body.data.outcome === "accept_risk") {
+      if (!canAcceptRisk(role)) {
+        return reply.code(403).send({
+          error: { code: "forbidden", message: "Only CxO or Risk Lead can accept risk" },
+        });
+      }
+    } else if (
+      ["approve", "decline"].includes(body.data.outcome) &&
+      !["cxo", "ciso", "business_owner"].includes(role)
     ) {
       return reply.code(403).send({
-        error: { code: "forbidden", message: "CXO role required for this outcome" },
+        error: { code: "forbidden", message: "CxO or CISO role required for this outcome" },
       });
     }
     try {
@@ -881,7 +944,7 @@ app.post(
 // ---------------------------------------------------------------------------
 app.get("/api/ecc/portfolio", async (req) => {
   const q = req.query as Record<string, string | undefined>;
-  return getPortfolio(req.tenant.orgId, {
+  const data = await getPortfolio(req.tenant.orgId, {
     businessUnit: q.business_unit,
     businessProcess: q.business_process,
     domain: q.domain,
@@ -889,8 +952,10 @@ app.get("/api/ecc/portfolio", async (req) => {
     priority: q.priority,
     tolerance: q.tolerance,
     status: q.status,
+    // period_days parsing left as-is; request validation lands on a separate branch
     periodDays: q.period_days ? Number(q.period_days) : undefined,
   });
+  return redactFinancial(req.tenant.role, data as unknown as Record<string, unknown>);
 });
 
 app.get("/api/ecc/trends", async (req) => {
@@ -1051,13 +1116,24 @@ app.get("/api/ecc/ingestion/sample-workbook/trace/:signalId", async (req, reply)
   }
 });
 
+await registerCommandRoutes(app);
+seedCommandDirectory().catch((err) => {
+  app.log.warn({ err }, "command directory seed skipped");
+});
+
 const port = Number(process.env.PORT ?? 4000);
 const host = process.env.HOST ?? "0.0.0.0";
 
-try {
-  await app.listen({ port, host });
-  console.log(`ECC API listening on http://${host}:${port}`);
-} catch (err) {
-  app.log.error(err);
-  process.exit(1);
+const entryArg = process.argv[1];
+const invokedDirectly =
+  entryArg != null && path.resolve(entryArg) === fileURLToPath(import.meta.url);
+
+if (invokedDirectly) {
+  try {
+    await app.listen({ port, host });
+    console.log(`ECC API listening on http://${host}:${port}`);
+  } catch (err) {
+    app.log.error(err);
+    process.exit(1);
+  }
 }

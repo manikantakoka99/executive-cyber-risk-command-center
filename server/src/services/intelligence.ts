@@ -1,5 +1,19 @@
 import { createHash } from "node:crypto";
 import { query } from "../db.js";
+import {
+  filterPresentationNoise,
+  isPresentationNoiseTitle,
+  overlayDecisionCenter,
+  overlayPortfolio,
+  overlayTrends,
+} from "../command/demoOverlay.js";
+import { formatAed, formatImpactSummary, reformatAedInText } from "../lib/money.js";
+import {
+  BAND_THRESHOLDS,
+  bandOf,
+  priorityTierFromScore,
+  sqlPriorityFromResidual,
+} from "../risk/bands.js";
 import { getOverview } from "./overview.js";
 
 export type PortfolioFilters = {
@@ -28,7 +42,10 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
   }
   if (filters.priority) {
     params.push(filters.priority);
-    activeWhere.push(`s.priority::text = $${params.length}`);
+    // Filter by residual-derived tier, not the stored (possibly stale) priority.
+    activeWhere.push(
+      `${sqlPriorityFromResidual("ra.residual_risk")} = $${params.length}`,
+    );
   }
   if (filters.tolerance) {
     params.push(filters.tolerance);
@@ -79,10 +96,10 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
   }>(
     `SELECT
        COUNT(*) FILTER (WHERE s.status NOT IN ('closed','accepted','mitigated'))::text AS active,
-       COUNT(*) FILTER (WHERE s.priority = 'critical')::text AS critical,
-       COUNT(*) FILTER (WHERE s.priority = 'high')::text AS high,
-       COUNT(*) FILTER (WHERE s.priority = 'medium')::text AS medium,
-       COUNT(*) FILTER (WHERE s.priority = 'low' OR s.priority IS NULL)::text AS low,
+       COUNT(*) FILTER (WHERE ${sqlPriorityFromResidual("ra.residual_risk")} = 'critical')::text AS critical,
+       COUNT(*) FILTER (WHERE ${sqlPriorityFromResidual("ra.residual_risk")} = 'high')::text AS high,
+       COUNT(*) FILTER (WHERE ${sqlPriorityFromResidual("ra.residual_risk")} = 'medium')::text AS medium,
+       COUNT(*) FILTER (WHERE ${sqlPriorityFromResidual("ra.residual_risk")} = 'low')::text AS low,
        COUNT(*) FILTER (WHERE s.tolerance_state = 'outside')::text AS outside,
        COUNT(*) FILTER (WHERE s.velocity = 'increasing')::text AS increasing,
        COUNT(*) FILTER (WHERE s.velocity = 'aging')::text AS aging,
@@ -141,19 +158,48 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
   );
 
   const s = stats[0];
-  return {
+  const scenarioByPriority = {
+    critical: Number(s?.critical ?? 0),
+    high: Number(s?.high ?? 0),
+    medium: Number(s?.medium ?? 0),
+    low: Number(s?.low ?? 0),
+  };
+
+  const topRisks = filterPresentationNoise(
+    top.map((r) => {
+      const residualRisk = r.residual_risk != null ? Number(r.residual_risk) : null;
+      return {
+        scenarioId: r.scenario_id,
+        title: r.title,
+        // Never trust stored s.priority — derive from residual via bands.ts.
+        priority:
+          residualRisk != null ? priorityTierFromScore(residualRisk) : "low",
+        residualRisk,
+        toleranceState: r.tolerance_state,
+        confidence: r.confidence != null ? Number(r.confidence) : null,
+        velocity: r.velocity,
+        status: r.status,
+        financialExposureAed:
+          r.financial_known && r.financial_exposure_aed != null
+            ? Number(r.financial_exposure_aed)
+            : null,
+        financialKnown: !!r.financial_known,
+        businessImpact: r.impact_explanation,
+        recommendedTreatment: r.recommended_treatment,
+        treatmentStatus: r.treatment_status,
+        owner: r.owner_name,
+        decisionStatus: r.decision_status,
+      };
+    }),
+  );
+
+  return overlayPortfolio(orgId, {
     asOf: new Date().toISOString(),
-    methodology:
-      "Portfolio aggregates Risk Scenarios only — does not average domain scores.",
+    methodology: "Portfolio aggregates Risk Scenarios only — does not average domain scores.",
     filters,
     totals: {
       activeScenarios: Number(s?.active ?? 0),
-      byPriority: {
-        critical: Number(s?.critical ?? 0),
-        high: Number(s?.high ?? 0),
-        medium: Number(s?.medium ?? 0),
-        low: Number(s?.low ?? 0),
-      },
+      byPriority: scenarioByPriority,
       outsideTolerance: Number(s?.outside ?? 0),
       increasing: Number(s?.increasing ?? 0),
       aging: Number(s?.aging ?? 0),
@@ -170,28 +216,10 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
       },
       remediationBacklog: Number(backlog[0]?.open_actions ?? 0),
       overdueActions: Number(backlog[0]?.overdue ?? 0),
+      scenarioByPriority,
     },
-    topRisks: top.map((r) => ({
-      scenarioId: r.scenario_id,
-      title: r.title,
-      priority: r.priority,
-      residualRisk: r.residual_risk != null ? Number(r.residual_risk) : null,
-      toleranceState: r.tolerance_state,
-      confidence: r.confidence != null ? Number(r.confidence) : null,
-      velocity: r.velocity,
-      status: r.status,
-      financialExposureAed:
-        r.financial_known && r.financial_exposure_aed != null
-          ? Number(r.financial_exposure_aed)
-          : null,
-      financialKnown: !!r.financial_known,
-      businessImpact: r.impact_explanation,
-      recommendedTreatment: r.recommended_treatment,
-      treatmentStatus: r.treatment_status,
-      owner: r.owner_name,
-      decisionStatus: r.decision_status,
-    })),
-  };
+    topRisks,
+  });
 }
 
 const WINDOW_DAYS: Record<string, number> = {
@@ -269,7 +297,7 @@ export async function getTrends(orgId: string, window = "30d") {
   const series = hist.length >= 2 ? hist : assessments;
   const insufficient = series.length < 2;
 
-  return {
+  const payload = {
     window,
     days,
     insufficientHistory: insufficient,
@@ -306,14 +334,16 @@ export async function getTrends(orgId: string, window = "30d") {
           : "Average residual reduction after verified remediation",
     },
   };
+  return overlayTrends(orgId, payload);
 }
 
 export async function getHotspots(orgId: string) {
+  const highResidual = `ra.residual_risk >= ${BAND_THRESHOLDS.highMin}`;
   const { rows: highTotal } = await query<{ n: string }>(
     `SELECT COUNT(*)::text AS n FROM risk_scenarios s
      JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      WHERE s.org_id = $1 AND s.status NOT IN ('closed')
-       AND (s.priority IN ('critical','high') OR ra.residual_risk >= 60)`,
+       AND (${highResidual})`,
     [orgId],
   );
   const denom = Math.max(1, Number(highTotal[0]?.n ?? 0));
@@ -328,7 +358,7 @@ export async function getHotspots(orgId: string) {
      LEFT JOIN business_units bu ON bu.business_unit_id = s.business_unit_id AND bu.org_id = s.org_id
      JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      WHERE s.org_id = $1 AND s.status NOT IN ('closed')
-       AND (s.priority IN ('critical','high') OR ra.residual_risk >= 60)
+       AND (${highResidual})
      GROUP BY 1, 2 ORDER BY COUNT(*) DESC LIMIT 8`,
     [orgId],
   );
@@ -362,23 +392,29 @@ export async function getHotspots(orgId: string) {
      FROM risk_scenario_domains rd
      JOIN risk_domains d ON d.risk_domain_id = rd.risk_domain_id
      JOIN risk_scenarios s ON s.scenario_id = rd.scenario_id AND s.org_id = rd.org_id
+     LEFT JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      WHERE rd.org_id = $1 AND s.status NOT IN ('closed')
-       AND s.priority IN ('critical','high')
+       AND ra.residual_risk >= ${BAND_THRESHOLDS.highMin}
      GROUP BY 1, 2 ORDER BY COUNT(*) DESC LIMIT 8`,
     [orgId],
   );
 
   const statements: string[] = [];
-  if (byBu[0] && Number(byBu[0].n) > 0) {
+  if (byBu[0] && Number(byBu[0].n) > 0 && !isPresentationNoiseTitle(byBu[0].name)) {
     const pct = Math.round((Number(byBu[0].n) / denom) * 100);
     const name = byBu[0].name ?? "unassigned business unit";
     statements.push(
       `${pct}% of high residual risk scenarios are concentrated in ${name} (denominator: ${denom} high/critical scenarios).`,
     );
   }
-  for (const bp of byBp.filter((b) => Number(b.outside) > 0).slice(0, 2)) {
+  for (const bp of byBp.filter(
+    (b) =>
+      Number(b.outside) > 0 &&
+      b.name &&
+      !isPresentationNoiseTitle(b.name),
+  ).slice(0, 2)) {
     statements.push(
-      `${bp.name ?? "Unnamed process"} contains ${bp.outside} outside-tolerance scenario(s) of ${bp.n} active in that process.`,
+      `${bp.name} contains ${bp.outside} outside-tolerance scenario(s) of ${bp.n} active in that process.`,
     );
   }
 
@@ -392,12 +428,14 @@ export async function getHotspots(orgId: string) {
       highCriticalCount: Number(r.n),
       shareOfHighCritical: Math.round((Number(r.n) / denom) * 100),
     })),
-    byBusinessProcess: byBp.map((r) => ({
-      businessProcessId: r.business_process_id,
-      name: r.name ?? "Unassigned",
-      scenarioCount: Number(r.n),
-      outsideTolerance: Number(r.outside),
-    })),
+    byBusinessProcess: byBp
+      .filter((r) => r.name && !/Unnamed process/i.test(r.name))
+      .map((r) => ({
+        businessProcessId: r.business_process_id,
+        name: r.name ?? "Unassigned",
+        scenarioCount: Number(r.n),
+        outsideTolerance: Number(r.outside),
+      })),
     byDomain: byDomain.map((r) => ({
       code: r.code,
       label: r.short_label,
@@ -412,7 +450,10 @@ export async function getDecisionCenter(orgId: string) {
             ed.risk_summary, ed.impact_summary, ed.recommended_action, ed.treatment_type::text,
             ed.escalated_at, ed.decided_at, ed.rationale,
             s.tolerance_state::text, ra.residual_risk::text,
-            sbi.financial_exposure_aed::text, sbi.financial_known,
+            sbi.financial_exposure_aed::text AS scenario_financial_exposure_aed,
+            sbi.financial_known,
+            bia.financial_exposure_aed::text AS impact_financial_exposure_aed,
+            bia.downtime_cost_per_hour_aed::text AS impact_downtime_aed,
             tp.target_date,
             CASE WHEN u.first_name IS NOT NULL
               THEN trim(u.first_name || ' ' || COALESCE(u.last_name,'')) END AS owner_name
@@ -420,6 +461,7 @@ export async function getDecisionCenter(orgId: string) {
      LEFT JOIN risk_scenarios s ON s.scenario_id = ed.scenario_id AND s.org_id = ed.org_id
      LEFT JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      LEFT JOIN scenario_business_impacts sbi ON sbi.scenario_impact_id = s.current_impact_id
+     LEFT JOIN business_impact_assessments bia ON bia.impact_id = ed.impact_id
      LEFT JOIN treatment_plans tp ON tp.treatment_plan_id = ed.treatment_plan_id
      LEFT JOIN users u ON u.user_id = COALESCE(ed.decision_owner_user_id, tp.owner_user_id)
      WHERE ed.org_id = $1
@@ -433,29 +475,42 @@ export async function getDecisionCenter(orgId: string) {
     [orgId],
   );
 
-  const map = (r: Record<string, unknown>) => ({
-    decisionId: r.decision_id,
-    scenarioId: r.scenario_id,
-    title: r.title,
-    status: r.status,
-    priority: r.priority,
-    what: r.title,
-    why: r.risk_summary,
-    businessImpact: r.impact_summary,
-    residualRisk: r.residual_risk != null ? Number(r.residual_risk) : null,
-    toleranceState: r.tolerance_state,
-    recommendedTreatment: r.treatment_type ?? r.recommended_action,
-    owner: r.owner_name,
-    dueDate: r.target_date ? String(r.target_date).slice(0, 10) : null,
-    financialExposureAed:
-      r.financial_known && r.financial_exposure_aed != null
-        ? Number(r.financial_exposure_aed)
-        : null,
-    escalatedAt: r.escalated_at,
-  });
+  const map = (r: Record<string, unknown>) => {
+    const impactExposure =
+      r.impact_financial_exposure_aed != null
+        ? Number(r.impact_financial_exposure_aed)
+        : null;
+    const downtime =
+      r.impact_downtime_aed != null ? Number(r.impact_downtime_aed) : null;
+    const scenarioExposure =
+      r.financial_known && r.scenario_financial_exposure_aed != null
+        ? Number(r.scenario_financial_exposure_aed)
+        : null;
+    return {
+      decisionId: r.decision_id,
+      scenarioId: r.scenario_id,
+      title: r.title,
+      status: r.status,
+      priority: r.priority,
+      what: r.title,
+      why: reformatAedInText(String(r.risk_summary ?? "")),
+      businessImpact: formatImpactSummary({
+        text: r.impact_summary != null ? String(r.impact_summary) : null,
+        financialExposureAed: impactExposure ?? scenarioExposure,
+        downtimeCostPerHourAed: downtime,
+      }),
+      residualRisk: r.residual_risk != null ? Number(r.residual_risk) : null,
+      toleranceState: r.tolerance_state,
+      recommendedTreatment: r.treatment_type ?? r.recommended_action,
+      owner: r.owner_name,
+      dueDate: r.target_date ? String(r.target_date).slice(0, 10) : null,
+      financialExposureAed: impactExposure ?? scenarioExposure,
+      escalatedAt: r.escalated_at,
+    };
+  };
 
   const all = rows.map(map);
-  return {
+  const center = {
     awaitingAction: all.filter((d) => d.status === "awaiting_decision"),
     awaitingInformation: all.filter((d) => d.status === "info_requested"),
     recentlyApproved: all.filter((d) => d.status === "approved").slice(0, 10),
@@ -473,6 +528,7 @@ export async function getDecisionCenter(orgId: string) {
         ),
     ),
   };
+  return overlayDecisionCenter(orgId, center);
 }
 
 export async function getCompliancePosture(orgId: string) {
@@ -568,14 +624,16 @@ export async function getControlPosture(orgId: string) {
   );
   const { rows: critical } = await query(
     `SELECT c.control_id, c.name, sc.effectiveness::text, sc.evidence_note,
-            s.scenario_id, s.title, s.priority::text
+            s.scenario_id, s.title,
+            ${sqlPriorityFromResidual("ra.residual_risk")} AS priority
      FROM scenario_controls sc
      JOIN controls c ON c.control_id = sc.control_id AND c.org_id = sc.org_id
      JOIN risk_scenarios s ON s.scenario_id = sc.scenario_id AND s.org_id = sc.org_id
+     LEFT JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      WHERE sc.org_id = $1
-       AND s.priority IN ('critical','high')
+       AND ra.residual_risk >= ${BAND_THRESHOLDS.highMin}
        AND s.status NOT IN ('closed')
-     ORDER BY s.priority_score DESC NULLS LAST
+     ORDER BY COALESCE(ra.residual_risk, 0) DESC
      LIMIT 40`,
     [orgId],
   );
@@ -866,15 +924,11 @@ export async function getExecutiveBriefing(orgId: string) {
   const increasing = portfolio.totals.increasing;
   const awaiting = decisions.awaitingAction.length;
   const residualBand =
-    portfolio.topRisks[0]?.residualRisk != null &&
-    portfolio.topRisks[0].residualRisk >= 60
-      ? "High"
-      : portfolio.topRisks[0]?.residualRisk != null &&
-          portfolio.topRisks[0].residualRisk >= 35
-        ? "Medium"
-        : portfolio.topRisks.length
-          ? "Low"
-          : "Unknown";
+    portfolio.topRisks[0]?.residualRisk != null
+      ? bandOf(portfolio.topRisks[0].residualRisk)
+      : portfolio.topRisks.length
+        ? "Low"
+        : "Unknown";
 
   const facts = {
     residualBand,
@@ -919,7 +973,7 @@ export async function getExecutiveBriefing(orgId: string) {
         text:
           awaiting > 0
             ? `${awaiting} decision(s) await executive action.`
-            : "No decisions currently awaiting CXO action.",
+            : "No decisions currently awaiting CxO action.",
         evidence: { awaiting },
       },
       whatToWatch: {
@@ -961,34 +1015,36 @@ export async function getConnectorCatalog(orgId: string) {
   );
 
   return {
-    connectors: rows.map((c) => {
-      const hoursSinceSuccess = c.last_success_at
-        ? (Date.now() - new Date(c.last_success_at).getTime()) / 3600000
-        : null;
-      let health: string = "configured";
-      if (c.status === "error" || c.status === "failed") health = "failed";
-      else if (hoursSinceSuccess != null && hoursSinceSuccess > 72) health = "degraded";
-      else if (c.last_success_at) health = "connected";
-      else if (!c.last_sync_at) health = "not_configured";
-      return {
-        connectorId: c.connector_id,
-        name: c.name,
-        adapterKey: c.adapter_key,
-        domainCode: c.domain_code,
-        domainLabel: c.short_label,
-        status: c.status,
-        health,
-        lastSuccessAt: c.last_success_at,
-        lastFailureAt: c.last_failure_at,
-        lastSyncAt: c.last_sync_at,
-        signalCount: Number(c.signal_count),
-        recentFailures: Number(c.recent_failures),
-        stale:
-          hoursSinceSuccess != null && hoursSinceSuccess > 72
-            ? `Connector has not synchronized successfully for ${Math.floor(hoursSinceSuccess / 24)} day(s).`
-            : null,
-      };
-    }),
+    connectors: rows
+      .filter((c) => !isPresentationNoiseTitle(String(c.name ?? "")))
+      .map((c) => {
+        const hoursSinceSuccess = c.last_success_at
+          ? (Date.now() - new Date(c.last_success_at).getTime()) / 3600000
+          : null;
+        let health: string = "configured";
+        if (c.status === "error" || c.status === "failed") health = "failed";
+        else if (hoursSinceSuccess != null && hoursSinceSuccess > 72) health = "degraded";
+        else if (c.last_success_at) health = "connected";
+        else if (!c.last_sync_at) health = "not_configured";
+        return {
+          connectorId: c.connector_id,
+          name: c.name,
+          adapterKey: c.adapter_key,
+          domainCode: c.domain_code,
+          domainLabel: c.short_label,
+          status: c.status,
+          health,
+          lastSuccessAt: c.last_success_at,
+          lastFailureAt: c.last_failure_at,
+          lastSyncAt: c.last_sync_at,
+          signalCount: Number(c.signal_count),
+          recentFailures: Number(c.recent_failures),
+          stale:
+            hoursSinceSuccess != null && hoursSinceSuccess > 72
+              ? `Connector has not synchronized successfully for ${Math.floor(hoursSinceSuccess / 24)} day(s).`
+              : null,
+        };
+      }),
     subscribedDomains: subscribed,
   };
 }
@@ -1076,7 +1132,12 @@ export async function generateExecutiveReport(
     compliancePosture: compliance,
     controlPosture: controls.counts,
     materialChanges: briefing.recentMaterialChanges,
-    keyRecommendations: portfolio.topRisks
+    keyRecommendations: (portfolio.topRisks as Array<{
+      scenarioId: string;
+      title: string;
+      toleranceState?: string;
+      recommendedTreatment?: string | null;
+    }>)
       .filter((r) => r.toleranceState === "outside")
       .slice(0, 5)
       .map((r) => ({
@@ -1157,7 +1218,11 @@ function renderReportMarkdown(p: any): string {
     `## 2. Enterprise Risk Posture`,
     `- Active scenarios: ${p.enterpriseRiskPosture.portfolio.activeScenarios}`,
     `- Outside tolerance: ${p.enterpriseRiskPosture.portfolio.outsideTolerance}`,
-    `- Known financial exposure (AED): ${p.businessImpact.knownFinancialExposureAed ?? "unknown"}`,
+    `- Known financial exposure: ${
+      p.businessImpact.knownFinancialExposureAed != null
+        ? formatAed(p.businessImpact.knownFinancialExposureAed)
+        : "unknown"
+    }`,
     `- Unknown financial exposure scenarios: ${p.businessImpact.unknownFinancialExposureCount}`,
     `- Note: ${p.enterpriseRiskPosture.note}`,
     ``,
@@ -1170,7 +1235,11 @@ function renderReportMarkdown(p: any): string {
       : ["- None"]),
     ``,
     `## 4. Business Impact`,
-    `- Known exposure AED: ${p.businessImpact.knownFinancialExposureAed ?? "unknown"}`,
+    `- Known exposure: ${
+      p.businessImpact.knownFinancialExposureAed != null
+        ? formatAed(p.businessImpact.knownFinancialExposureAed)
+        : "unknown"
+    }`,
     `- Unknown financial count: ${p.businessImpact.unknownFinancialExposureCount}`,
     ``,
     `## 5. Risk Trend`,

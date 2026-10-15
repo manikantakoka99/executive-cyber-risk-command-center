@@ -1,4 +1,5 @@
 import { query } from "../db.js";
+import { priorityBandsConfig } from "./bands.js";
 
 export type RiskPolicyConfig = {
   note?: string;
@@ -45,7 +46,8 @@ const FALLBACK: RiskPolicyConfig = {
     unknown: 0.05,
   },
   tolerance: { default_max_residual: 50, near_band: 10 },
-  priority_bands: { critical: 80, high: 60, medium: 35 },
+  // Must match server/src/risk/bands.ts (Critical≥70, High≥55, Medium≥35).
+  priority_bands: priorityBandsConfig(),
 };
 
 export async function loadActivePolicy(orgId: string): Promise<ActivePolicy> {
@@ -76,7 +78,12 @@ export async function loadActivePolicy(orgId: string): Promise<ActivePolicy> {
     policyId: rows[0].policy_id,
     version: rows[0].version,
     code: rows[0].code,
-    config: { ...FALLBACK, ...(rows[0].config as object) } as RiskPolicyConfig,
+    // Force shared band cutoffs even if an older policy JSON still has 80/60.
+    config: {
+      ...FALLBACK,
+      ...(rows[0].config as object),
+      priority_bands: priorityBandsConfig(),
+    } as RiskPolicyConfig,
   };
 }
 

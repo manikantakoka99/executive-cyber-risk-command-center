@@ -30,7 +30,7 @@ export function DecisionsPage() {
           <div className="eyebrow">Risk → Impact → Decision → Action</div>
           <h1 className="page-title">Executive Decisions</h1>
           <p className="page-sub">
-            {awaiting.length} awaiting CXO · {decisions.length} total for this organization.
+            {awaiting.length} awaiting CxO · {decisions.length} total for this organization.
           </p>
         </div>
       </div>
@@ -40,8 +40,10 @@ export function DecisionsPage() {
             <div>
               <div className="di-title">{d.title}</div>
               <div className="di-domain">
-                {d.domainLabel ?? "—"} · {statusLabel(d.status)} ·{" "}
-                {formatAed(d.financialExposureAed)}
+                {d.domainLabel ?? "—"} · {statusLabel(d.status)}
+                {d.financialExposureAed != null
+                  ? ` · ${formatAed(d.financialExposureAed)}`
+                  : ""}
               </div>
             </div>
             <div className="di-top" style={{ gap: 8 }}>
@@ -131,8 +133,12 @@ export function DecisionDetailPage() {
           <span className="seg">Recommended: {data.recommendedAction}</span>
         </div>
         <dl className="kv">
-          <div><dt>Exposure</dt><dd>{formatAed(data.financialExposureAed)}</dd></div>
-          <div><dt>Downtime / hr</dt><dd>{formatAed(data.downtimeCostPerHourAed)}</dd></div>
+          {data.financialExposureAed != null && (
+            <div><dt>Exposure</dt><dd>{formatAed(data.financialExposureAed)}</dd></div>
+          )}
+          {data.downtimeCostPerHourAed != null && (
+            <div><dt>Downtime / hr</dt><dd>{formatAed(data.downtimeCostPerHourAed)}</dd></div>
+          )}
           <div><dt>Compliance</dt><dd>{data.complianceScopeImpact ?? "—"}</dd></div>
           <div>
             <dt>Finding (Risk)</dt>
@@ -360,7 +366,7 @@ export function ReportsPage() {
           title={
             canGenerate
               ? "Generate from current overview aggregates"
-              : "Requires CXO, Program Office, or Board role"
+              : "Requires CxO, Program Office, or Board role"
           }
         >
           {busy ? "Generating…" : "Generate Board Briefing"}
@@ -428,7 +434,13 @@ export function AuditPage() {
               <div className="act-dot" style={{ background: "var(--text3)" }} />
               <div>
                 <div>
-                  {a.action} · {a.entityType}
+                  {String(a.action ?? "")
+                    .replaceAll("_", " ")
+                    .replace(/^\w/, (c: string) => c.toUpperCase())}{" "}
+                  ·{" "}
+                  {String(a.entityType ?? "")
+                    .replaceAll("_", " ")
+                    .replace(/^\w/, (c: string) => c.toUpperCase())}
                   {a.actor ? ` · ${a.actor}` : ""}
                 </div>
                 <div className="act-meta">{relativeTime(a.createdAt)}</div>

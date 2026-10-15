@@ -1,8 +1,22 @@
+/** One money formatter for the whole app: AED x.xM at/above 1M, AED xxxK below (no decimals). */
 export function formatAed(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
-  if (n >= 1_000_000) return `AED ${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `AED ${(n / 1_000).toFixed(1)}K`;
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) {
+    const m = n / 1_000_000;
+    return `AED ${m.toFixed(1)}M`;
+  }
+  if (abs >= 1_000) {
+    const k = Math.round(n / 1_000);
+    return `AED ${k}K`;
+  }
   return `AED ${n.toLocaleString("en-AE", { maximumFractionDigits: 0 })}`;
+}
+
+/** Format AED millions figure already stored as millions (command loss model). */
+export function formatAedMillions(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  return formatAed(n * 1_000_000);
 }
 
 export function formatPct(n: number | null | undefined): string {
@@ -86,18 +100,29 @@ export function decisionStatusBadge(status: string): string {
 export function roleLabel(role: string): string {
   switch (role) {
     case "cxo":
-      return "CXO";
+      return "CxO";
+    case "ciso":
+      return "CISO";
     case "board_member":
-      return "Board";
+      return "Board Member";
+    case "risk_lead":
+      return "Risk Lead";
+    case "admin":
+      return "Admin";
     case "program_office":
       return "Program Office";
     case "domain_analyst":
-      return "Analyst";
+      return "Domain Analyst";
     case "auditor":
       return "Auditor";
     default:
-      return role;
+      return role.replaceAll("_", " ");
   }
+}
+
+/** Normalize stray casings like cXO / CXO / cxo → CxO in free text. */
+export function normalizeCxO(text: string): string {
+  return text.replace(/\bcxo\b/gi, "CxO");
 }
 
 export function trendDirection(delta: number | null | undefined): string {
@@ -107,3 +132,10 @@ export function trendDirection(delta: number | null | undefined): string {
   return "Risk unchanged vs prior snapshot";
 }
 
+/** Score deltas: lower is improved. */
+export function scoreDeltaPhrase(delta: number): string {
+  const mag = Math.abs(delta).toFixed(1);
+  if (delta <= -0.05) return `improved by ${mag}`;
+  if (delta >= 0.05) return `worsened by ${mag}`;
+  return "unchanged";
+}

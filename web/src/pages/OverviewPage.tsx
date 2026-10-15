@@ -69,6 +69,7 @@ export function OverviewPage({
   const topCritical = data.domains.filter(
     (d) => d.severity === "critical" || d.severity === "high",
   ).length;
+  const hideTechnical = actorRole === "cxo";
 
   return (
     <div className="page">
@@ -100,7 +101,7 @@ export function OverviewPage({
             aria-hidden
           >
             <div className="n mono">
-              {er?.score != null ? Math.round(er.score) : "—"}
+              {er?.score != null ? Number(er.score).toFixed(1) : "—"}
             </div>
           </div>
           <div className="score-meta">
@@ -122,18 +123,20 @@ export function OverviewPage({
             </div>
           </div>
         </div>
-        <div className="hero-card metric">
-          <div className="m-l">Business Impact Exposure</div>
-          <div className="m-n mono">{formatAed(data.businessImpactExposureAed)}</div>
-          <div className="m-d d-up">Open findings financial exposure</div>
-        </div>
+        {data.businessImpactExposureAed != null && (
+          <div className="hero-card metric">
+            <div className="m-l">Business Impact Exposure</div>
+            <div className="m-n mono">{formatAed(data.businessImpactExposureAed)}</div>
+            <div className="m-d d-up">Open findings financial exposure</div>
+          </div>
+        )}
         <div className="hero-card metric">
           <div className="m-l">Compliance Posture</div>
           <div className="m-n mono">{formatPct(data.compliancePosturePct)}</div>
           <div className="m-d d-down">Avg latest framework coverage</div>
         </div>
         <div className="hero-card metric">
-          <div className="m-l">Decisions Awaiting CXO</div>
+          <div className="m-l">Decisions Awaiting CxO</div>
           <div className="m-n mono">{data.decisionsAwaitingCxo}</div>
           <div
             className="m-d"
@@ -146,7 +149,9 @@ export function OverviewPage({
           >
             {data.decisionsAwaitingCritical > 0
               ? `${data.decisionsAwaitingCritical} marked Critical`
-              : `${topCritical} high/critical domains · ${data.criticalFindingsOpen} critical findings`}
+              : hideTechnical
+                ? `${topCritical} high/critical domains`
+                : `${topCritical} high/critical domains · ${data.criticalFindingsOpen} critical findings`}
           </div>
         </div>
       </div>
@@ -160,14 +165,21 @@ export function OverviewPage({
             </span>
           </div>
           <div className="card">
-            {data.executiveActionQueue.map((s) => (
-              <article key={s.scenarioId} className="decision-item decision-item-emphasis">
+            {data.executiveActionQueue.map((s, idx) => (
+              <article
+                key={s.scenarioId ?? `exec-q-${idx}`}
+                className="decision-item decision-item-emphasis"
+              >
                 <div className="di-top">
                   <div>
                     <div className="di-title">
-                      <Link className="text-link" to={`/scenarios/${s.scenarioId}`}>
-                        {s.title}
-                      </Link>
+                      {hideTechnical || !s.scenarioId ? (
+                        s.title
+                      ) : (
+                        <Link className="text-link" to={`/scenarios/${s.scenarioId}`}>
+                          {s.title}
+                        </Link>
+                      )}
                     </div>
                     <div className="di-domain">
                       Treatment: {s.recommendedTreatment ?? "—"} · Residual{" "}
@@ -176,12 +188,11 @@ export function OverviewPage({
                       {s.actionOwner ? ` · owner ${s.actionOwner}` : ""}
                       {s.dueDate ? ` · due ${s.dueDate}` : ""}
                     </div>
-                    <div className="di-domain">
-                      Exposure:{" "}
-                      {s.financialKnown && s.financialExposureAed != null
-                        ? formatAed(s.financialExposureAed)
-                        : "unknown"}
-                    </div>
+                    {s.financialExposureAed != null && (
+                      <div className="di-domain">
+                        Exposure: {formatAed(s.financialExposureAed)}
+                      </div>
+                    )}
                   </div>
                   <div className={`dc-status ${severityBadge(s.priority ?? "medium")}`}>
                     {(s.priority ?? "n/a").toUpperCase()}
@@ -189,9 +200,15 @@ export function OverviewPage({
                 </div>
                 <p className="di-domain">{s.recommendedAction}</p>
                 <div className="di-actions">
-                  <Link className="di-btn defer" to={`/scenarios/${s.scenarioId}`}>
-                    Decide on scenario
-                  </Link>
+                  {s.scenarioId ? (
+                    <Link className="di-btn defer" to={`/scenarios/${s.scenarioId}`}>
+                      Decide on scenario
+                    </Link>
+                  ) : (
+                    <Link className="di-btn defer" to="/decisions">
+                      Decide
+                    </Link>
+                  )}
                 </div>
               </article>
             ))}
@@ -199,7 +216,7 @@ export function OverviewPage({
         </>
       )}
 
-      {data.riskScenarios && (
+      {data.riskScenarios && !hideTechnical && (
         <>
           <div className="section-title">
             Enterprise Risk Scenarios{" "}
@@ -271,7 +288,7 @@ export function OverviewPage({
         )}
         {data.pendingDecisions.length === 0 ? (
           <p className="empty">
-            No decisions are awaiting CXO action for{" "}
+            No decisions are awaiting CxO action for{" "}
             <strong>{data.org.name}</strong>. This is a valid posture — open{" "}
             <Link className="text-link" to="/decisions">
               Decisions
@@ -348,8 +365,8 @@ export function OverviewPage({
                   </button>
                 ) : (
                   <span className="role-hint">
-                    Acting as {actorRole ? roleLabel(actorRole) : "non-CXO"} —
-                    approve requires CXO.
+                    Acting as {actorRole ? roleLabel(actorRole) : "non-CxO"} —
+                    approve requires CxO.
                   </span>
                 )}
                 {canRequestInfo && (
@@ -368,7 +385,7 @@ export function OverviewPage({
                 <Link className="di-btn defer" to={`/decisions/${d.decisionId}`}>
                   Full history
                 </Link>
-                {d.findingId && (
+                {!hideTechnical && d.findingId && (
                   <Link className="di-btn defer" to={`/findings/${d.findingId}`}>
                     View finding
                   </Link>
@@ -384,24 +401,36 @@ export function OverviewPage({
         <span className="count">{data.domainsMonitored} domains monitored</span>
       </div>
       <div className="domain-wrap">
-        {data.domains.map((d) => (
-          <Link
-            key={d.riskDomainId}
-            to={`/risk-domains/${d.riskDomainId}`}
-            className={`domain-card ${severityClass(d.severity)}`}
-          >
-            <div className="dc-top">
-              <div className="dc-name">{d.shortLabel}</div>
-              <div className={`dc-status ${severityBadge(d.severity)}`}>
-                {d.severity === "low" ? "Good" : capitalize(d.severity)}
+        {data.domains.map((d) => {
+          const cardClass = `domain-card ${severityClass(d.severity)}`;
+          const inner = (
+            <>
+              <div className="dc-top">
+                <div className="dc-name">{d.shortLabel}</div>
+                <div className={`dc-status ${severityBadge(d.severity)}`}>
+                  {d.severity === "low" ? "Good" : capitalize(d.severity)}
+                </div>
               </div>
+              <div className="dc-score" style={{ color: scoreColor(d.severity) }}>
+                {Math.round(d.score)}
+              </div>
+              <div className="dc-detail">{d.headlineDetail ?? "—"}</div>
+            </>
+          );
+          return hideTechnical ? (
+            <div key={d.riskDomainId} className={cardClass}>
+              {inner}
             </div>
-            <div className="dc-score" style={{ color: scoreColor(d.severity) }}>
-              {Math.round(d.score)}
-            </div>
-            <div className="dc-detail">{d.headlineDetail ?? "—"}</div>
-          </Link>
-        ))}
+          ) : (
+            <Link
+              key={d.riskDomainId}
+              to={`/risk-domains/${d.riskDomainId}`}
+              className={cardClass}
+            >
+              {inner}
+            </Link>
+          );
+        })}
       </div>
 
       <div className="grid2">

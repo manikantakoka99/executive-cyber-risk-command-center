@@ -30,6 +30,8 @@ MIGRATIONS = [
     "004_ecc_executive_closed_loop.sql",
     "005_ecc_enterprise_intelligence.sql",
     "006_ecc_sample_ingestion_proof.sql",
+    "007_ecc_command_rbac.sql",
+    "008_align_priority_bands.sql",
 ]
 
 

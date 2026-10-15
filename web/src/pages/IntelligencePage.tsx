@@ -16,8 +16,10 @@ export function IntelligencePage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reportMsg, setReportMsg] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
         const [
@@ -41,6 +43,7 @@ export function IntelligencePage() {
           api.connectorCatalog(),
           api.materialChanges(),
         ]);
+        if (cancelled) return;
         setPortfolio(p);
         setBriefing(b);
         setTrends(t);
@@ -52,10 +55,13 @@ export function IntelligencePage() {
         setChanges(mc.changes ?? []);
         setError(null);
       } catch (e: any) {
-        setError(e.message);
+        if (!cancelled) setError(e.message);
       }
     })();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [reload]);
 
   const generate = async () => {
     setBusy(true);
@@ -77,13 +83,19 @@ export function IntelligencePage() {
   if (error && !portfolio) {
     return (
       <div className="page">
-        <div className="banner-error">{error}</div>
+        <h1 className="page-title">Intelligence unavailable</h1>
+        <p className="page-sub">{error}</p>
+        <button className="btn primary sm" type="button" onClick={() => setReload((n) => n + 1)}>
+          Retry
+        </button>
       </div>
     );
   }
   if (!portfolio) return <div className="page">Loading enterprise intelligence…</div>;
 
   const t = portfolio.totals;
+  const openDecisions =
+    t.openDecisions ?? decisions?.awaitingActionCount ?? decisions?.awaitingAction?.length ?? 0;
 
   return (
     <div className="page demo-present">
@@ -100,7 +112,14 @@ export function IntelligencePage() {
           {busy ? "Generating…" : "Generate executive report"}
         </button>
       </div>
-      {error && <div className="banner-error">{error}</div>}
+      {error && (
+        <div className="banner-error" role="alert">
+          {error}{" "}
+          <button className="btn sm" type="button" onClick={() => setReload((n) => n + 1)}>
+            Retry
+          </button>
+        </div>
+      )}
       {reportMsg && <p className="banner-ok">{reportMsg}</p>}
 
       {briefing && (
@@ -122,16 +141,19 @@ export function IntelligencePage() {
 
       <div className="kpi-row">
         <div className="kpi">
+          <div className="kpi-label">Enterprise score</div>
+          <div className="kpi-value">
+            {t.enterpriseScore != null ? Number(t.enterpriseScore).toFixed(1) : "—"}
+          </div>
+          <div className="muted">{t.enterpriseBand ?? ""}</div>
+        </div>
+        <div className="kpi">
           <div className="kpi-label">Active scenarios</div>
           <div className="kpi-value">{t.activeScenarios}</div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">Outside tolerance</div>
-          <div className="kpi-value">{t.outsideTolerance}</div>
-        </div>
-        <div className="kpi">
-          <div className="kpi-label">Increasing</div>
-          <div className="kpi-value">{t.increasing}</div>
+          <div className="kpi-label">Open decisions</div>
+          <div className="kpi-value">{openDecisions}</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Known exposure</div>
@@ -141,7 +163,7 @@ export function IntelligencePage() {
               : "unknown"}
           </div>
           <div className="muted">
-            {t.unknownFinancialExposureCount} scenarios unknown financial
+            Outside appetite {t.outsideTolerance ?? "—"} / {t.domainCount ?? 12}
           </div>
         </div>
       </div>
@@ -195,7 +217,7 @@ export function IntelligencePage() {
         <section className="panel">
           <h2>Decision center</h2>
           <p className="muted">
-            Awaiting action: {decisions?.awaitingAction?.length ?? 0} · Info:{" "}
+            Awaiting action: {openDecisions} · Info:{" "}
             {decisions?.awaitingInformation?.length ?? 0} · Overdue:{" "}
             {decisions?.overdue?.length ?? 0}
           </p>

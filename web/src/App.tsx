@@ -1,144 +1,216 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { AppProvider, useAppState } from "./context/AppState";
 import { Shell } from "./components/Shell";
-import { OverviewPage } from "./pages/OverviewPage";
+import { AppProvider, useAppState } from "./context/AppState";
+import { ThemeProvider } from "./context/Theme";
+import { api } from "./lib/api";
+import { roleLabel } from "./lib/format";
+import type { OverviewResponse } from "./data/types";
+import { AdminPage } from "./pages/AdminPage";
+import { CommandCenter } from "./pages/command/CommandCenter";
+import { ConnectorsPage } from "./pages/ConnectorsPage";
+import {
+  AuditPage,
+  CompliancePage,
+  DecisionDetailPage,
+  ReportsPage,
+} from "./pages/DecisionsReports";
 import {
   DomainDetailPage,
   DomainsPage,
   FindingDetailPage,
   FindingsPage,
 } from "./pages/DomainsFindings";
-import {
-  AuditPage,
-  CompliancePage,
-  DecisionDetailPage,
-  DecisionsPage,
-  ReportsPage,
-} from "./pages/DecisionsReports";
-import {
-  ScenarioDetailPage,
-  ScenariosPage,
-} from "./pages/ScenariosPage";
-import { IntelligencePage } from "./pages/IntelligencePage";
+import { EmptyState } from "./components/EmptyState";
 import { IngestionProofPage } from "./pages/IngestionProofPage";
-import { api } from "./lib/api";
-import type { OverviewResponse } from "./data/types";
-import { relativeTime } from "./lib/format";
+import { IntelligencePage } from "./pages/IntelligencePage";
+import { LoginPage } from "./pages/LoginPage";
+import { OverviewPage } from "./pages/OverviewPage";
+import { PolicyAppetitePage } from "./pages/PolicyAppetitePage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { ScenarioDetailPage, ScenariosPage } from "./pages/ScenariosPage";
 import "./index.css";
+import "./design.css";
+import "./command.css";
 
-function EccApp() {
-  const { ready, orgId, userId, me } = useAppState();
+function Permit({
+  permission,
+  children,
+}: {
+  permission: string;
+  children: ReactNode;
+}) {
+  const { me } = useAppState();
+  if (!me?.permissions.includes(permission)) {
+    return (
+      <EmptyState
+        code="403"
+        title="Outside this role"
+        reason={`${me?.title ?? (me?.role ? roleLabel(me.role) : "This persona")} cannot open this workspace.`}
+        home={me?.home ?? "/"}
+      />
+    );
+  }
+  return children;
+}
+
+function OperationsRoute() {
+  const { me, ready, orgId, userId } = useAppState();
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  const loadOverview = useCallback(async (silent = false) => {
-    if (!silent) setRefreshing(true);
+  const load = useCallback(async () => {
     try {
-      const data = await api.overview();
-      setOverview(data);
+      setOverview(await api.overview());
       setError(null);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setRefreshing(false);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Operational data is unavailable");
     }
   }, []);
 
   useEffect(() => {
-    if (!ready) return;
-    loadOverview();
-    const t = setInterval(() => loadOverview(true), 45000);
-    return () => clearInterval(t);
-  }, [ready, orgId, userId, loadOverview]);
+    if (!ready || !me?.permissions.includes("ops.overview")) return;
+    void load();
+  }, [ready, orgId, userId, me, load]);
 
-  const onExport = async () => {
-    setExporting(true);
-    try {
-      const report = await api.generateReport("board_briefing");
-      const blob = new Blob([report.content], { type: "text/markdown" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `board-briefing-${overview?.org.name ?? "org"}.md`;
-      a.click();
-      URL.revokeObjectURL(url);
-      await loadOverview(true);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const canApprove = me?.role === "cxo";
-  const canRequestInfo = me?.role === "cxo" || me?.role === "program_office";
-
+  // Permission already enforced by parent <Permit>; keep a defensive guard.
+  if (!me?.permissions.includes("ops.overview")) {
+    return null;
+  }
+  if (error && !overview) {
+    return (
+      <div className="page">
+        <h1 className="page-title">Operational overview</h1>
+        <p className="page-sub">{error}</p>
+        <button className="btn primary sm" type="button" onClick={() => void load()}>
+          Retry
+        </button>
+        <p className="note">
+          Start PostgreSQL and import the sample workbook to populate this page. The command center
+          still runs from the reference model.
+        </p>
+      </div>
+    );
+  }
+  if (!overview) {
+    return (
+      <div className="page">
+        <div className="skeleton" />
+      </div>
+    );
+  }
   return (
-    <Shell
-      lastUpdated={overview ? relativeTime(overview.asOf) : null}
-      refreshing={refreshing}
-      dataError={error}
-    >
-      {!ready ? (
-        <div className="page">
-          <div className="skeleton" />
-          <p className="empty">Connecting to Command Center…</p>
-        </div>
-      ) : (
-        <Routes>
-          <Route
-            path="/"
-            element={
-              error && !overview ? (
-                <div className="page">
-                  <p className="banner-error">{error}</p>
-                </div>
-              ) : overview ? (
-                <OverviewPage
-                  data={overview}
-                  onExport={onExport}
-                  exporting={exporting}
-                  canApprove={!!canApprove}
-                  canRequestInfo={!!canRequestInfo}
-                  actorRole={me?.role ?? null}
-                  onOverviewChanged={() => loadOverview(true)}
-                />
-              ) : (
-                <div className="page">
-                  <div className="skeleton" />
-                </div>
-              )
-            }
-          />
-          <Route path="/intelligence" element={<IntelligencePage />} />
-          <Route path="/scenarios" element={<ScenariosPage />} />
-          <Route path="/scenarios/:id" element={<ScenarioDetailPage />} />
-          <Route path="/ingestion" element={<IngestionProofPage />} />
-          <Route path="/risk-domains" element={<DomainsPage />} />
-          <Route path="/risk-domains/:id" element={<DomainDetailPage />} />
-          <Route path="/findings" element={<FindingsPage />} />
-          <Route path="/findings/:id" element={<FindingDetailPage />} />
-          <Route path="/decisions" element={<DecisionsPage />} />
-          <Route path="/decisions/:id" element={<DecisionDetailPage />} />
-          <Route path="/compliance" element={<CompliancePage />} />
-          <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/audit" element={<AuditPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      )}
+    <OverviewPage
+      data={overview}
+      onExport={async () => {
+        setExporting(true);
+        try {
+          const report = await api.generateReport("board_briefing");
+          const blob = new Blob([report.content], { type: "text/markdown" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `board-briefing-${overview.org.name}.md`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch (err: unknown) {
+          setError(err instanceof Error ? err.message : "Export failed");
+        } finally {
+          setExporting(false);
+        }
+      }}
+      exporting={exporting}
+      canApprove={me.role === "cxo"}
+      canRequestInfo={me.role === "cxo" || me.role === "program_office"}
+      actorRole={me.role}
+      onOverviewChanged={async () => {
+        await load();
+      }}
+    />
+  );
+}
+
+function EccApp() {
+  const { ready, me, error, retry } = useAppState();
+  if (!ready) {
+    return (
+      <div className="page">
+        {error ? (
+          <>
+            <p className="eyebrow">Session</p>
+            <h1 className="page-title">Could not load Command Center</h1>
+            <p className="page-sub">{error}</p>
+            <button className="btn primary sm" type="button" onClick={retry}>
+              Retry
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="skeleton" />
+            <p className="empty">Connecting to Command Center…</p>
+          </>
+        )}
+      </div>
+    );
+  }
+  if (!me) return <LoginPage />;
+  return (
+    <Shell>
+      <Routes>
+        <Route path="/" element={<Navigate to={me.home} replace />} />
+        <Route path="/c/:view" element={<CommandCenter />} />
+        <Route
+          path="/operations"
+          element={
+            <Permit permission="ops.overview">
+              <OperationsRoute />
+            </Permit>
+          }
+        />
+        <Route path="/intelligence" element={<Permit permission="scenarios.read"><IntelligencePage /></Permit>} />
+        <Route path="/scenarios" element={<Permit permission="scenarios.read"><ScenariosPage /></Permit>} />
+        <Route path="/scenarios/:id" element={<Permit permission="scenarios.read"><ScenarioDetailPage /></Permit>} />
+        <Route path="/ingestion" element={<Permit permission="ingestion.read"><IngestionProofPage /></Permit>} />
+        {/* Merged nav aliases — deep links still work */}
+        <Route path="/risk-domains" element={<Permit permission="domains.read"><DomainsPage /></Permit>} />
+        <Route path="/risk-domains/:id" element={<Permit permission="domains.read"><DomainDetailPage /></Permit>} />
+        <Route path="/findings" element={<Permit permission="findings.read"><FindingsPage /></Permit>} />
+        <Route path="/findings/:id" element={<Permit permission="findings.read"><FindingDetailPage /></Permit>} />
+        <Route path="/register" element={<Permit permission="register.read"><RegisterPage /></Permit>} />
+        <Route path="/remediation" element={<Navigate to="/c/closure" replace />} />
+        <Route path="/connectors" element={<Permit permission="connectors.read"><ConnectorsPage /></Permit>} />
+        <Route path="/policy" element={<Permit permission="policy.read"><PolicyAppetitePage /></Permit>} />
+        <Route path="/decisions" element={<Navigate to="/c/queue" replace />} />
+        <Route path="/decisions/:id" element={<Permit permission="decisions.read"><DecisionDetailPage /></Permit>} />
+        <Route path="/compliance" element={<Permit permission="compliance.read"><CompliancePage /></Permit>} />
+        <Route path="/reports" element={<Permit permission="reports.read"><ReportsPage /></Permit>} />
+        <Route path="/audit" element={<Permit permission="audit.read"><AuditPage /></Permit>} />
+        <Route path="/admin" element={<AdminPage />} />
+        <Route
+          path="*"
+          element={
+            <EmptyState
+              code="404"
+              title="Page not found"
+              reason="That route is not part of this demo."
+              home={me.home}
+            />
+          }
+        />
+      </Routes>
     </Shell>
   );
 }
 
 export default function App() {
   return (
-    <AppProvider>
-      <BrowserRouter>
-        <EccApp />
-      </BrowserRouter>
-    </AppProvider>
+    <ThemeProvider>
+      <AppProvider>
+        <BrowserRouter>
+          <EccApp />
+        </BrowserRouter>
+      </AppProvider>
+    </ThemeProvider>
   );
 }

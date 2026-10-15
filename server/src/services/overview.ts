@@ -1,3 +1,6 @@
+import { filterPresentationNoise, overlayOverview } from "../command/demoOverlay.js";
+import { formatImpactSummary, reformatAedInText } from "../lib/money.js";
+import { priorityTierFromScore } from "../risk/bands.js";
 import { query } from "../db.js";
 
 const OPEN_FINDING_STATUSES = ["open", "acknowledged", "in_remediation"];
@@ -108,7 +111,7 @@ export async function getOverview(orgId: string) {
     [orgId],
   );
 
-  // MUST: queue matches Decisions Awaiting CXO KPI (awaiting_decision only).
+  // MUST: queue matches Decisions Awaiting CxO KPI (awaiting_decision only).
   const pending = await query<{
     decision_id: string;
     finding_id: string | null;
@@ -121,12 +124,14 @@ export async function getOverview(orgId: string) {
     escalated_at: Date;
     short_label: string | null;
     financial_exposure_aed: string | null;
+    downtime_cost_per_hour_aed: string | null;
     affected_business_unit: string | null;
     compliance_scope_impact: string | null;
   }>(
     `SELECT ed.decision_id, ed.finding_id, ed.title, ed.priority, ed.risk_summary, ed.impact_summary,
             ed.recommended_action, ed.status, ed.escalated_at, rd.short_label,
-            b.financial_exposure_aed, b.affected_business_unit, b.compliance_scope_impact
+            b.financial_exposure_aed, b.downtime_cost_per_hour_aed,
+            b.affected_business_unit, b.compliance_scope_impact
      FROM executive_decisions ed
      LEFT JOIN risk_findings rf ON rf.finding_id = ed.finding_id
      LEFT JOIN risk_domains rd ON rd.risk_domain_id = rf.risk_domain_id
@@ -205,6 +210,7 @@ export async function getOverview(orgId: string) {
      LEFT JOIN users u ON u.user_id = tp.owner_user_id
      WHERE s.org_id = $1
        AND s.status NOT IN ('closed')
+       AND COALESCE(s.scenario_type, '') <> 'isolated_test'
      ORDER BY COALESCE(s.priority_score, 0) DESC, s.last_seen_at DESC NULLS LAST
      LIMIT 8`,
     [orgId],
@@ -241,6 +247,7 @@ export async function getOverview(orgId: string) {
      LEFT JOIN users u ON u.user_id = tp.owner_user_id
      WHERE s.org_id = $1
        AND s.status NOT IN ('closed','accepted','mitigated')
+       AND COALESCE(s.scenario_type, '') <> 'isolated_test'
        AND (
          s.decision_required = true
          OR s.tolerance_state = 'outside'
@@ -263,7 +270,9 @@ export async function getOverview(orgId: string) {
        COUNT(*) FILTER (WHERE velocity = 'increasing')::text AS increasing,
        COUNT(*) FILTER (WHERE velocity = 'aging')::text AS aging
      FROM risk_scenarios
-     WHERE org_id = $1 AND status NOT IN ('closed')`,
+     WHERE org_id = $1
+       AND status NOT IN ('closed')
+       AND COALESCE(scenario_type, '') <> 'isolated_test'`,
     [orgId],
   );
 
@@ -278,7 +287,7 @@ export async function getOverview(orgId: string) {
       ? new Date()
       : new Date(Math.max(...asOfCandidates.map((d) => d.getTime())));
 
-  return {
+  const payload = {
     org: { orgId: org.org_id, name: org.name, industry: org.industry },
     asOf: asOf.toISOString(),
     enterpriseRisk: latest
@@ -315,23 +324,33 @@ export async function getOverview(orgId: string) {
         snapshotAt: d.snapshot_at.toISOString(),
       }))
       .sort((a, b) => b.score - a.score),
-    pendingDecisions: pending.rows.map((d) => ({
-      decisionId: d.decision_id,
-      findingId: d.finding_id,
-      title: d.title,
-      priority: d.priority,
-      riskSummary: d.risk_summary,
-      impactSummary: d.impact_summary,
-      recommendedAction: d.recommended_action,
-      status: d.status,
-      escalatedAt: d.escalated_at.toISOString(),
-      domainLabel: d.short_label,
-      financialExposureAed: d.financial_exposure_aed
+    pendingDecisions: pending.rows.map((d) => {
+      const financialExposureAed = d.financial_exposure_aed
         ? Number(d.financial_exposure_aed)
-        : null,
-      affectedBusinessUnit: d.affected_business_unit,
-      complianceScopeImpact: d.compliance_scope_impact,
-    })),
+        : null;
+      const downtimeCostPerHourAed = d.downtime_cost_per_hour_aed
+        ? Number(d.downtime_cost_per_hour_aed)
+        : null;
+      return {
+        decisionId: d.decision_id,
+        findingId: d.finding_id,
+        title: d.title,
+        priority: d.priority,
+        riskSummary: reformatAedInText(d.risk_summary),
+        impactSummary: formatImpactSummary({
+          text: d.impact_summary,
+          financialExposureAed,
+          downtimeCostPerHourAed,
+        }),
+        recommendedAction: d.recommended_action,
+        status: d.status,
+        escalatedAt: d.escalated_at.toISOString(),
+        domainLabel: d.short_label,
+        financialExposureAed,
+        affectedBusinessUnit: d.affected_business_unit,
+        complianceScopeImpact: d.compliance_scope_impact,
+      };
+    }),
     compliance: complianceRows,
     riskTrend: trend.rows.map((t) => ({
       snapshotAt: t.snapshot_at.toISOString(),
@@ -362,43 +381,54 @@ export async function getOverview(orgId: string) {
       outsideTolerance: Number(scenarioStats.rows[0]?.outside ?? 0),
       increasing: Number(scenarioStats.rows[0]?.increasing ?? 0),
       aging: Number(scenarioStats.rows[0]?.aging ?? 0),
-      top: scenarios.rows.map((s) => ({
-        scenarioId: s.scenario_id,
-        title: s.title,
-        status: s.status,
-        priority: s.priority,
-        priorityScore: s.priority_score != null ? Number(s.priority_score) : null,
-        toleranceState: s.tolerance_state,
-        velocity: s.velocity,
-        residualRisk: s.residual_risk != null ? Number(s.residual_risk) : null,
-        explanation: s.explanation,
-        lastSeenAt: s.last_seen_at?.toISOString() ?? null,
-        recommendedTreatment: s.recommended_treatment,
-        decisionRequired: s.decision_required,
-      })),
+      top: filterPresentationNoise(
+        scenarios.rows.map((s) => {
+          const residualRisk = s.residual_risk != null ? Number(s.residual_risk) : null;
+          return {
+            scenarioId: s.scenario_id,
+            title: s.title,
+            status: s.status,
+            priority: residualRisk != null ? priorityTierFromScore(residualRisk) : "low",
+            priorityScore: s.priority_score != null ? Number(s.priority_score) : null,
+            toleranceState: s.tolerance_state,
+            velocity: s.velocity,
+            residualRisk,
+            explanation: s.explanation,
+            lastSeenAt: s.last_seen_at?.toISOString() ?? null,
+            recommendedTreatment: s.recommended_treatment,
+            decisionRequired: s.decision_required,
+          };
+        }),
+      ),
     },
-    executiveActionQueue: execQueue.rows.map((s) => ({
-      scenarioId: s.scenario_id,
-      title: s.title,
-      priority: s.priority,
-      toleranceState: s.tolerance_state,
-      velocity: s.velocity,
-      residualRisk: s.residual_risk != null ? Number(s.residual_risk) : null,
-      recommendedTreatment: s.recommended_treatment,
-      recommendedAction: s.recommended_action,
-      financialExposureAed:
-        s.financial_known && s.financial_exposure_aed != null
-          ? Number(s.financial_exposure_aed)
-          : null,
-      financialKnown: !!s.financial_known,
-      actionOwner: s.owner_name,
-      dueDate: s.target_date ? String(s.target_date).slice(0, 10) : null,
-      agingDays: s.first_seen_at
-        ? Math.floor(
-            (Date.now() - new Date(s.first_seen_at).getTime()) / 86400000,
-          )
-        : null,
-      decisionRequired: true,
-    })),
+    executiveActionQueue: filterPresentationNoise(
+      execQueue.rows.map((s) => {
+        const residualRisk = s.residual_risk != null ? Number(s.residual_risk) : null;
+        return {
+          scenarioId: s.scenario_id,
+          title: s.title,
+          priority: residualRisk != null ? priorityTierFromScore(residualRisk) : "low",
+          toleranceState: s.tolerance_state,
+          velocity: s.velocity,
+          residualRisk,
+          recommendedTreatment: s.recommended_treatment,
+          recommendedAction: s.recommended_action,
+          financialExposureAed:
+            s.financial_known && s.financial_exposure_aed != null
+              ? Number(s.financial_exposure_aed)
+              : null,
+          financialKnown: !!s.financial_known,
+          actionOwner: s.owner_name,
+          dueDate: s.target_date ? String(s.target_date).slice(0, 10) : null,
+          agingDays: s.first_seen_at
+            ? Math.floor(
+                (Date.now() - new Date(s.first_seen_at).getTime()) / 86400000,
+              )
+            : null,
+          decisionRequired: true,
+        };
+      }),
+    ),
   };
+  return overlayOverview(orgId, payload);
 }

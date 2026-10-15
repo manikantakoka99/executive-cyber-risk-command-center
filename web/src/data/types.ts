@@ -13,6 +13,7 @@ export interface UserRef {
   lastName: string | null;
   email: string;
   role: string;
+  title?: string;
 }
 
 export interface OverviewResponse {

@@ -11,6 +11,8 @@ import { genericSecurityEventsAdapter } from "./ingestion/adapters/genericSecuri
 
 const AL = "2accc7de-f693-4b19-8fe8-6db501be05e2";
 const FAL = "e5082391-0ae2-4ed1-93d6-c11650b39dbb";
+/** Falcon only — never write Generic Security Events fixtures into Al Dhabi demo. */
+const ORG = FAL;
 
 let connectorId: string;
 let socDomainId: string;
@@ -21,31 +23,31 @@ before(async () => {
   );
   socDomainId = rows[0].risk_domain_id;
 
-  // Ensure a resolvable asset for Al Dhabi
+  // Ensure a resolvable asset for Falcon (isolated test tenant)
   await query(
     `INSERT INTO assets (org_id, name, asset_type, criticality, environment, status)
      VALUES ($1, 'web-prod-01', 'host', 'high', 'production', 'active')
      ON CONFLICT (org_id, name) DO NOTHING`,
-    [AL],
+    [ORG],
   );
   const { rows: a } = await query<{ asset_id: string }>(
     `SELECT asset_id FROM assets WHERE org_id = $1 AND name = 'web-prod-01'`,
-    [AL],
+    [ORG],
   );
   await query(
     `INSERT INTO asset_identifiers (org_id, asset_id, id_type, id_value, is_primary)
      VALUES ($1, $2, 'hostname', 'web-prod-01', true)
      ON CONFLICT (org_id, id_type, id_value) DO NOTHING`,
-    [AL, a[0].asset_id],
+    [ORG, a[0].asset_id],
   );
   await query(
     `INSERT INTO asset_identifiers (org_id, asset_id, id_type, id_value)
      VALUES ($1, $2, 'ip', '10.10.10.10')
      ON CONFLICT (org_id, id_type, id_value) DO NOTHING`,
-    [AL, a[0].asset_id],
+    [ORG, a[0].asset_id],
   );
 
-  const c = await createConnector(AL, {
+  const c = await createConnector(ORG, {
     name: `Generic Security Events ${Date.now()}`,
     riskDomainId: socDomainId,
     adapterKey: "generic_security_events",
@@ -56,7 +58,7 @@ before(async () => {
 
 function baseSignal(over: Partial<CanonicalSecuritySignalV1> = {}): CanonicalSecuritySignalV1 {
   return {
-    orgId: AL,
+    orgId: ORG,
     connectorId,
     sourceType: "soc",
     sourceName: "generic_security_events",
@@ -101,9 +103,10 @@ describe("canonical signal validation", () => {
   });
 
   it("rejects cross-tenant finding reference", async () => {
+    // Finding belongs to Al Dhabi; signal is scoped to Falcon (ORG).
     const { rows } = await query<{ finding_id: string }>(
       `SELECT finding_id FROM risk_findings WHERE org_id = $1 LIMIT 1`,
-      [FAL],
+      [AL],
     );
     assert.ok(rows[0]);
     const v = await validateCanonicalSignal(
@@ -123,7 +126,7 @@ describe("ingestion pipeline", () => {
       payload: { kind: "malware_detection", severity: "high", hostname: "web-prod-01" },
     };
     const ctx = {
-      orgId: AL,
+      orgId: ORG,
       connectorId,
       connectorName: "t",
       riskDomainId: socDomainId,
@@ -131,13 +134,13 @@ describe("ingestion pipeline", () => {
       config: {},
     };
     const r1 = await ingestAndNormalize({
-      orgId: AL,
+      orgId: ORG,
       connectorId,
       events: [event],
       normalize: (raw) => genericSecurityEventsAdapter.normalize(raw, ctx),
     });
     const r2 = await ingestAndNormalize({
-      orgId: AL,
+      orgId: ORG,
       connectorId,
       events: [event],
       normalize: (raw) => genericSecurityEventsAdapter.normalize(raw, ctx),
@@ -162,7 +165,7 @@ describe("ingestion pipeline", () => {
       },
     });
     const ctx = {
-      orgId: AL,
+      orgId: ORG,
       connectorId,
       connectorName: "t",
       riskDomainId: socDomainId,
@@ -170,13 +173,13 @@ describe("ingestion pipeline", () => {
       config: {},
     };
     const a = await ingestAndNormalize({
-      orgId: AL,
+      orgId: ORG,
       connectorId,
       events: [make(`fp-a-${Date.now()}`)],
       normalize: (raw) => genericSecurityEventsAdapter.normalize(raw, ctx),
     });
     const b = await ingestAndNormalize({
-      orgId: AL,
+      orgId: ORG,
       connectorId,
       events: [make(`fp-b-${Date.now()}`)],
       normalize: (raw) => genericSecurityEventsAdapter.normalize(raw, ctx),
@@ -187,7 +190,7 @@ describe("ingestion pipeline", () => {
 
   it("resolves asset via identifier", async () => {
     const ctx = {
-      orgId: AL,
+      orgId: ORG,
       connectorId,
       connectorName: "t",
       riskDomainId: socDomainId,
@@ -195,7 +198,7 @@ describe("ingestion pipeline", () => {
       config: {},
     };
     const r = await ingestAndNormalize({
-      orgId: AL,
+      orgId: ORG,
       connectorId,
       events: [
         {
@@ -214,14 +217,14 @@ describe("ingestion pipeline", () => {
     assert.ok(r.acceptedCount + r.duplicateCount >= 1, JSON.stringify(r.errors));
     const sid = r.signalIds[0];
     assert.ok(sid);
-    const sig = await getSignal(AL, sid);
+    const sig = await getSignal(ORG, sid);
     assert.ok(sig?.assetId, "expected resolved asset_id");
     assert.equal(sig?.assetName, "web-prod-01");
   });
 
   it("keeps unresolved asset identifiers traceable", async () => {
     const ctx = {
-      orgId: AL,
+      orgId: ORG,
       connectorId,
       connectorName: "t",
       riskDomainId: socDomainId,
@@ -229,7 +232,7 @@ describe("ingestion pipeline", () => {
       config: {},
     };
     const r = await ingestAndNormalize({
-      orgId: AL,
+      orgId: ORG,
       connectorId,
       events: [
         {
@@ -247,7 +250,7 @@ describe("ingestion pipeline", () => {
     });
     assert.equal(r.acceptedCount, 1);
     assert.ok(r.unresolvedAssets >= 1);
-    const sig = await getSignal(AL, r.signalIds[0]);
+    const sig = await getSignal(ORG, r.signalIds[0]);
     assert.equal(sig?.assetId, null);
     assert.ok((sig?.unresolvedIdentifiers as any[])?.length || sig?.unresolvedIdentifiers);
   });
@@ -261,7 +264,7 @@ describe("ingestion pipeline", () => {
     };
     const hash = computePayloadHash(payload);
     const ctx = {
-      orgId: AL,
+      orgId: ORG,
       connectorId,
       connectorName: "t",
       riskDomainId: socDomainId,
@@ -269,7 +272,7 @@ describe("ingestion pipeline", () => {
       config: {},
     };
     const r = await ingestAndNormalize({
-      orgId: AL,
+      orgId: ORG,
       connectorId,
       events: [
         {
@@ -280,7 +283,7 @@ describe("ingestion pipeline", () => {
       ],
       normalize: (raw) => genericSecurityEventsAdapter.normalize(raw, ctx),
     });
-    const sig = await getSignal(AL, r.signalIds[0]);
+    const sig = await getSignal(ORG, r.signalIds[0]);
     assert.ok(sig?.rawEvent);
     assert.equal(sig!.rawEvent!.payloadHash, hash);
     assert.equal((sig!.rawEvent!.payload as any).marker, "LINEAGE_PROOF_42");
@@ -288,23 +291,23 @@ describe("ingestion pipeline", () => {
   });
 
   it("rejects cross-tenant connector usage via org scoping", async () => {
-    const falConn = await createConnector(FAL, {
-      name: `Falcon Generic ${Date.now()}`,
+    // Connector belongs to Al Dhabi — Falcon (ORG) ingest must reject.
+    const alConn = await createConnector(AL, {
+      name: `Al Dhabi Generic ${Date.now()}`,
       riskDomainId: socDomainId,
       adapterKey: "generic_security_events",
     });
     const ctx = {
-      orgId: AL,
-      connectorId: falConn!.connectorId as string,
+      orgId: ORG,
+      connectorId: alConn!.connectorId as string,
       connectorName: "x",
       riskDomainId: socDomainId,
       domainCode: "soc_mdr",
       config: {},
     };
-    // Connector belongs to Falcon — Al Dhabi ingest should reject at validation
     const r = await ingestAndNormalize({
-      orgId: AL,
-      connectorId: falConn!.connectorId as string,
+      orgId: ORG,
+      connectorId: alConn!.connectorId as string,
       events: [
         {
           externalEventId: `xorg-${Date.now()}`,
@@ -321,12 +324,12 @@ describe("ingestion pipeline", () => {
 
 describe("demo connector end-to-end", () => {
   it("runs Generic Security Events through full pipeline", async () => {
-    const out = await runConnectorSync(AL, connectorId);
+    const out = await runConnectorSync(ORG, connectorId);
     assert.ok(out);
     assert.ok(out!.result.receivedCount >= 4);
     assert.ok(out!.result.acceptedCount + out!.result.duplicateCount >= 4);
 
-    const ready = await listSignals(AL, { lifecycle: "ready_for_correlation", limit: 50 });
+    const ready = await listSignals(ORG, { lifecycle: "ready_for_correlation", limit: 50 });
     assert.ok(ready.length >= 1);
 
     const { rows: runs } = await query(
@@ -343,7 +346,7 @@ describe("demo connector end-to-end", () => {
        FROM connector_sync_runs
        WHERE org_id = $1 AND connector_id = $2
        ORDER BY started_at DESC LIMIT 1`,
-      [AL, connectorId],
+      [ORG, connectorId],
     );
     assert.ok(rows[0]);
     assert.ok(Number(rows[0].events_received) >= 0);

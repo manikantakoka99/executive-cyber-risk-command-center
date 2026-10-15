@@ -104,16 +104,25 @@ export function IngestionProofPage() {
     }
   };
 
+  // Prefer live inventory metrics (one query) over last-run result_summary.
   const m = results?.metrics ?? status?.result ?? {};
   const runStatus = status?.status ?? "idle";
   const samples: SampleRow[] = results?.samples ?? [];
+  const received = m.receivedCount ?? status?.recordsReceived ?? "—";
+  const accepted = m.acceptedCount ?? m.canonicalRecords ?? "—";
+  const duplicates = m.duplicateCount ?? "—";
+  const posture = m.postureMetrics ?? "—";
+  const events = m.eventSignals ?? "—";
+  const rejected = m.rejectedCount ?? "—";
+  const unresolved = m.unresolvedAssets ?? "—";
+  const ready = m.readyForCorrelation ?? "—";
 
   return (
     <div className="page demo-present">
       <div className="page-head">
         <div>
-          <div className="eyebrow">Phase 6 · Ingestion Proof of Feasibility</div>
-          <h1 className="page-title">ECC Sample Ingestion</h1>
+          <div className="eyebrow">Sample data ingestion</div>
+          <h1 className="page-title">Ingestion proof</h1>
           <p className="page-sub">
             Synthetic workbook fixture → raw events → canonical records. Not live
             vendor integrations. Workbook Domain Risk Calc is{" "}
@@ -158,16 +167,12 @@ export function IngestionProofPage() {
             </div>
           </div>
           <div>
-            <div className="kpi-label">Records received</div>
-            <div className="risk-number sm">
-              {m.receivedCount ?? status?.recordsReceived ?? "—"}
-            </div>
+            <div className="kpi-label">Records (inventory)</div>
+            <div className="risk-number sm">{received}</div>
           </div>
           <div>
-            <div className="kpi-label">Raw events created</div>
-            <div className="risk-number sm">
-              {Array.isArray(m.rawEventIds) ? m.rawEventIds.length : m.acceptedCount ?? "—"}
-            </div>
+            <div className="kpi-label">Canonical (non-duplicate)</div>
+            <div className="risk-number sm">{accepted}</div>
           </div>
         </div>
       </section>
@@ -175,31 +180,31 @@ export function IngestionProofPage() {
       <div className="kpi-row">
         <div className="kpi">
           <div className="kpi-label">Canonical</div>
-          <div className="kpi-value">{m.acceptedCount ?? "—"}</div>
+          <div className="kpi-value">{accepted}</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Posture metrics</div>
-          <div className="kpi-value">{m.postureMetrics ?? "—"}</div>
+          <div className="kpi-value">{posture}</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Event signals</div>
-          <div className="kpi-value">{m.eventSignals ?? "—"}</div>
+          <div className="kpi-value">{events}</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Duplicates</div>
-          <div className="kpi-value">{m.duplicateCount ?? "—"}</div>
+          <div className="kpi-value">{duplicates}</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Rejected</div>
-          <div className="kpi-value">{m.rejectedCount ?? "—"}</div>
+          <div className="kpi-value">{rejected}</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Unresolved assets</div>
-          <div className="kpi-value">{m.unresolvedAssets ?? "—"}</div>
+          <div className="kpi-value">{unresolved}</div>
         </div>
         <div className="kpi">
           <div className="kpi-label">Ready for correlation</div>
-          <div className="kpi-value">{m.readyForCorrelation ?? "—"}</div>
+          <div className="kpi-value">{ready}</div>
         </div>
       </div>
 

@@ -1,0 +1,203 @@
+/*
+ * Theme C — Sandstone (light, deep green sidebar)
+ * All color usage must go through these CSS variables.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+:root,
+[data-theme="light"],
+[data-theme="dark"] {
+  color-scheme: light;
+
+  --bg: #f3eee6;
+  --surface: #fbf8f3;
+  --surface2: #efe8dc;
+  --surface-2: var(--surface2);
+  --surface-solid: var(--surface);
+  --bg-elevated: var(--surface);
+  --panel: var(--surface);
+  --panel2: var(--surface2);
+
+  --border: #e0d6c6;
+  --line: var(--border);
+  --border2: #d4c9b6;
+
+  --text: #1f2a24;
+  --fg: var(--text);
+  --text2: #4f5a52;
+  --muted: #5e6b63;
+  --text3: var(--muted);
+
+  --accent: #1f5c45;
+  --accentSoft: #e2ebe3;
+  --accent-soft: var(--accentSoft);
+  --accent-2: var(--accent);
+  --accent-ink: #ffffff;
+  --cyan: var(--accent);
+  --cyan-bg: var(--accentSoft);
+
+  --side: #1f3d31;
+  --sideText: #c9d6cc;
+  --sideActive: #2c5242;
+  --sideActiveText: #ffffff;
+  --sidebar-bg: var(--side);
+  --sidebar-w: 264px;
+  --sidebar-collapsed: 76px;
+
+  --crit: #b23a2e;
+  --critical: var(--crit);
+  --critical-bg: color-mix(in srgb, var(--crit) 12%, transparent);
+  --high: #c8702a;
+  --high-bg: color-mix(in srgb, var(--high) 12%, transparent);
+  --med: #b8902b;
+  --medium: var(--med);
+  --medium-bg: color-mix(in srgb, var(--med) 12%, transparent);
+  --low: #4d7f5b;
+  --good: var(--low);
+  --good-bg: color-mix(in srgb, var(--low) 12%, transparent);
+
+  --track: #e9e1d3;
+  --chart1: #1f5c45;
+  --chart2: #b8902b;
+  --chart3: #a79f90;
+
+  --glow: transparent;
+  --shadow: 0 1px 2px rgba(60, 45, 20, 0.06);
+  --shadow-card: var(--shadow);
+
+  --pack-bg: #fbf8f3; /* surface — not pure white for board pack print card */
+  --pack-fg: var(--text);
+
+  --font: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-head: var(--font);
+  --font-mono: var(--font);
+  --display: var(--font);
+  --body: var(--font);
+  --mono: var(--font);
+
+  --font-size-min: 12px;
+  --radius: 8px;
+  --radius-sm: 8px;
+  --radius-pill: 8px;
+  --topbar-h: 64px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 400;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-width: 320px;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+small,
+.note,
+.lbl,
+.eyebrow,
+.nav-label,
+.meta,
+.act-meta,
+.di-domain,
+.src,
+.brand-tag {
+  font-size: max(12px, var(--font-size-min));
+}
+
+h1,
+h2,
+h3,
+h4,
+.page-title,
+.brand-name,
+.m-n,
+.score-ring .n,
+.answer h1 {
+  font-family: var(--font-head);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+select,
+textarea,
+input {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accentSoft);
+  color: var(--text);
+}
+
+/* Solid surfaces only — no glass / blur / glow */
+.glass {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.skeleton {
+  min-height: 180px;
+  border-radius: var(--radius);
+  background: linear-gradient(
+    90deg,
+    var(--surface2) 0%,
+    color-mix(in srgb, var(--accent) 8%, var(--surface2)) 45%,
+    var(--surface2) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s var(--ease) infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
