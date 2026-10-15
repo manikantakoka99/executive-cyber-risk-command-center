@@ -168,7 +168,7 @@ function EccApp() {
             </Permit>
           }
         />
-        <Route path="/intelligence" element={<Permit permission="scenarios.read"><IntelligencePage /></Permit>} />
+        <Route path="/intelligence" element={<Permit permission="intelligence.read"><IntelligencePage /></Permit>} />
         <Route path="/scenarios" element={<Permit permission="scenarios.read"><ScenariosPage /></Permit>} />
         <Route path="/scenarios/:id" element={<Permit permission="scenarios.read"><ScenarioDetailPage /></Permit>} />
         <Route path="/ingestion" element={<Permit permission="ingestion.read"><IngestionProofPage /></Permit>} />

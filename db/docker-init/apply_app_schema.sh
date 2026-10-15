@@ -1,11 +1,11 @@
 #!/bin/sh
 # Apply the app schema to an empty database.
-# Order: schema.sql, migrations 001–008, AED impact formatting, tenant seed.
-# The sample workbook is not imported here. npm run demo:seed creates the
-# Al Dhabi scenarios, and 04 is a no-op until impact rows exist.
+# Order: schema.sql, migrations 001–008, clear the bootstrap catalog,
+# import the sample workbook, format AED impact summaries, then seed tenants.
+# npm run demo:seed then creates the Al Dhabi scenarios.
 #
 # Docker compose mounts this as /docker-entrypoint-initdb.d/10_apply_app_schema.sh
-# and the SQL tree at /ecc-db. A host or CI run can point ECC_SQL_ROOT at db/.
+# and the repo at /ecc-src. A host or CI run can point ECC_SQL_ROOT at db/.
 set -eu
 
 ROOT="${ECC_SQL_ROOT:-/ecc-db}"

@@ -52,6 +52,7 @@ export const PERMISSIONS = [
   "ingestion.read",
   "scenarios.read",
   "scenarios.act",
+  "intelligence.read",
   "policy.read",
   "policy.propose",
   "policy.approve",
@@ -169,6 +170,7 @@ const DWAN_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "policy.approve",
   ],
   // CxO: money + decisions + ops overview (decide actions). No findings/connectors/technical evidence.
+  // scenarios.read stays for Headline and Decisions. Intelligence GETs use intelligence.read, which CxO does not hold.
   cxo: [
     "command.headline",
     "command.loss",
@@ -223,6 +225,7 @@ const DWAN_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "ingestion.read",
     "scenarios.read",
     "scenarios.act",
+    "intelligence.read",
     "policy.read",
     "policy.propose",
     "register.read",
@@ -253,6 +256,7 @@ const DWAN_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "audit.read",
     "ingestion.read",
     "scenarios.read",
+    "intelligence.read",
     "policy.read",
     "register.read",
     "remediation.read",
@@ -273,6 +277,7 @@ const DWAN_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "findings.technical",
     "ingestion.read",
     "scenarios.read",
+    "intelligence.read",
     "register.read",
     "remediation.read",
     "remediation.act",
@@ -310,6 +315,7 @@ const DWAN_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "findings.read",
     "findings.technical",
     "scenarios.read",
+    "intelligence.read",
     "connectors.read",
   ],
   admin: ["admin.users", "admin.roles", "audit.read"],
@@ -456,7 +462,7 @@ export function requiredPermission(method: string, path: string): Permission | "
     return "ingestion.read";
   }
   if (url.startsWith("/api/ecc/scenarios") || url.startsWith("/api/ecc/portfolio")) {
-    return method === "GET" ? "scenarios.read" : "scenarios.act";
+    return method === "GET" ? "intelligence.read" : "scenarios.act";
   }
   if (url.startsWith("/api/ecc/actions")) return "remediation.act";
   if (
@@ -474,6 +480,39 @@ export function requiredPermission(method: string, path: string): Permission | "
   }
   if (url.startsWith("/api/ecc")) return "ops.overview";
   return null;
+}
+
+/**
+ * GETs that feed the Intelligence workspace only.
+ * Hotspots, trends, and appetite stay on their legacy permissions so Board
+ * and Program Office keep them. Scenarios and portfolio require intelligence.read.
+ * CxO is denied here even when it still holds scenarios.read, ops.overview,
+ * or policy.read for Headline, Operations, and appetite approval.
+ */
+export function isIntelligenceDataGet(method: string, path: string): boolean {
+  if (method !== "GET") return false;
+  const url = path.split("?")[0] ?? path;
+  if (url === "/api/ecc/appetite") return true;
+  return (
+    url.startsWith("/api/ecc/scenarios") ||
+    url.startsWith("/api/ecc/portfolio") ||
+    url.startsWith("/api/ecc/hotspots") ||
+    url.startsWith("/api/ecc/trends")
+  );
+}
+
+/** Role gate used by every /api/ecc preHandler. */
+export function isAccessDenied(role: string, method: string, path: string): boolean {
+  const permission = requiredPermission(method, path);
+  if (permission && permission !== "self" && !hasPermission(role, permission)) return true;
+  if (
+    canonicalRole(role) === "cxo" &&
+    isIntelligenceDataGet(method, path) &&
+    !hasPermission(role, "intelligence.read")
+  ) {
+    return true;
+  }
+  return false;
 }
 
 const FINANCIAL_KEY =

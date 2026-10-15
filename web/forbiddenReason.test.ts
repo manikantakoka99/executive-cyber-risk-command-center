@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { permissionsFor } from "../server/src/command/rbac.ts";
 import { forbiddenReason, roleLabel } from "./src/lib/format.ts";
+import { navForRole } from "./src/lib/nav.ts";
 
 describe("role display name in a 403", () => {
   it("renders CxO and every other role as a display name, never the raw id", () => {
@@ -22,5 +24,17 @@ describe("role display name in a 403", () => {
     }
     assert.match(forbiddenReason("cxo"), /CxO/);
     assert.doesNotMatch(forbiddenReason("cxo"), /\bcxo\b/);
+  });
+
+  it("gates the Intelligence nav item on intelligence.read", () => {
+    const cxo = navForRole("cxo", permissionsFor("cxo"));
+    assert.equal(
+      cxo.some((item) => item.to === "/intelligence"),
+      false,
+    );
+    const ciso = navForRole("ciso", permissionsFor("ciso"));
+    const intelligence = ciso.find((item) => item.to === "/intelligence");
+    assert.equal(intelligence?.perm, "intelligence.read");
+    assert.equal(permissionsFor("cxo").includes("intelligence.read"), false);
   });
 });

@@ -20,7 +20,7 @@ const ALL: NavItem[] = [
   { to: "/c/changed", label: "Changed", perm: "command.changed", hint: "Since last board" },
   { to: "/c/pack", label: "Pack", perm: "command.pack", hint: "Export brief" },
   { to: "/operations", label: "Operations", perm: "ops.overview", hint: "Live overview" },
-  { to: "/intelligence", label: "Intelligence", perm: "scenarios.read", hint: "Enterprise intel" },
+  { to: "/intelligence", label: "Intelligence", perm: "intelligence.read", hint: "Enterprise intel" },
   { to: "/scenarios", label: "Scenarios", perm: "scenarios.read", hint: "Correlated risk" },
   { to: "/findings", label: "Findings", perm: "findings.read", hint: "Open findings" },
   { to: "/risk-domains", label: "Risk domains", perm: "domains.read", hint: "Domain detail" },
