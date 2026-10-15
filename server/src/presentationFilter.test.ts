@@ -8,6 +8,7 @@ import {
   getExecutiveBriefing,
   getHotspots,
   getPortfolio,
+  getTrends,
   listMaterialChanges,
 } from "./services/intelligence.js";
 import { getOverview } from "./services/overview.js";
@@ -116,6 +117,8 @@ describe("intelligence and operations counts share one source", () => {
     assert.equal(hotspots.denominatorHighCritical, highCritical);
     const denomInCopy = briefing.sections.whatMatters.text.match(/denominator: (\d+)/);
     if (denomInCopy) assert.equal(Number(denomInCopy[1]), highCritical);
+    const trends = await getTrends(AL, "30d");
+    assert.equal(trends.scenarioVelocity.outsideToleranceNow, outsideInList);
 
     // Headline figures stay on the canonical domain model.
     assert.equal(portfolio.totals.enterpriseScore, Number(CANONICAL.headlineScore));

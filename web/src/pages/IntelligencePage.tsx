@@ -190,7 +190,7 @@ export function IntelligencePage() {
         <section className="panel">
           <h2>Top enterprise risks</h2>
           <ul>
-            {portfolio.topRisks?.slice(0, 8).map((r: any) => (
+            {portfolio.topRisks?.map((r: any) => (
               <li key={r.scenarioId}>
                 <Link className="text-link" to={`/scenarios/${r.scenarioId}`}>
                   {r.title}
