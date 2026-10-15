@@ -1,6 +1,7 @@
 /**
- * Role-capped primary navigation with duplicate merges:
- * Decision queue ↔ Decisions, Domain posture ↔ Risk domains, Closure ↔ Remediation.
+ * Quiet Command nav: one list per role, duplicates merged, hard caps.
+ * Decisions ← queue+decisions; Posture ← posture+risk-domains;
+ * Remediation & closure ← closure+remediation.
  */
 export type NavItem = {
   to: string;
@@ -10,14 +11,14 @@ export type NavItem = {
 };
 
 const ALL: NavItem[] = [
-  { to: "/c/headline", label: "Board headline", perm: "command.headline", hint: "Are we OK?" },
-  { to: "/c/posture", label: "Domain posture", perm: "command.posture", hint: "Weakest domains" },
-  { to: "/c/trust", label: "Trust panel", perm: "command.trust", hint: "Feed confidence" },
-  { to: "/c/queue", label: "Decision queue", perm: "command.queue", hint: "Approvals" },
+  { to: "/c/headline", label: "Headline", perm: "command.headline", hint: "Are we OK?" },
+  { to: "/c/posture", label: "Posture", perm: "command.posture", hint: "Weakest domains" },
+  { to: "/c/trust", label: "Trust", perm: "command.trust", hint: "Feed confidence" },
+  { to: "/c/queue", label: "Decisions", perm: "command.queue", hint: "Approvals" },
   { to: "/c/whatif", label: "What-if", perm: "command.whatif", hint: "Funding scenarios" },
-  { to: "/c/closure", label: "Closure", perm: "command.closure", hint: "Verify fixes" },
-  { to: "/c/changed", label: "What changed", perm: "command.changed", hint: "Since last board" },
-  { to: "/c/pack", label: "Board pack", perm: "command.pack", hint: "Export brief" },
+  { to: "/c/closure", label: "Remediation & closure", perm: "command.closure", hint: "Verify fixes" },
+  { to: "/c/changed", label: "Changed", perm: "command.changed", hint: "Since last board" },
+  { to: "/c/pack", label: "Pack", perm: "command.pack", hint: "Export brief" },
   { to: "/operations", label: "Operations", perm: "ops.overview", hint: "Live overview" },
   { to: "/intelligence", label: "Intelligence", perm: "scenarios.read", hint: "Enterprise intel" },
   { to: "/scenarios", label: "Risk scenarios", perm: "scenarios.read", hint: "Correlated risk" },
@@ -32,22 +33,20 @@ const ALL: NavItem[] = [
   { to: "/admin", label: "Users and roles", perm: "admin.users", hint: "RBAC admin" },
 ];
 
-/** Paths absorbed into a command view (not shown separately). */
-const MERGED_AWAY = new Set([
-  "/decisions", // → /c/queue
-  "/risk-domains", // → /c/posture
-  "/remediation", // → /c/closure
-]);
+const MERGED_AWAY = new Set(["/decisions", "/risk-domains", "/remediation"]);
 
-/** Preferred order + hard caps per schema role. */
-const ROLE_NAV: Record<string, { max: number; prefer: string[] }> = {
+/** Pep + Quiet Command: Board 4, CxO 5 (money/decisions), CISO ≤10. */
+const ROLE_NAV: Record<string, { max: number; prefer: string[]; strict?: boolean }> = {
   board_member: {
     max: 4,
     prefer: ["/c/headline", "/c/posture", "/c/changed", "/c/pack"],
+    strict: true,
   },
   cxo: {
-    max: 6,
-    prefer: ["/c/queue", "/c/whatif", "/c/headline", "/c/closure", "/c/pack", "/c/changed"],
+    max: 5,
+    // Money + decisions only — strict prefer list, no filler items.
+    prefer: ["/c/headline", "/c/queue", "/c/whatif", "/c/pack", "/c/changed"],
+    strict: true,
   },
   ciso: {
     max: 10,
@@ -140,6 +139,7 @@ export function navForRole(role: string, permissions: string[]): NavItem[] {
     }
     if (picked.length >= plan.max) return picked;
   }
+  if (plan.strict) return picked;
   for (const item of byPath.values()) {
     if (picked.length >= plan.max) break;
     picked.push(item);

@@ -167,23 +167,20 @@ const DWAN_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "policy.read",
     "policy.approve",
   ],
-  // CxO: business decisions + loss; no findings / technical evidence.
+  // CxO: money + decisions only (Quiet Command / Pep) — no findings, posture depth, or connectors.
   cxo: [
     "command.headline",
-    "command.posture",
     "command.loss",
     "command.queue",
     "command.queue.act",
     "command.whatif",
     "command.whatif.save",
-    "command.closure",
     "command.closure.register",
     "command.changed",
     "command.pack",
     "command.pack.review",
     "command.pack.approve",
     "ops.overview",
-    "domains.read",
     "decisions.read",
     "decisions.act",
     "compliance.read",
@@ -195,7 +192,6 @@ const DWAN_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "policy.read",
     "policy.approve",
     "register.read",
-    "remediation.read",
   ],
   ciso: [
     "command.headline",
@@ -363,7 +359,8 @@ export const CAPABILITY: Record<RoleCode, string> = {
 
 export const LANDING: Record<RoleCode, ViewId> = {
   board_member: "headline",
-  cxo: "queue",
+  // Quiet Command: CxO lands on Headline (money + appetite), then Decisions.
+  cxo: "headline",
   ciso: "posture",
   risk_lead: "closure",
   domain_analyst: "trust",

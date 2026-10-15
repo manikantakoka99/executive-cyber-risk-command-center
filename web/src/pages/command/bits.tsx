@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import type { Band } from "../../data/commandTypes";
 
 export function Chip({
@@ -28,16 +27,11 @@ export function Answer({
   lede: string;
 }) {
   return (
-    <motion.header
-      className="answer"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-    >
+    <header className="answer">
       <p className="q">{question}</p>
       <h1>{title}</h1>
       <p>{lede}</p>
-    </motion.header>
+    </header>
   );
 }
 
@@ -186,14 +180,41 @@ export function RiskGauge({
           strokeDasharray={c}
           strokeDashoffset={offset}
           transform="rotate(-90 66 66)"
-          style={{ filter: `drop-shadow(0 0 10px ${color})`, transition: "stroke-dashoffset 0.8s var(--ease)" }}
         />
       </svg>
       <div className="gauge-center">
-        <b>
-          <CountUp value={score} decimals={1} />
-        </b>
+        <b className="mono">{score.toFixed(1)}</b>
         <span>{label}</span>
+      </div>
+    </div>
+  );
+}
+
+/** Horizontal 0–100 score with appetite tick (replaces tiny ring on Headline). */
+export function AppetiteScoreBar({
+  score,
+  appetite,
+  band,
+}: {
+  score: number;
+  appetite: number;
+  band: Band;
+}) {
+  const tone = bandTone(band);
+  return (
+    <div
+      className="appetite-score-bar"
+      role="img"
+      aria-label={`Score ${score.toFixed(1)} of 100, appetite ${appetite}, ${band}`}
+    >
+      <div className="asb-track">
+        <i className={`asb-fill tone-${tone}`} style={{ width: `${Math.min(100, score)}%` }} />
+        <b className="asb-tick" style={{ left: `${Math.min(100, appetite)}%` }} title={`Appetite ${appetite}`} />
+      </div>
+      <div className="asb-meta">
+        <span>0</span>
+        <span className="asb-appetite-label">Appetite {appetite}</span>
+        <span>100</span>
       </div>
     </div>
   );
@@ -214,23 +235,18 @@ export function Heatmap({
 }) {
   return (
     <div className="heatmap" role="list">
-      {rows.map((row, index) => (
-        <motion.button
+      {rows.map((row) => (
+        <button
           key={row.id}
           type="button"
           role="listitem"
           className={`heat-cell b-${bandTone(row.band)}`}
           onClick={() => onOpen(row.id)}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.04, duration: 0.28 }}
         >
           <strong>{row.name}</strong>
-          <span className="score">
-            <CountUp value={row.score} decimals={1} />
-          </span>
+          <span className="score mono">{row.score.toFixed(1)}</span>
           <Chip tone={bandTone(row.band)}>{row.band}</Chip>
-        </motion.button>
+        </button>
       ))}
     </div>
   );
@@ -262,22 +278,19 @@ export function KpiCard({
   note?: string;
 }) {
   return (
-    <motion.article
-      className={`card kpi${tone ? ` tone-${tone}` : ""}`}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-    >
+    <article className={`card kpi${tone ? ` tone-${tone}` : ""}`}>
       <p className="lbl">{label}</p>
       <div className="kpi-main">
-        <p className="big">
-          <CountUp value={value} decimals={decimals} prefix={prefix} suffix={suffix} />
+        <p className="big mono">
+          {prefix}
+          {value.toFixed(decimals)}
+          {suffix}
         </p>
         {typeof delta === "number" && <Delta value={delta} invert={invertDelta} />}
       </div>
       {spark && spark.length > 1 && <Spark values={spark} tone={sparkTone} label={`${label} trend`} />}
       {note && <p className="note">{note}</p>}
-    </motion.article>
+    </article>
   );
 }
 
@@ -285,7 +298,6 @@ export function ScoreBar({
   score,
   appetite,
   band,
-  hatch,
 }: {
   score: number;
   appetite: number;
@@ -294,8 +306,8 @@ export function ScoreBar({
 }) {
   return (
     <div className="sbar" title={`Score ${score.toFixed(1)}, appetite limit ${appetite}`}>
-      <i className={`k-${bandTone(band)}${hatch ? " hatch" : ""}`} style={{ width: `${Math.min(100, score)}%` }} />
-      <b style={{ left: `${Math.min(100, appetite)}%` }} />
+      <i className={`k-${bandTone(band)}`} style={{ width: `${Math.min(100, score)}%` }} />
+      <b style={{ left: `${Math.min(100, appetite)}%` }} aria-label={`Appetite ${appetite}`} />
     </div>
   );
 }
@@ -305,12 +317,12 @@ export function RangeBar({ ale, p90, max }: { ale: number; p90: number; max: num
   const hi = (p90 / max) * 100;
   return (
     <div className="range" aria-hidden>
+      <span className="t above" style={{ left: `${mark}%` }}>
+        {ale.toFixed(1)}
+      </span>
       <div className="rail" />
       <div className="span" style={{ left: 0, width: `${hi}%` }} />
       <div className="mk" style={{ left: `${mark}%` }} />
-      <span className="t" style={{ left: `${mark}%` }}>
-        {ale.toFixed(1)}
-      </span>
     </div>
   );
 }

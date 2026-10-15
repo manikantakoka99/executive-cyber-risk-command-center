@@ -30,17 +30,18 @@
   --accent-ink: #041016;
   --cyan-bg: rgba(61, 158, 201, 0.12);
   --glow: transparent; /* no glow */
-  --critical: #e85d66;
-  --crit: #e85d66;
-  --critical-bg: rgba(232, 93, 102, 0.14);
-  --high: #e0904a;
-  --high-bg: rgba(224, 144, 74, 0.14);
-  --medium: #d4b84a;
-  --med: #d4b84a;
-  --medium-bg: rgba(212, 184, 74, 0.14);
-  --good: #3faf72;
-  --low: #3faf72;
-  --good-bg: rgba(63, 175, 114, 0.14);
+  /* Severity — data only (Quiet Command); fills at ~16% opacity */
+  --critical: #e5484d;
+  --crit: #e5484d;
+  --critical-bg: rgba(229, 72, 77, 0.16);
+  --high: #f2763a;
+  --high-bg: rgba(242, 118, 58, 0.16);
+  --medium: #e2b53e;
+  --med: #e2b53e;
+  --medium-bg: rgba(226, 181, 62, 0.16);
+  --good: #3fb37f;
+  --low: #3fb37f;
+  --good-bg: rgba(63, 179, 127, 0.16);
   --font: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-head: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
@@ -48,11 +49,11 @@
   --body: var(--font);
   --mono: var(--font-mono);
   --font-size-min: 12px;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-pill: 999px;
-  --shadow: 0 12px 32px -20px rgba(0, 0, 0, 0.55);
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-pill: 6px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
   --pack-bg: #f8fafc;
   --pack-fg: #0f172a;
   --sidebar-w: 264px;

@@ -1,17 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import type {
   ChangedView,
   ClosureView,
@@ -26,12 +13,11 @@ import type {
 } from "../../data/commandTypes";
 import {
   Answer,
+  AppetiteScoreBar,
   Chip,
-  CountUp,
   Heatmap,
   KpiCard,
   RangeBar,
-  RiskGauge,
   ScoreBar,
   Spark,
   bandTone,
@@ -39,13 +25,7 @@ import {
   fmt2,
 } from "./bits";
 
-const chartTooltip = {
-  background: "var(--surface-solid)",
-  border: "1px solid var(--line)",
-  borderRadius: 12,
-  color: "var(--fg)",
-  boxShadow: "var(--shadow)",
-};
+const ENTERPRISE_APPETITE = 50;
 
 export function HeadlineView({
   data,
@@ -61,10 +41,48 @@ export function HeadlineView({
       ? data.trend[data.trend.length - 1]!.score - data.trend[0]!.score
       : 0;
   const sparkValues = data.trend.map((row) => row.score);
+  const appetiteState =
+    data.arithmetic > ENTERPRISE_APPETITE ? "Outside appetite" : "Within appetite";
 
   return (
     <div className="view-board">
       <Answer question={data.question} title={data.title} lede={data.lede} />
+
+      <article className="card hero-score">
+        <div className="hero-score-main">
+          <p className="lbl">Enterprise score</p>
+          <div className="hero-score-line">
+            <span className="hero-kpi mono">{fmt1(data.arithmetic)}</span>
+            <span className={`word tone-${bandTone(data.band)}`}>{data.band}</span>
+            <Chip tone={data.arithmetic > ENTERPRISE_APPETITE ? "crit" : "low"}>{appetiteState}</Chip>
+            <span className="hero-spark">
+              <Spark
+                values={sparkValues}
+                tone={trendDelta > 0.2 ? "up" : trendDelta < -0.2 ? "down" : "flat"}
+                label="Six-month score trend"
+              />
+              <span className={`delta tone-${trendDelta === 0 ? "flat" : trendDelta < 0 ? "good" : "bad"}`}>
+                {trendDelta > 0 ? "+" : ""}
+                {trendDelta.toFixed(1)}
+              </span>
+            </span>
+          </div>
+          <AppetiteScoreBar
+            score={data.arithmetic}
+            appetite={ENTERPRISE_APPETITE}
+            band={data.band}
+          />
+          {data.floorNote && (
+            <div className="why">
+              <b>Floor rule applied.</b> {data.floorNote.replace(/^Floor rule applied\.\s*/, "")}
+            </div>
+          )}
+          <p className="note">
+            Policy {data.policyVersion}
+            {data.confidencePct != null ? ` · Confidence ${data.confidencePct}%` : ""}
+          </p>
+        </div>
+      </article>
 
       <div className="kpi-row">
         <KpiCard
@@ -84,7 +102,7 @@ export function HeadlineView({
           tone={data.outsideAppetite > 0 ? "crit" : "low"}
           note="Domains above board limit"
         />
-        {data.loss && (
+        {data.loss ? (
           <KpiCard
             label="Expected annual loss"
             value={data.loss.ale}
@@ -93,6 +111,13 @@ export function HeadlineView({
             suffix="M"
             tone="high"
             note={`P90 bad year AED ${fmt1(data.loss.p90)}M`}
+          />
+        ) : (
+          <KpiCard
+            label="Open decisions"
+            value={data.acceptanceCount ?? 0}
+            tone="info"
+            note="Accepted risks on register"
           />
         )}
         <KpiCard
@@ -106,115 +131,29 @@ export function HeadlineView({
         />
       </div>
 
-      <div className="cc-hero">
-        <article className="card hero-story">
-          <p className="lbl">Enterprise cyber risk</p>
-          <div className="band-big">
-            <RiskGauge score={data.arithmetic} band={data.band} label={data.band} />
-            <div>
-              <span className={`word tone-${bandTone(data.band)}`}>{data.band}</span>
-              <p className="note">Weighted, coverage-adjusted score with floor rule.</p>
-              <div className="spread" aria-label="Spread of domains by band">
-                <Chip tone="crit">{`${data.counts.Critical} Critical`}</Chip>
-                <Chip tone="high">{`${data.counts.High} High`}</Chip>
-                <Chip tone="med">{`${data.counts.Medium} Medium`}</Chip>
-                <Chip tone="low">{`${data.counts.Low} Low`}</Chip>
-              </div>
-            </div>
+      {data.loss && (
+        <article className="card loss-card">
+          <p className="lbl">Annualised loss exposure (modelled)</p>
+          <div className="loss-figure mono" aria-label={`AED ${fmt1(data.loss.ale)} million expected per year`}>
+            <span className="loss-currency">AED</span>
+            <span className="loss-number">{fmt1(data.loss.ale)}</span>
+            <span className="loss-unit">M</span>
+            <span className="loss-aside">expected per year</span>
           </div>
-          {data.floorNote && (
-            <div className="why">
-              <b>Floor rule applied.</b> {data.floorNote.replace(/^Floor rule applied\.\s*/, "")}
-            </div>
-          )}
+          <RangeBar ale={data.loss.ale} p90={data.loss.p90} max={data.loss.p95} />
+          <p className="note">{data.loss.note}</p>
           <div className="rule" />
-          <dl className="kv">
-            {data.confidencePct != null && (
-              <>
-                <dt>Confidence</dt>
-                <dd>
-                  {data.confidencePct}% · {data.confidenceLabel}
-                </dd>
-              </>
-            )}
-            <dt>Policy version</dt>
-            <dd>{data.policyVersion}</dd>
-            <dt>Domains outside board appetite</dt>
-            <dd>
-              {data.outsideAppetite} of {data.domainCount}
-            </dd>
-            {data.expiringAcceptances != null && (
-              <>
-                <dt>Accepted risks expiring in 30 days</dt>
-                <dd>
-                  {data.expiringAcceptances} of {data.acceptanceCount}
-                </dd>
-              </>
-            )}
-          </dl>
+          <p className="lbl">Drivers</p>
+          <ul className="drivers">
+            {data.loss.drivers.map((driver) => (
+              <li key={driver.name}>
+                <span>{driver.name}</span>
+                <span className="mono">{fmt2(driver.ale)}M</span>
+              </li>
+            ))}
+          </ul>
         </article>
-        {data.loss && (
-          <article className="card">
-            <p className="lbl">Annualised loss exposure (modelled)</p>
-            <div className="big loss-figure">
-              AED <CountUp value={data.loss.ale} decimals={1} />M <span>expected per year</span>
-            </div>
-            <RangeBar ale={data.loss.ale} p90={data.loss.p90} max={data.loss.p95} />
-            <p className="note">{data.loss.note}</p>
-            <div className="rule" />
-            <p className="lbl">Drivers</p>
-            <ul className="drivers">
-              {data.loss.drivers.map((driver) => (
-                <li key={driver.name}>
-                  <span>{driver.name}</span>
-                  <span className="mono">{fmt2(driver.ale)}M</span>
-                </li>
-              ))}
-            </ul>
-          </article>
-        )}
-      </div>
-
-      <article className="card chart-card">
-        <h3>Six-month arithmetic score</h3>
-        <div className="chart-box">
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={data.trend} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="var(--line)" vertical={false} />
-              <XAxis dataKey="month" stroke="var(--muted)" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis
-                stroke="var(--muted)"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                width={32}
-                domain={["dataMin - 2", "dataMax + 2"]}
-              />
-              <Tooltip
-                contentStyle={chartTooltip}
-                formatter={(value) => [
-                  typeof value === "number" ? value.toFixed(1) : String(value ?? ""),
-                  "Score",
-                ]}
-              />
-              <Area
-                type="monotone"
-                dataKey="score"
-                stroke="var(--accent)"
-                fill="url(#scoreFill)"
-                strokeWidth={2.4}
-                activeDot={{ r: 5, fill: "var(--accent)", stroke: "var(--bg)", strokeWidth: 2 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </article>
+      )}
 
       <section className="card">
         <h3>Where to look first</h3>
@@ -235,6 +174,13 @@ export function HeadlineView({
   );
 }
 
+function complianceTone(pct: number): "crit" | "high" | "med" | "low" {
+  if (pct < 50) return "crit";
+  if (pct < 70) return "high";
+  if (pct < 85) return "med";
+  return "low";
+}
+
 function ComplianceCard({
   data,
   compliance,
@@ -243,59 +189,26 @@ function ComplianceCard({
   compliance: CommandWorkspace["complianceLive"];
 }) {
   const frameworks = compliance?.frameworks ?? [];
-  const donut = frameworks
-    .filter((row) => row.coveragePct != null)
-    .map((row, index) => ({
-      name: row.name,
-      value: row.coveragePct ?? 0,
-      fill: ["var(--accent)", "var(--accent-2)", "var(--low)", "var(--med)", "var(--high)"][index % 5],
-    }));
-  const avg = compliance?.posturePct ?? (donut.length ? donut.reduce((s, r) => s + r.value, 0) / donut.length : 0);
 
   return (
     <section className="card">
       <h3>Compliance summary</h3>
       {frameworks.length > 0 ? (
-        <div className="compliance-grid">
-          <div className="donut-wrap" aria-hidden={donut.length === 0}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={donut.length ? donut : [{ name: "n/a", value: 1, fill: "var(--surface-2)" }]}
-                  dataKey="value"
-                  innerRadius={48}
-                  outerRadius={68}
-                  paddingAngle={3}
-                  stroke="none"
-                >
-                  {(donut.length ? donut : [{ fill: "var(--surface-2)" }]).map((entry, index) => (
-                    <Cell key={index} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={chartTooltip} formatter={(v) => [`${Number(v).toFixed(0)}%`, "Coverage"]} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="donut-center">
-              <b>
-                <CountUp value={avg} decimals={0} />%
-              </b>
-              <span>avg coverage</span>
-            </div>
-          </div>
-          <ul className="frameworks">
-            {frameworks.map((row) => (
+        <ul className="frameworks">
+          {frameworks.map((row) => {
+            const pct = row.coveragePct ?? 0;
+            const tone = complianceTone(pct);
+            return (
               <li key={row.name}>
                 <span>{row.name}</span>
                 <span className="bar">
-                  <i style={{ width: `${Math.min(100, row.coveragePct ?? 0)}%` }} />
+                  <i className={`tone-${tone}`} style={{ width: `${Math.min(100, pct)}%` }} />
                 </span>
-                <span className="mono">
-                  {row.coveragePct == null ? "—" : `${row.coveragePct.toFixed(0)}%`}
-                </span>
+                <span className="mono">{row.coveragePct == null ? "—" : `${pct.toFixed(0)}%`}</span>
               </li>
-            ))}
-          </ul>
-        </div>
+            );
+          })}
+        </ul>
       ) : data.complianceDomain ? (
         <p>
           Framework rollup is not connected. Continuous Compliance is {data.complianceDomain.band.toLowerCase()} at{" "}
@@ -318,19 +231,6 @@ export function PostureView({
   return (
     <div className="view-ciso">
       <Answer question={data.question} title={data.title} lede={data.lede} />
-      <section className="card">
-        <h3>Domain posture heatmap</h3>
-        <Heatmap
-          rows={data.rows.map((row) => ({
-            id: row.id,
-            name: row.name,
-            score: row.adjusted,
-            band: row.band,
-            appetiteState: row.appetiteState,
-          }))}
-          onOpen={onOpen}
-        />
-      </section>
       <div className="tw">
         <table>
           <thead>
@@ -365,12 +265,7 @@ export function PostureView({
                 <td className="muted">{row.csf}</td>
                 <td>
                   <div className="score-cell">
-                    <ScoreBar
-                      score={row.adjusted}
-                      appetite={row.appetite}
-                      band={row.band}
-                      hatch={row.lowConfidence}
-                    />
+                    <ScoreBar score={row.adjusted} appetite={row.appetite} band={row.band} />
                     <b className="mono">{fmt1(row.adjusted)}</b>
                   </div>
                   <div className="chip-gap">
@@ -387,7 +282,7 @@ export function PostureView({
                 )}
                 <td>
                   <Chip tone={row.appetiteTone}>{row.appetiteState}</Chip>
-                  <div className="note mono">limit {row.appetite}</div>
+                  <div className="note">limit {row.appetite}</div>
                 </td>
                 <td>
                   <Spark values={row.trend} tone={row.trendDirection} label={`${row.name} six month trend`} />
@@ -414,13 +309,7 @@ export function PostureView({
           <i className="sw k-low" />
           Low under 35
         </span>
-        {data.technical && (
-          <span>
-            <i className="sw hatch-key" />
-            Hatched: confidence under 80%
-          </span>
-        )}
-        <span>Trend colour: red up, green down, grey flat</span>
+        <span>Appetite tick is the board limit · Trend: red up, green down</span>
       </div>
     </div>
   );
@@ -540,16 +429,10 @@ export function QueueView({
           <p className="note">No open decisions for this persona. Switch role or reopen a deferred item from Closure.</p>
         </div>
       )}
-      {data.items.map((item, index) => {
+      {data.items.map((item) => {
         const done = item.state !== "open";
         return (
-          <motion.article
-            key={item.id}
-            className={`item${done ? " done" : ""}`}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.04, duration: 0.28 }}
-          >
+          <article key={item.id} className={`item${done ? " done" : ""}`}>
             <div>
               <p className="lbl">{item.domainName}</p>
               <h3>{item.title}</h3>
@@ -582,9 +465,9 @@ export function QueueView({
                 <AcceptForm onCancel={() => onAcceptFor(null)} onSubmit={(body) => onAccept(item.id, body)} />
               )}
             </div>
-            <div className="acts">
+            <div className="acts btn-group">
               {done ? (
-                <button className="btn sm" type="button" disabled={!data.canAct} onClick={() => onReopen(item.id)}>
+                <button className="btn outline sm" type="button" disabled={!data.canAct} onClick={() => onReopen(item.id)}>
                   Reopen
                 </button>
               ) : (
@@ -598,23 +481,28 @@ export function QueueView({
                     Approve
                   </button>
                   <button
-                    className="btn primary sm"
+                    className="btn outline sm"
                     type="button"
                     disabled={!(data.canAccept ?? data.canAct)}
                     onClick={() => onAcceptFor(item.id)}
                   >
                     Accept risk
                   </button>
-                  <button className="btn sm" type="button" disabled={!data.canAct} onClick={() => onDefer(item.id)}>
+                  <button
+                    className="btn outline sm"
+                    type="button"
+                    disabled={!data.canAct}
+                    onClick={() => onDefer(item.id)}
+                  >
                     Defer
                   </button>
                 </>
               )}
-              <button className="btn sm" type="button" onClick={() => onEvidence(item.domainId)}>
+              <button className="btn ghost sm" type="button" onClick={() => onEvidence(item.domainId)}>
                 Evidence
               </button>
             </div>
-          </motion.article>
+          </article>
         );
       })}
       {data.log.length > 0 && (
@@ -825,7 +713,7 @@ export function WhatIfView({
             </div>
           )}
           {data.floorNote && <p className="note">{data.floorNote}</p>}
-          <div className="acts">
+          <div className="acts whatif-save">
             <button className="btn primary sm" type="button" disabled={!data.canSave} onClick={onSave}>
               Save scenario
             </button>
@@ -1005,30 +893,29 @@ export function PackView({
         <button className="btn primary sm" type="button" onClick={onPrint}>
           Export to PDF / print
         </button>
-        <button className="btn sm" type="button" disabled={!data.canReview} onClick={onReview}>
+        <button className="btn outline sm" type="button" disabled={!data.canReview} onClick={onReview}>
           {data.reviewedBy ? `Reviewed · ${data.reviewedBy}` : "Mark reviewed"}
         </button>
       </div>
-      <article className="pack">
-        <p className="meta">{data.meta}</p>
-        <h2>{data.heading}</h2>
-        {data.blocks.map((block) => (
-          <section key={block.heading}>
-            <h4>{block.heading}</h4>
-            {block.text && <p>{block.text}</p>}
-            {block.items && block.items.length > 0 && (
-              <ul>
-                {block.items.map((item) => (
-                  <li key={`${block.heading}-${item.text}`}>
-                    {item.text}
-                    <span className="src">[{item.source}]</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        ))}
-      </article>
+      <div className="pack-well">
+        <article className="pack">
+          <p className="meta">{data.meta}</p>
+          <h2>{data.heading}</h2>
+          {data.blocks.map((block) => (
+            <section key={block.heading}>
+              <h4>{block.heading}</h4>
+              {block.text && <p>{block.text}</p>}
+              {block.items && block.items.length > 0 && (
+                <ul>
+                  {block.items.map((item) => (
+                    <li key={`${block.heading}-${item.text}`}>{item.text}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          ))}
+        </article>
+      </div>
     </div>
   );
 }

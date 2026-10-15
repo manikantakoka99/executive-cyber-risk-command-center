@@ -162,7 +162,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 </option>
               ))}
             </select>
-            {me && <span className={`role-chip tone-${roleTone}`}>{me.title || roleLabel(me.role)}</span>}
+            {me && <span className="role-chip">{me.title || roleLabel(me.role)}</span>}
             <button className="icon-btn" type="button" onClick={toggle} aria-label="Toggle theme">
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>

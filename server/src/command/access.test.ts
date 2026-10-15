@@ -51,7 +51,7 @@ describe("command RBAC", () => {
 
   it("gives each executive role a distinct home and view set", () => {
     assert.deepEqual(viewsFor("board_member"), ["headline", "posture", "changed", "pack"]);
-    assert.equal(homeFor("cxo"), "/c/queue");
+    assert.equal(homeFor("cxo"), "/c/headline");
     assert.equal(homeFor("ciso"), "/c/posture");
     assert.equal(homeFor("domain_analyst"), "/c/trust");
     assert.equal(homeFor("admin"), "/admin");

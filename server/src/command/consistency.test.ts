@@ -13,7 +13,7 @@ import {
   weightedCoverage,
 } from "./model.js";
 import { presentEvidence, presentWorkspace } from "./present.js";
-import { hasPermission, redactFinancial } from "./rbac.js";
+import { hasPermission, homeFor, redactFinancial } from "./rbac.js";
 import { initialState } from "./store.js";
 
 const FINANCIAL_ROLES = ["ciso", "cxo", "board_member", "risk_lead", "auditor"] as const;
@@ -116,6 +116,12 @@ describe("cross-screen canonical consistency (Vinga PDF/HTML)", () => {
       assert.equal(evidence?.loss ?? null, null, role);
       assert.equal(payloadHasAed(evidence), false, `${role} evidence must carry no AED`);
     }
+  });
+
+  it("persona homes match Quiet Command: CISO posture, CxO/Board headline", () => {
+    assert.equal(homeFor("ciso"), "/c/posture");
+    assert.equal(homeFor("cxo"), "/c/headline");
+    assert.equal(homeFor("board_member"), "/c/headline");
   });
 
   it("spot-checks domain adjusted scores at display precision", () => {

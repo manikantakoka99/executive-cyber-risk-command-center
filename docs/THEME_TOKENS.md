@@ -4,15 +4,15 @@ All color values live in `web/src/design.css` under `:root` / `[data-theme="dark
 
 Components must use CSS variables (`var(--bg)`, `var(--accent)`, `var(--crit)`, …) — never hard-coded hex in TSX/CSS rules outside `design.css`.
 
-## Hold
+## Hold (still in force)
 
-Do **not** apply the rejected palette:
+Do **not** apply the rejected palette from the Pixel design direction:
 
 - `#0B0F17` (bg)
-- `#111827` (card)
+- `#111827` (card / surface)
 - `#4FA3FF` (accent)
 
-A new palette from design can replace the token block in `design.css` without touching layout or RBAC code.
+Quiet Command layout, type, severity, and nav are implemented; surface/accent hexes stay provisional until design ships a replacement block for `design.css`.
 
 ## Active (non-color) direction
 
