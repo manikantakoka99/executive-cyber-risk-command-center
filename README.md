@@ -145,8 +145,11 @@ Risk acceptance is allowed for **CxO** and **Risk Lead** (`role_capabilities.acc
 
 ## Tests
 
+The clean-install check is required. It destroys the compose volume, boots an empty database, seeds the demo, starts the API, and exits non-zero unless the CISO headline is 50.8, there are 4 open decisions, and `activeScenarios` equals both scenario lists. GitHub Actions runs it on every pull request (`.github/workflows/clean-install.yml`).
+
 ```bash
+./scripts/verify-clean-install.sh
 cd server && npm test
-# Empty-database init (db must already be up):
+# Schema-only probe against an already running Postgres:
 ./scripts/verify-empty-db-init.sh
 ```
