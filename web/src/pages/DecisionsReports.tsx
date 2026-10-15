@@ -30,7 +30,7 @@ export function DecisionsPage() {
           <div className="eyebrow">Risk → Impact → Decision → Action</div>
           <h1 className="page-title">Executive Decisions</h1>
           <p className="page-sub">
-            {awaiting.length} awaiting CXO · {decisions.length} total for this organization.
+            {awaiting.length} awaiting CxO · {decisions.length} total for this organization.
           </p>
         </div>
       </div>
@@ -366,7 +366,7 @@ export function ReportsPage() {
           title={
             canGenerate
               ? "Generate from current overview aggregates"
-              : "Requires CXO, Program Office, or Board role"
+              : "Requires CxO, Program Office, or Board role"
           }
         >
           {busy ? "Generating…" : "Generate Board Briefing"}

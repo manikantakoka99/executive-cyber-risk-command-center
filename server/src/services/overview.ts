@@ -1,6 +1,5 @@
+import { overlayOverview } from "../command/demoOverlay.js";
 import { query } from "../db.js";
-import { ENTERPRISE_LOSS } from "../command/model.js";
-import { DEMO_ORG_ID } from "../command/personas.js";
 
 const OPEN_FINDING_STATUSES = ["open", "acknowledged", "in_remediation"];
 
@@ -110,7 +109,7 @@ export async function getOverview(orgId: string) {
     [orgId],
   );
 
-  // MUST: queue matches Decisions Awaiting CXO KPI (awaiting_decision only).
+  // MUST: queue matches Decisions Awaiting CxO KPI (awaiting_decision only).
   const pending = await query<{
     decision_id: string;
     finding_id: string | null;
@@ -280,7 +279,7 @@ export async function getOverview(orgId: string) {
       ? new Date()
       : new Date(Math.max(...asOfCandidates.map((d) => d.getTime())));
 
-  return {
+  const payload = {
     org: { orgId: org.org_id, name: org.name, industry: org.industry },
     asOf: asOf.toISOString(),
     enterpriseRisk: latest
@@ -296,16 +295,7 @@ export async function getOverview(orgId: string) {
               : null,
         }
       : null,
-    // Al Dhabi demo: one source of truth with command Headline (AED millions → absolute).
-    businessImpactExposureAed:
-      orgId === DEMO_ORG_ID
-        ? Math.round(ENTERPRISE_LOSS.ale * 1_000_000)
-        : Number(exposure.rows[0]?.total ?? 0),
-    annualLossAedM: orgId === DEMO_ORG_ID ? { ...ENTERPRISE_LOSS } : null,
-    p90BadYearAed:
-      orgId === DEMO_ORG_ID ? Math.round(ENTERPRISE_LOSS.p90 * 1_000_000) : null,
-    p95BadYearAed:
-      orgId === DEMO_ORG_ID ? Math.round(ENTERPRISE_LOSS.p95 * 1_000_000) : null,
+    businessImpactExposureAed: Number(exposure.rows[0]?.total ?? 0),
     compliancePosturePct:
       compliancePosturePct == null
         ? null
@@ -412,4 +402,5 @@ export async function getOverview(orgId: string) {
       decisionRequired: true,
     })),
   };
+  return overlayOverview(orgId, payload);
 }

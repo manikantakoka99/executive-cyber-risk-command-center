@@ -1,8 +1,22 @@
+/** One money formatter for the whole app: AED xxx.xK below 1M, AED x.xM above. */
 export function formatAed(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
-  if (n >= 1_000_000) return `AED ${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `AED ${(n / 1_000).toFixed(1)}K`;
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) {
+    const m = n / 1_000_000;
+    return `AED ${m.toFixed(1)}M`;
+  }
+  if (abs >= 1_000) {
+    const k = n / 1_000;
+    return `AED ${k.toFixed(1)}K`;
+  }
   return `AED ${n.toLocaleString("en-AE", { maximumFractionDigits: 0 })}`;
+}
+
+/** Format AED millions figure already stored as millions (command loss model). */
+export function formatAedMillions(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  return `AED ${n.toFixed(1)}M`;
 }
 
 export function formatPct(n: number | null | undefined): string {
@@ -106,6 +120,11 @@ export function roleLabel(role: string): string {
   }
 }
 
+/** Normalize stray casings like cXO / CXO → CxO in free text. */
+export function normalizeCxO(text: string): string {
+  return text.replace(/\bcXO\b/g, "CxO").replace(/\bCXO\b/g, "CxO");
+}
+
 export function trendDirection(delta: number | null | undefined): string {
   if (delta == null) return "Trend unavailable";
   if (delta > 0) return `Risk rising (+${delta} pts)`;
@@ -113,3 +132,10 @@ export function trendDirection(delta: number | null | undefined): string {
   return "Risk unchanged vs prior snapshot";
 }
 
+/** Score deltas: lower is improved. */
+export function scoreDeltaPhrase(delta: number): string {
+  const mag = Math.abs(delta).toFixed(1);
+  if (delta <= -0.05) return `improved by ${mag}`;
+  if (delta >= 0.05) return `worsened by ${mag}`;
+  return "unchanged";
+}

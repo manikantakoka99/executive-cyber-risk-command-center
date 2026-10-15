@@ -136,12 +136,14 @@ describe("decision workflow + audit", () => {
 });
 
 describe("overview KPI integrity", () => {
-  it("Al Dhabi empty awaiting is valid and list matches KPI", async () => {
+  it("Al Dhabi Operations KPIs align to canonical Headline (50.8 / 2.9M / 4 decisions)", async () => {
+    const { CANONICAL } = await import("./command/canonical.js");
+    const { canonicalLossAbsolute } = await import("./command/demoOverlay.js");
     const o = await getOverview(AL);
     assert.ok(o);
-    assert.equal(o.decisionsAwaitingCxo, 0);
-    assert.equal(o.pendingDecisions.length, 0);
-    assert.ok(o.enterpriseRisk?.score != null);
-    assert.ok(o.businessImpactExposureAed > 0);
+    assert.equal(o.enterpriseRisk?.score, Number(CANONICAL.headlineScore));
+    assert.equal(o.enterpriseRisk?.severity, CANONICAL.headlineBand.toLowerCase());
+    assert.equal(o.decisionsAwaitingCxo, CANONICAL.openDecisions);
+    assert.equal(o.businessImpactExposureAed, canonicalLossAbsolute().aleAed);
   });
 });

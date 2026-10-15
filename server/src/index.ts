@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import "dotenv/config";
 
-import { query } from "./db.js";
+import { query, runWithRequestTenant } from "./db.js";
 import { requireRoles, tenantMiddleware } from "./middleware/tenant.js";
 import { listOrganizations, listUsers, seedCommandDirectory } from "./command/directory.js";
 import { registerCommandRoutes } from "./command/routes.js";
@@ -118,6 +118,11 @@ await app.register(cors, {
 await app.register(rateLimit, {
   max: 300,
   timeWindow: "1 minute",
+});
+
+// Isolate tenant ALS per HTTP request so concurrent /me + /organizations never race.
+app.addHook("onRequest", (_req, _reply, done) => {
+  runWithRequestTenant(() => done());
 });
 
 app.get("/health", async () => ({ ok: true }));

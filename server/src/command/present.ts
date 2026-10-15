@@ -778,10 +778,19 @@ function presentPack(role: string, state: CommandState, orgName: string): PackVi
         : []),
       {
         heading: `What changed since the ${month} meeting`,
-        items: movers.map((mover) => ({
-          text: `${mover.name} ${mover.delta >= 1 ? "worsened" : mover.delta <= -1 ? "improved" : "was broadly flat"} (${mover.delta > 0 ? "+" : ""}${format1(mover.delta)} points).`,
-          source: sourceLabel("domain_scores_v2"),
-        })),
+        items: movers.map((mover) => {
+          const mag = format1(Math.abs(mover.delta));
+          const phrase =
+            mover.delta <= -0.05
+              ? `improved by ${mag}`
+              : mover.delta >= 0.05
+                ? `worsened by ${mag}`
+                : "unchanged";
+          return {
+            text: `${mover.name} ${phrase}.`,
+            source: sourceLabel("domain_scores_v2"),
+          };
+        }),
       },
       {
         heading: "Decisions needed",

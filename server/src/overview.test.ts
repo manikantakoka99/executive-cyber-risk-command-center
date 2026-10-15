@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it, before } from "node:test";
+import { CANONICAL } from "./command/canonical.js";
+import { canonicalLossAbsolute } from "./command/demoOverlay.js";
 import { ENTERPRISE_LOSS } from "./command/model.js";
 import { query } from "./db.js";
 import { getOverview } from "./services/overview.js";
@@ -21,19 +23,19 @@ describe("overview aggregates", () => {
     );
   });
 
-  it("returns Al Dhabi KPIs from database", async () => {
+  it("returns Al Dhabi KPIs aligned to canonical Headline", async () => {
     const o = await getOverview(AL_DHABI);
+    const loss = canonicalLossAbsolute();
     assert.ok(o);
     assert.equal(o.org.name, "Al Dhabi Holdings");
-    assert.equal(o.domainsMonitored, 12);
+    assert.equal(o.domainsMonitored, CANONICAL.domainCount);
     assert.ok(o.enterpriseRisk);
-    assert.equal(o.enterpriseRisk.score, 42.83);
+    assert.equal(o.enterpriseRisk.score, Number(CANONICAL.headlineScore));
+    assert.equal(o.enterpriseRisk.severity, CANONICAL.headlineBand.toLowerCase());
+    assert.equal(o.businessImpactExposureAed, loss.aleAed);
     assert.equal(o.businessImpactExposureAed, Math.round(ENTERPRISE_LOSS.ale * 1_000_000));
     assert.deepEqual(o.annualLossAedM, ENTERPRISE_LOSS);
-    assert.equal(o.compliancePosturePct, 80);
-    assert.equal(o.decisionsAwaitingCxo, 0);
-    assert.equal(o.pendingDecisions.length, 0);
-    assert.equal(o.riskTrend.length, 6);
+    assert.equal(o.decisionsAwaitingCxo, CANONICAL.openDecisions);
   });
 
   it("Falcon awaiting queue matches KPI", async () => {

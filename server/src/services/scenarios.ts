@@ -11,6 +11,7 @@ import {
   refreshScenarioIntelligence,
 } from "./closedLoop.js";
 import { DEMO_AS_OF, demoUuid, HERO_SCENARIO_TITLE } from "./demoConstants.js";
+import { isPresentationNoiseTitle } from "../command/demoOverlay.js";
 
 export { HERO_SCENARIO_TITLE };
 
@@ -82,7 +83,13 @@ export async function listScenarios(
      LIMIT $${params.length}`,
     params,
   );
-  return rows.map(mapScenarioSummary);
+  return rows
+    .map(mapScenarioSummary)
+    .filter(
+      (s) =>
+        !isPresentationNoiseTitle(s.title) &&
+        String((s as { scenarioType?: string }).scenarioType ?? "") !== "isolated_test",
+    );
 }
 
 export async function getScenario(orgId: string, scenarioId: string) {

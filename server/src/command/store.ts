@@ -81,7 +81,7 @@ export function initialState(): CommandState {
         epss: "0.84",
         asset: "Payments gateway (crown jewel, internet-facing)",
         priority: 1,
-        recommendation: "CXO approves an emergency patch window outside the standard change cycle.",
+        recommendation: "CxO approves an emergency patch window outside the standard change cycle.",
         owner: "Head of Payments Engineering",
         sla: "7 days",
         state: "open",

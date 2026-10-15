@@ -16,9 +16,11 @@ import {
 } from "./pages/DecisionsReports";
 import {
   DomainDetailPage,
+  DomainsPage,
   FindingDetailPage,
   FindingsPage,
 } from "./pages/DomainsFindings";
+import { EmptyState } from "./components/EmptyState";
 import { IngestionProofPage } from "./pages/IngestionProofPage";
 import { IntelligencePage } from "./pages/IntelligencePage";
 import { LoginPage } from "./pages/LoginPage";
@@ -40,14 +42,12 @@ function Permit({
   const { me } = useAppState();
   if (!me?.permissions.includes(permission)) {
     return (
-      <div className="page">
-        <p className="eyebrow">403 · Forbidden</p>
-        <h1 className="page-title">Outside this role</h1>
-        <p className="page-sub">
-          {me?.title ?? "This persona"} cannot open this workspace. Switch role from the header or
-          sign in as a different demo user.
-        </p>
-      </div>
+      <EmptyState
+        code="403"
+        title="Outside this role"
+        reason={`${me?.title ?? "This persona"} cannot open this workspace.`}
+        home={me?.home ?? "/"}
+      />
     );
   }
   return children;
@@ -85,6 +85,9 @@ function OperationsRoute() {
       <div className="page">
         <h1 className="page-title">Operational overview</h1>
         <p className="page-sub">{error}</p>
+        <button className="btn primary sm" type="button" onClick={() => void load()}>
+          Retry
+        </button>
         <p className="note">
           Start PostgreSQL and import the sample workbook to populate this page. The command center
           still runs from the reference model.
@@ -131,12 +134,25 @@ function OperationsRoute() {
 }
 
 function EccApp() {
-  const { ready, me } = useAppState();
+  const { ready, me, error, retry } = useAppState();
   if (!ready) {
     return (
       <div className="page">
-        <div className="skeleton" />
-        <p className="empty">Connecting to Command Center…</p>
+        {error ? (
+          <>
+            <p className="eyebrow">Session</p>
+            <h1 className="page-title">Could not load Command Center</h1>
+            <p className="page-sub">{error}</p>
+            <button className="btn primary sm" type="button" onClick={retry}>
+              Retry
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="skeleton" />
+            <p className="empty">Connecting to Command Center…</p>
+          </>
+        )}
       </div>
     );
   }
@@ -152,7 +168,7 @@ function EccApp() {
         <Route path="/scenarios/:id" element={<Permit permission="scenarios.read"><ScenarioDetailPage /></Permit>} />
         <Route path="/ingestion" element={<Permit permission="ingestion.read"><IngestionProofPage /></Permit>} />
         {/* Merged nav aliases — deep links still work */}
-        <Route path="/risk-domains" element={<Navigate to="/c/posture" replace />} />
+        <Route path="/risk-domains" element={<Permit permission="domains.read"><DomainsPage /></Permit>} />
         <Route path="/risk-domains/:id" element={<Permit permission="domains.read"><DomainDetailPage /></Permit>} />
         <Route path="/findings" element={<Permit permission="findings.read"><FindingsPage /></Permit>} />
         <Route path="/findings/:id" element={<Permit permission="findings.read"><FindingDetailPage /></Permit>} />
@@ -169,17 +185,12 @@ function EccApp() {
         <Route
           path="*"
           element={
-            <div className="page">
-              <p className="eyebrow">404 · Not found</p>
-              <h1 className="page-title">Page not found</h1>
-              <p className="page-sub">
-                That route is not part of this demo. Use the sidebar or return to{" "}
-                <a className="text-link" href={me.home}>
-                  your home view
-                </a>
-                .
-              </p>
-            </div>
+            <EmptyState
+              code="404"
+              title="Page not found"
+              reason="That route is not part of this demo."
+              home={me.home}
+            />
           }
         />
       </Routes>

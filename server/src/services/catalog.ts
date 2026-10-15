@@ -327,7 +327,7 @@ export async function generateReport(
     `- Driver: ${overview.enterpriseRisk?.driverSummary ?? "—"}`,
     `- Business impact exposure: **AED ${overview.businessImpactExposureAed.toLocaleString("en-AE")}**`,
     `- Compliance posture: **${overview.compliancePosturePct ?? "n/a"}%**`,
-    `- Decisions awaiting CXO: **${overview.decisionsAwaitingCxo}**`,
+    `- Decisions awaiting CxO: **${overview.decisionsAwaitingCxo}**`,
     `- Open critical findings: **${overview.criticalFindingsOpen}**`,
     ``,
     `## Top domain risks`,

@@ -670,7 +670,32 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   color: var(--muted);
 }
 .pack ul { margin: 6px 0 0 18px; }
+.pack .pack-items {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.pack .pack-items li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pack .chip.citation {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--surface-2, var(--muted-bg, rgba(0,0,0,0.06)));
+  color: var(--text2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
 .pack .src { display: none; }
+.spark-wrap { display: inline-flex; align-items: center; }
+.spark-axis { font-size: 8px; fill: var(--muted); }
 
 .frameworks .bar {
   flex: 1;
@@ -967,6 +992,25 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
     print-color-adjust: exact;
   }
 }
+
+.empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+}
+.empty-state-card {
+  text-align: center;
+  max-width: 420px;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 28px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.empty-state-icon { color: var(--muted); margin-bottom: 4px; }
 
 /* Quiet Command — hero score, loss figure */
 .hero-score { margin-bottom: 16px; }

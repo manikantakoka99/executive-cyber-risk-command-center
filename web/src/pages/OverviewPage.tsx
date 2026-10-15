@@ -135,7 +135,7 @@ export function OverviewPage({
           <div className="m-d d-down">Avg latest framework coverage</div>
         </div>
         <div className="hero-card metric">
-          <div className="m-l">Decisions Awaiting CXO</div>
+          <div className="m-l">Decisions Awaiting CxO</div>
           <div className="m-n mono">{data.decisionsAwaitingCxo}</div>
           <div
             className="m-d"
@@ -272,7 +272,7 @@ export function OverviewPage({
         )}
         {data.pendingDecisions.length === 0 ? (
           <p className="empty">
-            No decisions are awaiting CXO action for{" "}
+            No decisions are awaiting CxO action for{" "}
             <strong>{data.org.name}</strong>. This is a valid posture — open{" "}
             <Link className="text-link" to="/decisions">
               Decisions
@@ -349,8 +349,8 @@ export function OverviewPage({
                   </button>
                 ) : (
                   <span className="role-hint">
-                    Acting as {actorRole ? roleLabel(actorRole) : "non-CXO"} —
-                    approve requires CXO.
+                    Acting as {actorRole ? roleLabel(actorRole) : "non-CxO"} —
+                    approve requires CxO.
                   </span>
                 )}
                 {canRequestInfo && (

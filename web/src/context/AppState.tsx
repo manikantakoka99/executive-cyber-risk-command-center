@@ -36,6 +36,7 @@ interface AppContextValue {
   signOut: () => void;
   ready: boolean;
   error: string | null;
+  retry: () => void;
 }
 
 const Ctx = createContext<AppContextValue | null>(null);
@@ -149,6 +150,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setBoot((b) => b + 1);
   }, []);
 
+  const retry = useCallback(() => {
+    setError(null);
+    setBoot((b) => b + 1);
+  }, []);
+
   const value = useMemo(
     () => ({
       organizations,
@@ -161,8 +167,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       signOut,
       ready,
       error,
+      retry,
     }),
-    [organizations, users, orgId, userId, me, setOrgId, setUserId, signOut, ready, error],
+    [organizations, users, orgId, userId, me, setOrgId, setUserId, signOut, ready, error, retry],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

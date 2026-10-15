@@ -11,6 +11,7 @@ import type {
   TrustView,
   WhatIfView,
 } from "../../data/commandTypes";
+import { formatAedMillions, normalizeCxO } from "../../lib/format";
 import {
   Answer,
   Chip,
@@ -51,20 +52,16 @@ export function HeadlineView({
           <div className="hero-score-line">
             <span className="hero-kpi mono">{fmt1(data.arithmetic)}</span>
             <span className={`word tone-${bandTone(data.band)}`}>{data.band}</span>
-            <Chip tone={data.outsideAppetite > 0 ? "crit" : "low"}>{appetiteState}</Chip>
             {sparkValues.length > 1 ? (
-              <span className="hero-spark">
-                <Spark
-                  values={sparkValues}
-                  tone={trendDelta > 0.2 ? "up" : trendDelta < -0.2 ? "down" : "flat"}
-                  label="Score trend"
-                />
-                <span className={`delta tone-${trendDelta === 0 ? "flat" : trendDelta < 0 ? "good" : "bad"}`}>
-                  {trendDelta > 0 ? "+" : ""}
-                  {trendDelta.toFixed(1)}
-                </span>
+              <span
+                className={`delta tone-${trendDelta === 0 ? "flat" : trendDelta < 0 ? "good" : "bad"}`}
+                title="Change vs six months ago"
+              >
+                {trendDelta > 0 ? "+" : ""}
+                {trendDelta.toFixed(1)}
               </span>
             ) : null}
+            <Chip tone={data.outsideAppetite > 0 ? "crit" : "low"}>{appetiteState}</Chip>
           </div>
           {data.floorNote && (
             <div className="why">
@@ -80,16 +77,6 @@ export function HeadlineView({
 
       <div className="kpi-row">
         <KpiCard
-          label="Enterprise score"
-          value={data.arithmetic}
-          decimals={1}
-          delta={trendDelta}
-          spark={sparkValues}
-          sparkTone={trendDelta > 0.2 ? "up" : trendDelta < -0.2 ? "down" : "flat"}
-          tone={bandTone(data.band)}
-          note={`${data.band} · ${data.policyVersion}`}
-        />
-        <KpiCard
           label="Outside appetite"
           value={data.outsideAppetite}
           suffix={` / ${data.domainCount}`}
@@ -104,16 +91,15 @@ export function HeadlineView({
             prefix="AED "
             suffix="M"
             tone="high"
-            note={`P90 bad year AED ${fmt1(data.loss.p90)}M`}
+            note={`P90 bad year ${formatAedMillions(data.loss.p90)}`}
           />
-        ) : (
-          <KpiCard
-            label="Open decisions"
-            value={data.acceptanceCount ?? 0}
-            tone="info"
-            note="Accepted risks on register"
-          />
-        )}
+        ) : null}
+        <KpiCard
+          label="Open decisions"
+          value={data.acceptanceCount ?? 0}
+          tone="info"
+          note="Awaiting executive action"
+        />
         <KpiCard
           label="Confidence"
           value={data.confidencePct ?? 0}
@@ -893,16 +879,23 @@ export function PackView({
       </div>
       <div className="pack-well">
         <article className="pack">
-          <p className="meta">{data.meta}</p>
-          <h2>{data.heading}</h2>
+          <p className="meta">{normalizeCxO(data.meta)}</p>
+          <h2>{normalizeCxO(data.heading)}</h2>
           {data.blocks.map((block) => (
             <section key={block.heading}>
-              <h4>{block.heading}</h4>
-              {block.text && <p>{block.text}</p>}
+              <h4>{normalizeCxO(block.heading)}</h4>
+              {block.text && <p>{normalizeCxO(block.text)}</p>}
               {block.items && block.items.length > 0 && (
-                <ul>
+                <ul className="pack-items">
                   {block.items.map((item) => (
-                    <li key={`${block.heading}-${item.text}`}>{item.text}</li>
+                    <li key={`${block.heading}-${item.text}`}>
+                      <span>{normalizeCxO(item.text)}</span>
+                      {item.source ? (
+                        <span className="chip citation" title="Citation">
+                          {item.source}
+                        </span>
+                      ) : null}
+                    </li>
                   ))}
                 </ul>
               )}

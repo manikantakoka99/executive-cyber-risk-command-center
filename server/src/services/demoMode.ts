@@ -329,7 +329,7 @@ export async function prepareManagerDemo(orgId: string) {
         "Vendor-specific adapters (Sentinel/Splunk/CrowdStrike/Wazuh) are not claimed as live",
         "Financial impact may be unknown — never invented",
         "Trend charts may show Insufficient historical data until assessments accumulate",
-        "Use Al Dhabi Holdings + CXO user for the live walkthrough",
+        "Use Al Dhabi Holdings + CxO user for the live walkthrough",
       ],
     };
   } finally {

@@ -86,60 +86,72 @@ export function Spark({
   tone: "up" | "down" | "flat";
   label?: string;
 }) {
-  const w = 104;
-  const h = 32;
+  const w = 120;
+  const h = 40;
+  const padL = 22;
+  const padR = 4;
+  const padT = 4;
+  const padB = 12;
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = Math.max(max - min, 4);
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
   const points = values.map((value, index) => {
-    const x = (index * (w - 8)) / Math.max(values.length - 1, 1) + 4;
-    const y = h - 5 - ((value - min) / range) * (h - 10);
+    const x = padL + (index * plotW) / Math.max(values.length - 1, 1);
+    const y = padT + plotH - ((value - min) / range) * plotH;
     return { x, y };
   });
   const line = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-  const area = `4,${h} ${line} ${w - 4},${h}`;
+  const area = `${padL},${padT + plotH} ${line} ${padL + plotW},${padT + plotH}`;
   const last = points[points.length - 1] ?? { x: 0, y: 0 };
   const color = tone === "up" ? "var(--crit)" : tone === "down" ? "var(--low)" : "var(--muted)";
-  const fill =
-    tone === "up"
-      ? "url(#spark-up)"
-      : tone === "down"
-        ? "url(#spark-down)"
-        : "url(#spark-flat)";
+  const uid = `spark-${tone}-${Math.round(min * 10)}-${Math.round(max * 10)}`;
   return (
-    <svg
-      className="spark"
-      width={w}
-      height={h}
-      viewBox={`0 0 ${w} ${h}`}
-      role="img"
-      aria-label={label ?? `Trend from ${values[0]} to ${values[values.length - 1]}`}
-    >
-      <defs>
-        <linearGradient id="spark-up" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--crit)" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="var(--crit)" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id="spark-down" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--low)" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="var(--low)" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id="spark-flat" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--muted)" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="var(--muted)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polygon points={area} fill={fill} />
-      <polyline
-        points={line}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-      <circle cx={last.x} cy={last.y} r="2.8" fill={color} />
-    </svg>
+    <div className="spark-wrap">
+      <svg
+        className="spark"
+        width={w}
+        height={h}
+        viewBox={`0 0 ${w} ${h}`}
+        role="img"
+        aria-label={
+          label ??
+          `Trend from ${values[0]} to ${values[values.length - 1]} (scale ${min.toFixed(0)}–${max.toFixed(0)})`
+        }
+      >
+        <defs>
+          <linearGradient id={`${uid}-fill`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <text x={0} y={padT + 8} className="spark-axis" fill="currentColor">
+          {max.toFixed(0)}
+        </text>
+        <text x={0} y={padT + plotH} className="spark-axis" fill="currentColor">
+          {min.toFixed(0)}
+        </text>
+        <line
+          x1={padL}
+          y1={padT}
+          x2={padL}
+          y2={padT + plotH}
+          stroke="var(--border)"
+          strokeWidth="1"
+        />
+        <polygon points={area} fill={`url(#${uid}-fill)`} />
+        <polyline
+          points={line}
+          fill="none"
+          stroke={color}
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        <circle cx={last.x} cy={last.y} r="2.8" fill={color} />
+      </svg>
+    </div>
   );
 }
 

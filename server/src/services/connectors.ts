@@ -1,4 +1,5 @@
 import { query } from "../db.js";
+import { isPresentationNoiseTitle } from "../command/demoOverlay.js";
 import { getAdapter } from "../ingestion/adapters/registry.js";
 import { ingestAndNormalize } from "../ingestion/pipeline.js";
 import type { IngestionResult, RawEventInput } from "../ingestion/types.js";
@@ -13,7 +14,8 @@ export async function listConnectors(orgId: string) {
      ORDER BY c.name`,
     [orgId],
   );
-  return rows.map(mapConnector);
+  // Hide test-created Generic Security Events <timestamp> fixtures from UI lists.
+  return rows.map(mapConnector).filter((c) => !isPresentationNoiseTitle(c.name));
 }
 
 export async function getConnector(orgId: string, connectorId: string) {

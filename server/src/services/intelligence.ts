@@ -1,8 +1,12 @@
 import { createHash } from "node:crypto";
 import { query } from "../db.js";
-import { CANONICAL } from "../command/canonical.js";
-import { BASELINE, ENTERPRISE_LOSS } from "../command/model.js";
-import { DEMO_ORG_ID } from "../command/personas.js";
+import {
+  filterPresentationNoise,
+  isPresentationNoiseTitle,
+  overlayDecisionCenter,
+  overlayPortfolio,
+  overlayTrends,
+} from "../command/demoOverlay.js";
 import { getOverview } from "./overview.js";
 
 export type PortfolioFilters = {
@@ -150,56 +154,9 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
     medium: Number(s?.medium ?? 0),
     low: Number(s?.low ?? 0),
   };
-  // Al Dhabi demo: executive portfolio posture uses canonical domain bands + annual loss
-  // (same source as command Headline), not raw scenario-priority tallies.
-  const demoPosture =
-    orgId === DEMO_ORG_ID
-      ? {
-          byPriority: {
-            critical: CANONICAL.domainSpread.Critical,
-            high: CANONICAL.domainSpread.High,
-            medium: CANONICAL.domainSpread.Medium,
-            low: CANONICAL.domainSpread.Low,
-          },
-          outsideTolerance: CANONICAL.outsideAppetite,
-          domainCount: CANONICAL.domainCount,
-          knownFinancialExposureAed: Math.round(ENTERPRISE_LOSS.ale * 1_000_000),
-          annualLossAedM: { ...ENTERPRISE_LOSS },
-          domainBands: BASELINE.counts,
-        }
-      : null;
 
-  return {
-    asOf: new Date().toISOString(),
-    methodology: demoPosture
-      ? "Enterprise portfolio posture uses the 12 risk-domain bands and canonical annual loss; scenario list is separate and is not averaged into the headline."
-      : "Portfolio aggregates Risk Scenarios only — does not average domain scores.",
-    filters,
-    totals: {
-      activeScenarios: Number(s?.active ?? 0),
-      byPriority: demoPosture?.byPriority ?? scenarioByPriority,
-      outsideTolerance: demoPosture?.outsideTolerance ?? Number(s?.outside ?? 0),
-      domainCount: demoPosture?.domainCount ?? null,
-      increasing: Number(s?.increasing ?? 0),
-      aging: Number(s?.aging ?? 0),
-      accepted: Number(s?.accepted ?? 0),
-      mitigated: Number(s?.mitigated ?? 0),
-      closed: Number(s?.closed ?? 0),
-      knownFinancialExposureAed:
-        demoPosture?.knownFinancialExposureAed ??
-        (s?.known_exposure != null ? Number(s.known_exposure) : null),
-      annualLossAedM: demoPosture?.annualLossAedM ?? null,
-      unknownFinancialExposureCount: Number(s?.unknown_financial ?? 0),
-      confidence: {
-        high: Number(s?.conf_high ?? 0),
-        medium: Number(s?.conf_med ?? 0),
-        low: Number(s?.conf_low ?? 0),
-      },
-      remediationBacklog: Number(backlog[0]?.open_actions ?? 0),
-      overdueActions: Number(backlog[0]?.overdue ?? 0),
-      scenarioByPriority,
-    },
-    topRisks: top.map((r) => ({
+  const topRisks = filterPresentationNoise(
+    top.map((r) => ({
       scenarioId: r.scenario_id,
       title: r.title,
       priority: r.priority,
@@ -219,7 +176,35 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
       owner: r.owner_name,
       decisionStatus: r.decision_status,
     })),
-  };
+  );
+
+  return overlayPortfolio(orgId, {
+    asOf: new Date().toISOString(),
+    methodology: "Portfolio aggregates Risk Scenarios only — does not average domain scores.",
+    filters,
+    totals: {
+      activeScenarios: Number(s?.active ?? 0),
+      byPriority: scenarioByPriority,
+      outsideTolerance: Number(s?.outside ?? 0),
+      increasing: Number(s?.increasing ?? 0),
+      aging: Number(s?.aging ?? 0),
+      accepted: Number(s?.accepted ?? 0),
+      mitigated: Number(s?.mitigated ?? 0),
+      closed: Number(s?.closed ?? 0),
+      knownFinancialExposureAed:
+        s?.known_exposure != null ? Number(s.known_exposure) : null,
+      unknownFinancialExposureCount: Number(s?.unknown_financial ?? 0),
+      confidence: {
+        high: Number(s?.conf_high ?? 0),
+        medium: Number(s?.conf_med ?? 0),
+        low: Number(s?.conf_low ?? 0),
+      },
+      remediationBacklog: Number(backlog[0]?.open_actions ?? 0),
+      overdueActions: Number(backlog[0]?.overdue ?? 0),
+      scenarioByPriority,
+    },
+    topRisks,
+  });
 }
 
 const WINDOW_DAYS: Record<string, number> = {
@@ -297,7 +282,7 @@ export async function getTrends(orgId: string, window = "30d") {
   const series = hist.length >= 2 ? hist : assessments;
   const insufficient = series.length < 2;
 
-  return {
+  const payload = {
     window,
     days,
     insufficientHistory: insufficient,
@@ -334,6 +319,7 @@ export async function getTrends(orgId: string, window = "30d") {
           : "Average residual reduction after verified remediation",
     },
   };
+  return overlayTrends(orgId, payload);
 }
 
 export async function getHotspots(orgId: string) {
@@ -404,9 +390,11 @@ export async function getHotspots(orgId: string) {
       `${pct}% of high residual risk scenarios are concentrated in ${name} (denominator: ${denom} high/critical scenarios).`,
     );
   }
-  for (const bp of byBp.filter((b) => Number(b.outside) > 0).slice(0, 2)) {
+  for (const bp of byBp.filter(
+    (b) => Number(b.outside) > 0 && b.name && !/Unnamed process/i.test(b.name),
+  ).slice(0, 2)) {
     statements.push(
-      `${bp.name ?? "Unnamed process"} contains ${bp.outside} outside-tolerance scenario(s) of ${bp.n} active in that process.`,
+      `${bp.name} contains ${bp.outside} outside-tolerance scenario(s) of ${bp.n} active in that process.`,
     );
   }
 
@@ -420,12 +408,14 @@ export async function getHotspots(orgId: string) {
       highCriticalCount: Number(r.n),
       shareOfHighCritical: Math.round((Number(r.n) / denom) * 100),
     })),
-    byBusinessProcess: byBp.map((r) => ({
-      businessProcessId: r.business_process_id,
-      name: r.name ?? "Unassigned",
-      scenarioCount: Number(r.n),
-      outsideTolerance: Number(r.outside),
-    })),
+    byBusinessProcess: byBp
+      .filter((r) => r.name && !/Unnamed process/i.test(r.name))
+      .map((r) => ({
+        businessProcessId: r.business_process_id,
+        name: r.name ?? "Unassigned",
+        scenarioCount: Number(r.n),
+        outsideTolerance: Number(r.outside),
+      })),
     byDomain: byDomain.map((r) => ({
       code: r.code,
       label: r.short_label,
@@ -483,7 +473,7 @@ export async function getDecisionCenter(orgId: string) {
   });
 
   const all = rows.map(map);
-  return {
+  const center = {
     awaitingAction: all.filter((d) => d.status === "awaiting_decision"),
     awaitingInformation: all.filter((d) => d.status === "info_requested"),
     recentlyApproved: all.filter((d) => d.status === "approved").slice(0, 10),
@@ -501,6 +491,7 @@ export async function getDecisionCenter(orgId: string) {
         ),
     ),
   };
+  return overlayDecisionCenter(orgId, center);
 }
 
 export async function getCompliancePosture(orgId: string) {
@@ -947,7 +938,7 @@ export async function getExecutiveBriefing(orgId: string) {
         text:
           awaiting > 0
             ? `${awaiting} decision(s) await executive action.`
-            : "No decisions currently awaiting CXO action.",
+            : "No decisions currently awaiting CxO action.",
         evidence: { awaiting },
       },
       whatToWatch: {
@@ -989,34 +980,36 @@ export async function getConnectorCatalog(orgId: string) {
   );
 
   return {
-    connectors: rows.map((c) => {
-      const hoursSinceSuccess = c.last_success_at
-        ? (Date.now() - new Date(c.last_success_at).getTime()) / 3600000
-        : null;
-      let health: string = "configured";
-      if (c.status === "error" || c.status === "failed") health = "failed";
-      else if (hoursSinceSuccess != null && hoursSinceSuccess > 72) health = "degraded";
-      else if (c.last_success_at) health = "connected";
-      else if (!c.last_sync_at) health = "not_configured";
-      return {
-        connectorId: c.connector_id,
-        name: c.name,
-        adapterKey: c.adapter_key,
-        domainCode: c.domain_code,
-        domainLabel: c.short_label,
-        status: c.status,
-        health,
-        lastSuccessAt: c.last_success_at,
-        lastFailureAt: c.last_failure_at,
-        lastSyncAt: c.last_sync_at,
-        signalCount: Number(c.signal_count),
-        recentFailures: Number(c.recent_failures),
-        stale:
-          hoursSinceSuccess != null && hoursSinceSuccess > 72
-            ? `Connector has not synchronized successfully for ${Math.floor(hoursSinceSuccess / 24)} day(s).`
-            : null,
-      };
-    }),
+    connectors: rows
+      .filter((c) => !isPresentationNoiseTitle(String(c.name ?? "")))
+      .map((c) => {
+        const hoursSinceSuccess = c.last_success_at
+          ? (Date.now() - new Date(c.last_success_at).getTime()) / 3600000
+          : null;
+        let health: string = "configured";
+        if (c.status === "error" || c.status === "failed") health = "failed";
+        else if (hoursSinceSuccess != null && hoursSinceSuccess > 72) health = "degraded";
+        else if (c.last_success_at) health = "connected";
+        else if (!c.last_sync_at) health = "not_configured";
+        return {
+          connectorId: c.connector_id,
+          name: c.name,
+          adapterKey: c.adapter_key,
+          domainCode: c.domain_code,
+          domainLabel: c.short_label,
+          status: c.status,
+          health,
+          lastSuccessAt: c.last_success_at,
+          lastFailureAt: c.last_failure_at,
+          lastSyncAt: c.last_sync_at,
+          signalCount: Number(c.signal_count),
+          recentFailures: Number(c.recent_failures),
+          stale:
+            hoursSinceSuccess != null && hoursSinceSuccess > 72
+              ? `Connector has not synchronized successfully for ${Math.floor(hoursSinceSuccess / 24)} day(s).`
+              : null,
+        };
+      }),
     subscribedDomains: subscribed,
   };
 }

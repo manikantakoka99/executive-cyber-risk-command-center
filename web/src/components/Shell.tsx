@@ -17,7 +17,7 @@ import { navForRole } from "../lib/nav";
 import { NAV_ICONS, Shield } from "./icons";
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { organizations, orgId, setOrgId, users, userId, setUserId, me, signOut, error } =
+  const { organizations, orgId, setOrgId, users, userId, setUserId, me, signOut, error, retry } =
     useAppState();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
@@ -177,7 +177,10 @@ export function Shell({ children }: { children: ReactNode }) {
 
         {error && (
           <div className="banner-error" role="alert">
-            {error}
+            {error}{" "}
+            <button className="btn sm" type="button" onClick={retry}>
+              Retry
+            </button>
           </div>
         )}
         <main className="main">{children}</main>

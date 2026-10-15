@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
-import { relativeTime, severityClass } from "../lib/format";
+import { formatAed, relativeTime, severityClass } from "../lib/format";
 
 const DEMO_RATIONALE =
   "Approve mitigation for the externally exposed payment path: contain privileged anomaly, reduce internet exposure, and restore recovery control effectiveness before residual risk can be lowered.";
@@ -12,6 +12,7 @@ function isPresentationNoise(s: any): boolean {
   const type = String(s.scenarioType ?? "");
   if (type === "isolated_test") return true;
   if (/^P4 isolated\b/i.test(title)) return true;
+  if (/^P4-base-/i.test(title)) return true;
   if (/^p3-corr-/i.test(title)) return true;
   return false;
 }
@@ -36,8 +37,10 @@ export function ScenariosPage() {
   const [scenarios, setScenarios] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [heroId, setHeroId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
+    setLoading(true);
     try {
       const [res, hero] = await Promise.all([api.scenarios(), api.demoHero()]);
       const visible = res.scenarios
@@ -53,12 +56,26 @@ export function ScenariosPage() {
       setError(null);
     } catch (e: any) {
       setError(e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    load();
+    void load();
   }, []);
+
+  if (error && scenarios.length === 0 && !loading) {
+    return (
+      <div className="page">
+        <h1 className="page-title">Scenarios unavailable</h1>
+        <p className="page-sub">{error}</p>
+        <button className="btn primary sm" type="button" onClick={() => void load()}>
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="page demo-present">
@@ -72,9 +89,17 @@ export function ScenariosPage() {
           </p>
         </div>
       </div>
-      {error && <div className="banner-error">{error}</div>}
+      {error && (
+        <div className="banner-error" role="alert">
+          {error}{" "}
+          <button className="btn sm" type="button" onClick={() => void load()}>
+            Retry
+          </button>
+        </div>
+      )}
       <div className="card-grid">
-        {scenarios.length === 0 && (
+        {loading && scenarios.length === 0 && <p className="muted">Loading scenarios…</p>}
+        {!loading && scenarios.length === 0 && (
           <p className="muted">No enterprise risk scenarios for this organization yet.</p>
         )}
         {scenarios.map((s) => (
@@ -236,7 +261,7 @@ export function ScenarioDetailPage() {
             <div className="kpi-label">Business Impact</div>
             <div className="exec-body">
               {bi?.financialKnown
-                ? `AED ${Number(bi.financialExposureAed).toLocaleString()}`
+                ? formatAed(Number(bi.financialExposureAed))
                 : "Financial unknown"}
             </div>
           </div>
@@ -298,7 +323,7 @@ export function ScenarioDetailPage() {
         <p className="muted">
           Financial:{" "}
           {bi?.financialKnown
-            ? `AED ${Number(bi.financialExposureAed).toLocaleString()}`
+            ? formatAed(Number(bi.financialExposureAed))
             : "unknown (not invented)"}
           {" · "}
           Criticality: {bi?.businessCriticality ?? "—"}
@@ -388,7 +413,7 @@ export function ScenarioDetailPage() {
           <p className="muted" style={{ marginTop: 8 }}>
             Economics: cost{" "}
             {tp.estimatedCostAed != null
-              ? `AED ${tp.estimatedCostAed.toLocaleString()}`
+              ? formatAed(tp.estimatedCostAed)
               : "unknown"}
             {" · "}
             ROI{" "}

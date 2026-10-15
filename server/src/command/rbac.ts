@@ -87,6 +87,7 @@ export const VIEW_PERMISSION: Record<ViewId, Permission> = {
   pack: "command.pack",
 };
 
+/** Must stay aligned with web/src/lib/nav.ts command labels. */
 export const VIEW_LABEL: Record<ViewId, string> = {
   headline: "Headline",
   posture: "Posture",

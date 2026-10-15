@@ -12,7 +12,15 @@ import {
   format2,
   weightedCoverage,
 } from "./model.js";
+import {
+  canonicalLossAbsolute,
+  overlayDecisionCenter,
+  overlayOverview,
+  overlayPortfolio,
+  overlayTrends,
+} from "./demoOverlay.js";
 import { presentEvidence, presentWorkspace } from "./present.js";
+import { DEMO_ORG_ID } from "./personas.js";
 import { hasPermission, homeFor, redactFinancial } from "./rbac.js";
 import { initialState } from "./store.js";
 
@@ -134,5 +142,67 @@ describe("cross-screen canonical consistency (Vinga PDF/HTML)", () => {
     assert.equal(format1(byId.cld!.adjusted), "30.8");
     assert.equal(format1(byId.ot!.adjusted), "42.8");
     assert.equal(format1(adjustedScore(17, 0.4)), "42.8");
+  });
+
+  it("Operations + Intelligence overlays match Headline canonical numbers", () => {
+    const loss = canonicalLossAbsolute();
+    const overview = overlayOverview(DEMO_ORG_ID, {
+      enterpriseRisk: { score: 43, severity: "medium" },
+      businessImpactExposureAed: 5_100_000,
+      decisionsAwaitingCxo: 0,
+      domainsMonitored: 9,
+    });
+    assert.equal(overview!.enterpriseRisk.score, Number(CANONICAL.headlineScore));
+    assert.equal(overview!.enterpriseRisk.severity, CANONICAL.headlineBand.toLowerCase());
+    assert.equal(overview!.businessImpactExposureAed, loss.aleAed);
+    assert.equal(overview!.decisionsAwaitingCxo, CANONICAL.openDecisions);
+
+    const portfolio = overlayPortfolio(DEMO_ORG_ID, {
+      totals: {
+        activeScenarios: 20,
+        byPriority: { critical: 0, high: 0, medium: 43, low: 0 },
+        outsideTolerance: 0,
+        knownFinancialExposureAed: 1_540_000,
+        openDecisions: 0,
+      },
+      topRisks: [
+        { title: "Payment path privilege anomaly" },
+        { title: "P4 isolated 179205 junk" },
+        { title: "P4-base-fixture" },
+        { title: "Internet-facing API exposure" },
+        { title: "Ransomware resilience gap" },
+        { title: "Credential compromise path" },
+        { title: "Recovery control degradation" },
+      ],
+    });
+    assert.equal(portfolio.totals.enterpriseScore, Number(CANONICAL.headlineScore));
+    assert.equal(portfolio.totals.enterpriseBand, CANONICAL.headlineBand);
+    assert.equal(portfolio.totals.knownFinancialExposureAed, loss.aleAed);
+    assert.equal(portfolio.totals.openDecisions, CANONICAL.openDecisions);
+    assert.equal(portfolio.totals.outsideTolerance, CANONICAL.outsideAppetite);
+    assert.deepEqual(portfolio.totals.byPriority, {
+      critical: CANONICAL.domainSpread.Critical,
+      high: CANONICAL.domainSpread.High,
+      medium: CANONICAL.domainSpread.Medium,
+      low: CANONICAL.domainSpread.Low,
+    });
+    assert.ok(!portfolio.topRisks.some((r: { title: string }) => /P4 isolated|P4-base-/i.test(r.title)));
+    assert.equal(portfolio.totals.activeScenarios, 5);
+
+    const center = overlayDecisionCenter(DEMO_ORG_ID, {
+      awaitingAction: [],
+      awaitingInformation: [],
+      overdue: [],
+    });
+    assert.equal(center.awaitingActionCount, CANONICAL.openDecisions);
+    assert.equal(center.awaitingAction.length, CANONICAL.openDecisions);
+
+    const trends = overlayTrends(DEMO_ORG_ID, {
+      insufficientHistory: true,
+      residualTrend: [],
+      message: "Insufficient historical data",
+    });
+    assert.equal(trends.insufficientHistory, false);
+    assert.ok((trends.residualTrend?.length ?? 0) >= 2);
   });
 });

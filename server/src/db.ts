@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import pg from "pg";
 import "dotenv/config";
 
@@ -24,44 +25,70 @@ function connectionString(): string {
   return raw;
 }
 
+const conn = connectionString();
+
 export const pool = new Pool({
-  connectionString: connectionString(),
-  ssl:
-    /supabase\.co|pooler\.supabase\.com/i.test(connectionString())
-      ? { rejectUnauthorized: false }
-      : undefined,
+  connectionString: conn,
+  max: Number(process.env.PG_POOL_MAX ?? 20),
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 10_000,
+  ssl: /supabase\.co|pooler\.supabase\.com/i.test(conn)
+    ? { rejectUnauthorized: false }
+    : undefined,
 });
 
-/** Request-scoped tenant ids applied inside each pooled query transaction. */
-let boundOrgId: string | null = null;
-let boundUserId: string | null = null;
+type TenantStore = { orgId: string; userId: string | null };
 
+/** Request-scoped tenant binding — never use process-global vars (causes cross-request races / 502s). */
+const tenantAls = new AsyncLocalStorage<TenantStore>();
+
+export function runWithTenant<T>(orgId: string, userId: string, fn: () => Promise<T>): Promise<T> {
+  return tenantAls.run({ orgId, userId }, fn);
+}
+
+/** Bind an empty ALS store for the lifetime of one HTTP request (call from onRequest). */
+export function runWithRequestTenant<T>(fn: () => T): T {
+  return tenantAls.run({ orgId: "", userId: null }, fn);
+}
+
+/** Mutate the current request ALS store. Requires runWithRequestTenant / runWithTenant. */
 export async function setTenantContext(orgId: string, userId: string) {
-  boundOrgId = orgId;
-  boundUserId = userId;
+  const store = tenantAls.getStore();
+  if (store) {
+    store.orgId = orgId;
+    store.userId = userId;
+    return;
+  }
+  // Tests / scripts without an HTTP request: bind for the remainder of this async chain.
+  tenantAls.enterWith({ orgId, userId });
 }
 
 export function clearTenantContext() {
-  boundOrgId = null;
-  boundUserId = null;
+  const store = tenantAls.getStore();
+  if (store) {
+    store.orgId = "";
+    store.userId = null;
+  }
 }
 
 export async function query<T extends pg.QueryResultRow = pg.QueryResultRow>(
   text: string,
   params?: unknown[],
 ) {
-  // No tenant binding — plain query (bootstrap / health).
-  if (!boundOrgId) {
+  const store = tenantAls.getStore();
+  const orgId = store?.orgId || null;
+  const userId = store?.userId || null;
+
+  if (!orgId) {
     return pool.query<T>(text, params);
   }
 
   const client = await pool.connect();
   try {
-    // Local GUCs last for the transaction only — wrap the statement.
     await client.query("BEGIN");
-    await client.query(`SELECT set_config('app.current_org_id', $1, true)`, [boundOrgId]);
-    if (boundUserId) {
-      await client.query(`SELECT set_config('app.current_user_id', $1, true)`, [boundUserId]);
+    await client.query(`SELECT set_config('app.current_org_id', $1, true)`, [orgId]);
+    if (userId) {
+      await client.query(`SELECT set_config('app.current_user_id', $1, true)`, [userId]);
     }
     const result = await client.query<T>(text, params);
     await client.query("COMMIT");
