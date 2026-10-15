@@ -22,7 +22,6 @@ import {
   Spark,
   bandTone,
   fmt1,
-  fmt2,
 } from "./bits";
 
 export function HeadlineView({
@@ -87,7 +86,7 @@ export function HeadlineView({
           <KpiCard
             label="Expected annual loss"
             value={data.loss.ale}
-            decimals={1}
+            decimals={2}
             prefix="AED "
             suffix="M"
             tone="high"
@@ -114,9 +113,9 @@ export function HeadlineView({
       {data.loss && (
         <article className="card loss-card">
           <p className="lbl">Annualised loss exposure (modelled)</p>
-          <div className="loss-figure mono" aria-label={`AED ${fmt1(data.loss.ale)} million expected per year`}>
+          <div className="loss-figure mono" aria-label={`${formatAedMillions(data.loss.ale)} expected per year`}>
             <span className="loss-currency">AED</span>
-            <span className="loss-number">{fmt1(data.loss.ale)}</span>
+            <span className="loss-number">{data.loss.ale.toFixed(2)}</span>
             <span className="loss-unit">M</span>
             <span className="loss-aside">expected per year</span>
           </div>
@@ -128,7 +127,7 @@ export function HeadlineView({
             {data.loss.drivers.map((driver) => (
               <li key={driver.name}>
                 <span>{driver.name}</span>
-                <span className="mono">{fmt2(driver.ale)}M</span>
+                <span className="mono">{formatAedMillions(driver.ale)}</span>
               </li>
             ))}
           </ul>
@@ -435,7 +434,7 @@ export function QueueView({
               <p className="note">
                 {item.asset}
                 {item.loss
-                  ? ` · scenario: ${item.loss.name}, expected AED ${fmt2(item.loss.ale)}M a year, bad year AED ${fmt2(item.loss.p90)}M`
+                  ? ` · scenario: ${item.loss.name}, expected ${formatAedMillions(item.loss.ale)} a year, bad year ${formatAedMillions(item.loss.p90)}`
                   : ""}
               </p>
               <p className="rec">
@@ -957,8 +956,8 @@ export function EvidenceDrawer({
       </dl>
       {evidence.loss && (
         <p className="note">
-          Scenario {evidence.loss.name}: expected AED {fmt2(evidence.loss.ale)}M a year, bad year AED{" "}
-          {fmt2(evidence.loss.p90)}M.
+          Scenario {evidence.loss.name}: expected {formatAedMillions(evidence.loss.ale)} a year, bad
+          year {formatAedMillions(evidence.loss.p90)}.
         </p>
       )}
       <div className="rule" />

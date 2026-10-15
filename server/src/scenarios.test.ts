@@ -11,6 +11,8 @@ import {
 
 const AL = "2accc7de-f693-4b19-8fe8-6db501be05e2";
 const FAL = "e5082391-0ae2-4ed1-93d6-c11650b39dbb";
+/** Falcon only — never write p3-corr fixtures into the Al Dhabi demo tenant. */
+const ORG = FAL;
 
 const PREFIX = `p3-corr-${Date.now()}`;
 
@@ -71,24 +73,24 @@ before(async () => {
     `INSERT INTO assets (org_id, name, asset_type, criticality, environment, internet_exposed, status)
      VALUES ($1,$2,'host','critical','production',true,'active')
      ON CONFLICT (org_id, name) DO UPDATE SET internet_exposed = true, criticality = 'critical'`,
-    [AL, `${PREFIX}-asset-a`],
+    [ORG, `${PREFIX}-asset-a`],
   );
   await query(
     `INSERT INTO assets (org_id, name, asset_type, criticality, environment, internet_exposed, status)
      VALUES ($1,$2,'host','low','production',false,'active')
      ON CONFLICT (org_id, name) DO NOTHING`,
-    [AL, `${PREFIX}-asset-b`],
+    [ORG, `${PREFIX}-asset-b`],
   );
   const { rows: assets } = await query<{ asset_id: string; name: string }>(
     `SELECT asset_id, name FROM assets WHERE org_id=$1 AND name LIKE $2`,
-    [AL, `${PREFIX}-asset-%`],
+    [ORG, `${PREFIX}-asset-%`],
   );
   assetA = assets.find((a) => a.name.endsWith("-a"))!.asset_id;
   assetB = assets.find((a) => a.name.endsWith("-b"))!.asset_id;
 
   const { rows: existingBp } = await query<{ business_process_id: string }>(
     `SELECT business_process_id FROM business_processes WHERE org_id=$1 AND name=$2`,
-    [AL, `${PREFIX}-payments`],
+    [ORG, `${PREFIX}-payments`],
   );
   if (existingBp[0]) {
     processId = existingBp[0].business_process_id;
@@ -96,7 +98,7 @@ before(async () => {
     const { rows: bp } = await query<{ business_process_id: string }>(
       `INSERT INTO business_processes (org_id, name, criticality)
        VALUES ($1,$2,'critical') RETURNING business_process_id`,
-      [AL, `${PREFIX}-payments`],
+      [ORG, `${PREFIX}-payments`],
     );
     processId = bp[0].business_process_id;
   }
@@ -104,7 +106,7 @@ before(async () => {
   await query(
     `INSERT INTO asset_business_processes (asset_id, business_process_id, org_id)
      VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`,
-    [assetA, processId, AL],
+    [assetA, processId, ORG],
   );
 });
 
@@ -114,23 +116,23 @@ describe("Phase 3 correlation engine", () => {
     await query(
       `INSERT INTO assets (org_id, name, asset_type, criticality, environment, internet_exposed, status)
        VALUES ($1,$2,'host','critical','production',true,'active')`,
-      [AL, name],
+      [ORG, name],
     );
     const { rows } = await query<{ asset_id: string }>(
       `SELECT asset_id FROM assets WHERE org_id=$1 AND name=$2`,
-      [AL, name],
+      [ORG, name],
     );
     const sid = await insertSignal({
-      orgId: AL,
+      orgId: ORG,
       domainId: socDomain,
       eventType: "suspicious_process",
       severity: "critical",
       assetId: rows[0].asset_id,
     });
-    const out = await correlateSignal(AL, sid);
+    const out = await correlateSignal(ORG, sid);
     assert.equal(out.action, "create");
     assert.ok(out.scenarioId);
-    const scenario = await getScenario(AL, out.scenarioId!);
+    const scenario = await getScenario(ORG, out.scenarioId!);
     assert.ok(scenario);
     assert.ok(["candidate", "active"].includes(scenario.status as string));
   });
@@ -140,33 +142,33 @@ describe("Phase 3 correlation engine", () => {
     await query(
       `INSERT INTO assets (org_id, name, asset_type, criticality, environment, internet_exposed, status)
        VALUES ($1,$2,'host','high','production',true,'active')`,
-      [AL, name],
+      [ORG, name],
     );
     const { rows } = await query<{ asset_id: string }>(
       `SELECT asset_id FROM assets WHERE org_id=$1 AND name=$2`,
-      [AL, name],
+      [ORG, name],
     );
     const assetId = rows[0].asset_id;
     const s1 = await insertSignal({
-      orgId: AL,
+      orgId: ORG,
       domainId: socDomain,
       eventType: "malware_detection",
       severity: "critical",
       assetId,
       title: `${PREFIX} strengthen-1`,
     });
-    const first = await correlateSignal(AL, s1);
+    const first = await correlateSignal(ORG, s1);
     assert.equal(first.action, "create");
     assert.ok(first.scenarioId);
     const s2 = await insertSignal({
-      orgId: AL,
+      orgId: ORG,
       domainId: iamDomain,
       eventType: "privilege_escalation",
       severity: "high",
       assetId,
       title: `${PREFIX} strengthen-2`,
     });
-    const second = await correlateSignal(AL, s2);
+    const second = await correlateSignal(ORG, s2);
     assert.equal(second.action, "strengthen");
     assert.equal(second.scenarioId, first.scenarioId);
     assert.equal(second.ruleCode, "same_asset");
@@ -177,33 +179,33 @@ describe("Phase 3 correlation engine", () => {
     await query(
       `INSERT INTO assets (org_id, name, asset_type, criticality, environment, internet_exposed, status)
        VALUES ($1,$2,'application','high','production',true,'active')`,
-      [AL, uniqueAssetName],
+      [ORG, uniqueAssetName],
     );
     const { rows } = await query<{ asset_id: string }>(
       `SELECT asset_id FROM assets WHERE org_id=$1 AND name=$2`,
-      [AL, uniqueAssetName],
+      [ORG, uniqueAssetName],
     );
     const assetId = rows[0].asset_id;
 
     const a = await insertSignal({
-      orgId: AL,
+      orgId: ORG,
       domainId: socDomain,
       eventType: "suspicious_process",
       severity: "high",
       assetId,
     });
     const b = await insertSignal({
-      orgId: AL,
+      orgId: ORG,
       domainId: asmDomain,
       eventType: "exposed_service",
       severity: "high",
       assetId,
     });
-    const r1 = await correlateSignal(AL, a);
-    const r2 = await correlateSignal(AL, b);
+    const r1 = await correlateSignal(ORG, a);
+    const r2 = await correlateSignal(ORG, b);
     assert.ok(r1.scenarioId);
     assert.equal(r2.scenarioId, r1.scenarioId);
-    const scenario = await getScenario(AL, r1.scenarioId!);
+    const scenario = await getScenario(ORG, r1.scenarioId!);
     assert.ok(scenario!.domains.length >= 2);
   });
 
@@ -214,31 +216,31 @@ describe("Phase 3 correlation engine", () => {
       `INSERT INTO assets (org_id, name, asset_type, criticality, environment, status)
        VALUES ($1,$2,'host','medium','production','active'),
               ($1,$3,'host','medium','production','active')`,
-      [AL, uniqueA, uniqueB],
+      [ORG, uniqueA, uniqueB],
     );
     const { rows } = await query<{ asset_id: string; name: string }>(
       `SELECT asset_id, name FROM assets WHERE org_id=$1 AND name IN ($2,$3)`,
-      [AL, uniqueA, uniqueB],
+      [ORG, uniqueA, uniqueB],
     );
     const idA = rows.find((r) => r.name === uniqueA)!.asset_id;
     const idB = rows.find((r) => r.name === uniqueB)!.asset_id;
 
     const sA = await insertSignal({
-      orgId: AL,
+      orgId: ORG,
       domainId: socDomain,
       eventType: "malware_detection",
       severity: "critical",
       assetId: idA,
     });
     const sB = await insertSignal({
-      orgId: AL,
+      orgId: ORG,
       domainId: socDomain,
       eventType: "malware_detection",
       severity: "critical",
       assetId: idB,
     });
-    const rA = await correlateSignal(AL, sA);
-    const rB = await correlateSignal(AL, sB);
+    const rA = await correlateSignal(ORG, sA);
+    const rB = await correlateSignal(ORG, sB);
     assert.ok(rA.scenarioId);
     assert.ok(rB.scenarioId);
     assert.notEqual(rA.scenarioId, rB.scenarioId);
@@ -246,13 +248,13 @@ describe("Phase 3 correlation engine", () => {
 
   it("skips info-severity and low-evidence medium signals", async () => {
     const info = await insertSignal({
-      orgId: AL,
+      orgId: ORG,
       domainId: socDomain,
       eventType: "heartbeat",
       severity: "info",
       assetId: assetB,
     });
-    const skipInfo = await correlateSignal(AL, info);
+    const skipInfo = await correlateSignal(ORG, info);
     assert.equal(skipInfo.action, "skip");
     assert.equal(skipInfo.ruleCode, "skip_info");
 
@@ -260,20 +262,20 @@ describe("Phase 3 correlation engine", () => {
     await query(
       `INSERT INTO assets (org_id, name, asset_type, criticality, environment, status)
        VALUES ($1,$2,'host','low','production','active')`,
-      [AL, lonely],
+      [ORG, lonely],
     );
     const { rows } = await query<{ asset_id: string }>(
       `SELECT asset_id FROM assets WHERE org_id=$1 AND name=$2`,
-      [AL, lonely],
+      [ORG, lonely],
     );
     const med = await insertSignal({
-      orgId: AL,
+      orgId: ORG,
       domainId: socDomain,
       eventType: "anomaly_noise",
       severity: "medium",
       assetId: rows[0].asset_id,
     });
-    const skipMed = await correlateSignal(AL, med);
+    const skipMed = await correlateSignal(ORG, med);
     assert.equal(skipMed.action, "skip");
     assert.equal(skipMed.ruleCode, "insufficient_evidence");
   });
@@ -281,7 +283,7 @@ describe("Phase 3 correlation engine", () => {
   it("finding + signal correlation strengthens finding-linked scenario", async () => {
     const { rows: findings } = await query<{ finding_id: string }>(
       `SELECT finding_id FROM risk_findings WHERE org_id=$1 LIMIT 1`,
-      [AL],
+      [ORG],
     );
     if (!findings[0]) return; // org may lack findings in some envs
 
@@ -289,33 +291,33 @@ describe("Phase 3 correlation engine", () => {
     await query(
       `INSERT INTO assets (org_id, name, asset_type, criticality, environment, status)
        VALUES ($1,$2,'host','high','production','active')`,
-      [AL, assetName],
+      [ORG, assetName],
     );
     const { rows: a } = await query<{ asset_id: string }>(
       `SELECT asset_id FROM assets WHERE org_id=$1 AND name=$2`,
-      [AL, assetName],
+      [ORG, assetName],
     );
 
     const s1 = await insertSignal({
-      orgId: AL,
+      orgId: ORG,
       domainId: asmDomain,
       eventType: "vulnerability_detected",
       severity: "critical",
       assetId: a[0].asset_id,
       findingId: findings[0].finding_id,
     });
-    const created = await correlateSignal(AL, s1);
+    const created = await correlateSignal(ORG, s1);
     assert.ok(created.scenarioId);
 
     const s2 = await insertSignal({
-      orgId: AL,
+      orgId: ORG,
       domainId: socDomain,
       eventType: "exploit_attempt",
       severity: "high",
       assetId: a[0].asset_id,
       findingId: findings[0].finding_id,
     });
-    const linked = await correlateSignal(AL, s2);
+    const linked = await correlateSignal(ORG, s2);
     assert.ok(
       linked.action === "strengthen" || linked.scenarioId === created.scenarioId,
     );
@@ -326,25 +328,25 @@ describe("Phase 3 correlation engine", () => {
     const { rows: bp } = await query<{ business_process_id: string }>(
       `INSERT INTO business_processes (org_id, name, criticality)
        VALUES ($1,$2,'high') RETURNING business_process_id`,
-      [AL, bpName],
+      [ORG, bpName],
     );
     const bpId = bp[0].business_process_id;
     const s1 = await insertSignal({
-      orgId: AL,
+      orgId: ORG,
       domainId: socDomain,
       eventType: "suspicious_process",
       severity: "critical",
       processId: bpId,
     });
     const s2 = await insertSignal({
-      orgId: AL,
+      orgId: ORG,
       domainId: iamDomain,
       eventType: "privileged_login",
       severity: "high",
       processId: bpId,
     });
-    const r1 = await correlateSignal(AL, s1);
-    const r2 = await correlateSignal(AL, s2);
+    const r1 = await correlateSignal(ORG, s1);
+    const r2 = await correlateSignal(ORG, s2);
     assert.ok(r1.scenarioId);
     assert.equal(r2.scenarioId, r1.scenarioId);
     assert.ok(
@@ -355,10 +357,10 @@ describe("Phase 3 correlation engine", () => {
 
 describe("Phase 3 assessment history + tolerance", () => {
   it("recalculation preserves prior assessment and updates current", async () => {
-    const seeded = await seedDemoScenarios(AL);
+    const seeded = await seedDemoScenarios(ORG);
     assert.ok(seeded.scenarioIds.length >= 4);
     const scenarioId = seeded.scenarioIds[0];
-    const before = await getScenario(AL, scenarioId);
+    const before = await getScenario(ORG, scenarioId);
     assert.ok(before?.currentAssessment);
     const priorId = before!.currentAssessment.risk_assessment_id;
     const priorCount = before!.assessments.length;
@@ -366,10 +368,10 @@ describe("Phase 3 assessment history + tolerance", () => {
     await query(
       `UPDATE scenario_controls SET effectiveness = 'effective'
        WHERE org_id=$1 AND scenario_id=$2`,
-      [AL, scenarioId],
+      [ORG, scenarioId],
     );
-    const result = await recalculateScenario(AL, scenarioId);
-    const after = await getScenario(AL, scenarioId);
+    const result = await recalculateScenario(ORG, scenarioId);
+    const after = await getScenario(ORG, scenarioId);
     assert.ok(after!.assessments.length >= priorCount + 1);
     assert.notEqual(after!.currentAssessment.risk_assessment_id, priorId);
     assert.ok(
@@ -383,11 +385,11 @@ describe("Phase 3 assessment history + tolerance", () => {
   });
 
   it("demo scenarios produce explainable assessments without inventing AED", async () => {
-    const list = await listScenarios(AL, { limit: 20 });
+    const list = await listScenarios(ORG, { limit: 20 });
     const demos = list.filter((s: any) => s.isDemo);
     assert.ok(demos.length >= 1);
     for (const d of demos) {
-      const full = await getScenario(AL, d.scenarioId as string);
+      const full = await getScenario(ORG, d.scenarioId as string);
       assert.ok(full?.currentAssessment);
       const meta = full!.currentAssessment.calculation_meta;
       const parsed = typeof meta === "string" ? JSON.parse(meta) : meta;

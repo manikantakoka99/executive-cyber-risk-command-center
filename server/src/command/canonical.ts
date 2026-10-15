@@ -26,7 +26,8 @@ export const CANONICAL = {
   openDecisions: 4,
   /** AED millions. */
   ale: 2.89,
-  aleDisplay: "2.9",
+  /** Two-decimal AED millions display (formatAed / format2). */
+  aleDisplay: "2.89",
   p90: 10.07,
   p95: 14.94,
   /** rejected_rate must stay 0 so confidence formula does not drop below 72%. */

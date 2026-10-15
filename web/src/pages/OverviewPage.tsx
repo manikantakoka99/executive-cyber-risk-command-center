@@ -100,7 +100,7 @@ export function OverviewPage({
             aria-hidden
           >
             <div className="n mono">
-              {er?.score != null ? Math.round(er.score) : "—"}
+              {er?.score != null ? Number(er.score).toFixed(1) : "—"}
             </div>
           </div>
           <div className="score-meta">

@@ -1,6 +1,6 @@
 /**
  * Al Dhabi demo: force executive screens onto one canonical source of truth
- * (command Headline: 50.8 High, AED 2.9M, 4 open decisions, domain band spread).
+ * (command Headline: 50.8 High, AED 2.89M, 4 open decisions, domain band spread).
  */
 import { CANONICAL } from "./canonical.js";
 import { BASELINE, ENTERPRISE_LOSS, MONTHS, monthScorecards } from "./model.js";
@@ -135,10 +135,9 @@ export function overlayDecisionCenter(orgId: string, center: any) {
   };
 }
 
-/** Prefer command-model six-month trend when DB history is thin. */
+/** Prefer command-model six-month trend when DB history is thin; always align velocity KPIs. */
 export function overlayTrends(orgId: string, trends: any) {
   if (!isDemoOrg(orgId) || !trends) return trends;
-  if (!trends.insufficientHistory && (trends.residualTrend?.length ?? 0) >= 2) return trends;
   const cards = monthScorecards();
   const residualTrend = cards.map((row, i) => ({
     day: `2026-${String(i + 4).padStart(2, "0")}-01`,
@@ -146,27 +145,45 @@ export function overlayTrends(orgId: string, trends: any) {
     avgResidual: Number(row.card.arithmetic.toFixed(1)),
     n: CANONICAL.domainCount,
   }));
+  const useModel =
+    trends.insufficientHistory || (trends.residualTrend?.length ?? 0) < 2;
   return {
     ...trends,
     window: trends.window ?? "30d",
     insufficientHistory: false,
-    message: `Six-month domain composite (${MONTHS[0]}–${MONTHS[MONTHS.length - 1]}) from the approved scoring model.`,
-    residualTrend,
-    inherentVsResidual: residualTrend.map((r) => ({
-      day: r.day,
-      avgInherent: r.avgResidual,
-      avgResidual: r.avgResidual,
-    })),
-    source: "command_model",
+    message: useModel
+      ? `Six-month domain composite (${MONTHS[0]}–${MONTHS[MONTHS.length - 1]}) from the approved scoring model.`
+      : trends.message,
+    residualTrend: useModel ? residualTrend : trends.residualTrend,
+    inherentVsResidual: useModel
+      ? residualTrend.map((r) => ({
+          day: r.day,
+          avgInherent: r.avgResidual,
+          avgResidual: r.avgResidual,
+        }))
+      : trends.inherentVsResidual,
+    // Keep velocity counts on the same canonical source as portfolio KPIs.
+    scenarioVelocity: {
+      newScenarios: 5,
+      resolvedScenarios: Number(trends.scenarioVelocity?.resolvedScenarios ?? 0),
+      acceptedRisks: Number(trends.scenarioVelocity?.acceptedRisks ?? 0),
+      outsideToleranceNow: CANONICAL.outsideAppetite,
+    },
+    source: useModel ? "command_model" : trends.source ?? "database",
   };
 }
 
 const NOISE_TITLE =
-  /^(P4 isolated|P4-base-|p3-corr-|Generic Security Events \d+)/i;
+  /^(P4 isolated|P4-base-|P4-al-|P4-fal-|p3-corr-|Isolated scenario |Generic Security Events \d+)/i;
 
 export function isPresentationNoiseTitle(title: string | null | undefined): boolean {
   if (!title) return false;
-  return NOISE_TITLE.test(title) || /Unnamed process/i.test(title);
+  return (
+    NOISE_TITLE.test(title) ||
+    /Unnamed process/i.test(title) ||
+    /\btest host\b/i.test(title) ||
+    /\bisolated_test\b/i.test(title)
+  );
 }
 
 export function filterPresentationNoise<T extends { title?: string; name?: string }>(rows: T[]): T[] {

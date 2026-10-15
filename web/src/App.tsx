@@ -4,6 +4,7 @@ import { Shell } from "./components/Shell";
 import { AppProvider, useAppState } from "./context/AppState";
 import { ThemeProvider } from "./context/Theme";
 import { api } from "./lib/api";
+import { roleLabel } from "./lib/format";
 import type { OverviewResponse } from "./data/types";
 import { AdminPage } from "./pages/AdminPage";
 import { CommandCenter } from "./pages/command/CommandCenter";
@@ -45,7 +46,7 @@ function Permit({
       <EmptyState
         code="403"
         title="Outside this role"
-        reason={`${me?.title ?? "This persona"} cannot open this workspace.`}
+        reason={`${me?.title ?? (me?.role ? roleLabel(me.role) : "This persona")} cannot open this workspace.`}
         home={me?.home ?? "/"}
       />
     );
@@ -73,12 +74,9 @@ function OperationsRoute() {
     void load();
   }, [ready, orgId, userId, me, load]);
 
+  // Permission already enforced by parent <Permit>; keep a defensive guard.
   if (!me?.permissions.includes("ops.overview")) {
-    return (
-      <Permit permission="ops.overview">
-        <div />
-      </Permit>
-    );
+    return null;
   }
   if (error && !overview) {
     return (
@@ -162,7 +160,14 @@ function EccApp() {
       <Routes>
         <Route path="/" element={<Navigate to={me.home} replace />} />
         <Route path="/c/:view" element={<CommandCenter />} />
-        <Route path="/operations" element={<OperationsRoute />} />
+        <Route
+          path="/operations"
+          element={
+            <Permit permission="ops.overview">
+              <OperationsRoute />
+            </Permit>
+          }
+        />
         <Route path="/intelligence" element={<Permit permission="scenarios.read"><IntelligencePage /></Permit>} />
         <Route path="/scenarios" element={<Permit permission="scenarios.read"><ScenariosPage /></Permit>} />
         <Route path="/scenarios/:id" element={<Permit permission="scenarios.read"><ScenarioDetailPage /></Permit>} />

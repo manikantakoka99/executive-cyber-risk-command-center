@@ -1,10 +1,10 @@
-/** One money formatter for the whole app: AED xxx.xK below 1M, AED x.xM above. */
+/** One money formatter for the whole app: AED x.xxM at/above 1M, AED xxx.xK below. */
 export function formatAed(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
   const abs = Math.abs(n);
   if (abs >= 1_000_000) {
     const m = n / 1_000_000;
-    return `AED ${m.toFixed(1)}M`;
+    return `AED ${m.toFixed(2)}M`;
   }
   if (abs >= 1_000) {
     const k = n / 1_000;
@@ -16,7 +16,7 @@ export function formatAed(n: number | null | undefined): string {
 /** Format AED millions figure already stored as millions (command loss model). */
 export function formatAedMillions(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
-  return `AED ${n.toFixed(1)}M`;
+  return `AED ${n.toFixed(2)}M`;
 }
 
 export function formatPct(n: number | null | undefined): string {
@@ -120,9 +120,9 @@ export function roleLabel(role: string): string {
   }
 }
 
-/** Normalize stray casings like cXO / CXO → CxO in free text. */
+/** Normalize stray casings like cXO / CXO / cxo → CxO in free text. */
 export function normalizeCxO(text: string): string {
-  return text.replace(/\bcXO\b/g, "CxO").replace(/\bCXO\b/g, "CxO");
+  return text.replace(/\bcxo\b/gi, "CxO");
 }
 
 export function trendDirection(delta: number | null | undefined): string {

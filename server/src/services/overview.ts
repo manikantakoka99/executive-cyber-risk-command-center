@@ -1,4 +1,4 @@
-import { overlayOverview } from "../command/demoOverlay.js";
+import { filterPresentationNoise, overlayOverview } from "../command/demoOverlay.js";
 import { priorityTierFromScore } from "../risk/bands.js";
 import { query } from "../db.js";
 
@@ -207,6 +207,7 @@ export async function getOverview(orgId: string) {
      LEFT JOIN users u ON u.user_id = tp.owner_user_id
      WHERE s.org_id = $1
        AND s.status NOT IN ('closed')
+       AND COALESCE(s.scenario_type, '') <> 'isolated_test'
      ORDER BY COALESCE(s.priority_score, 0) DESC, s.last_seen_at DESC NULLS LAST
      LIMIT 8`,
     [orgId],
@@ -243,6 +244,7 @@ export async function getOverview(orgId: string) {
      LEFT JOIN users u ON u.user_id = tp.owner_user_id
      WHERE s.org_id = $1
        AND s.status NOT IN ('closed','accepted','mitigated')
+       AND COALESCE(s.scenario_type, '') <> 'isolated_test'
        AND (
          s.decision_required = true
          OR s.tolerance_state = 'outside'
@@ -265,7 +267,9 @@ export async function getOverview(orgId: string) {
        COUNT(*) FILTER (WHERE velocity = 'increasing')::text AS increasing,
        COUNT(*) FILTER (WHERE velocity = 'aging')::text AS aging
      FROM risk_scenarios
-     WHERE org_id = $1 AND status NOT IN ('closed')`,
+     WHERE org_id = $1
+       AND status NOT IN ('closed')
+       AND COALESCE(scenario_type, '') <> 'isolated_test'`,
     [orgId],
   );
 
@@ -364,50 +368,54 @@ export async function getOverview(orgId: string) {
       outsideTolerance: Number(scenarioStats.rows[0]?.outside ?? 0),
       increasing: Number(scenarioStats.rows[0]?.increasing ?? 0),
       aging: Number(scenarioStats.rows[0]?.aging ?? 0),
-      top: scenarios.rows.map((s) => {
+      top: filterPresentationNoise(
+        scenarios.rows.map((s) => {
+          const residualRisk = s.residual_risk != null ? Number(s.residual_risk) : null;
+          return {
+            scenarioId: s.scenario_id,
+            title: s.title,
+            status: s.status,
+            priority: residualRisk != null ? priorityTierFromScore(residualRisk) : "low",
+            priorityScore: s.priority_score != null ? Number(s.priority_score) : null,
+            toleranceState: s.tolerance_state,
+            velocity: s.velocity,
+            residualRisk,
+            explanation: s.explanation,
+            lastSeenAt: s.last_seen_at?.toISOString() ?? null,
+            recommendedTreatment: s.recommended_treatment,
+            decisionRequired: s.decision_required,
+          };
+        }),
+      ),
+    },
+    executiveActionQueue: filterPresentationNoise(
+      execQueue.rows.map((s) => {
         const residualRisk = s.residual_risk != null ? Number(s.residual_risk) : null;
         return {
           scenarioId: s.scenario_id,
           title: s.title,
-          status: s.status,
           priority: residualRisk != null ? priorityTierFromScore(residualRisk) : "low",
-          priorityScore: s.priority_score != null ? Number(s.priority_score) : null,
           toleranceState: s.tolerance_state,
           velocity: s.velocity,
           residualRisk,
-          explanation: s.explanation,
-          lastSeenAt: s.last_seen_at?.toISOString() ?? null,
           recommendedTreatment: s.recommended_treatment,
-          decisionRequired: s.decision_required,
+          recommendedAction: s.recommended_action,
+          financialExposureAed:
+            s.financial_known && s.financial_exposure_aed != null
+              ? Number(s.financial_exposure_aed)
+              : null,
+          financialKnown: !!s.financial_known,
+          actionOwner: s.owner_name,
+          dueDate: s.target_date ? String(s.target_date).slice(0, 10) : null,
+          agingDays: s.first_seen_at
+            ? Math.floor(
+                (Date.now() - new Date(s.first_seen_at).getTime()) / 86400000,
+              )
+            : null,
+          decisionRequired: true,
         };
       }),
-    },
-    executiveActionQueue: execQueue.rows.map((s) => {
-      const residualRisk = s.residual_risk != null ? Number(s.residual_risk) : null;
-      return {
-        scenarioId: s.scenario_id,
-        title: s.title,
-        priority: residualRisk != null ? priorityTierFromScore(residualRisk) : "low",
-        toleranceState: s.tolerance_state,
-        velocity: s.velocity,
-        residualRisk,
-        recommendedTreatment: s.recommended_treatment,
-        recommendedAction: s.recommended_action,
-        financialExposureAed:
-          s.financial_known && s.financial_exposure_aed != null
-            ? Number(s.financial_exposure_aed)
-            : null,
-        financialKnown: !!s.financial_known,
-        actionOwner: s.owner_name,
-        dueDate: s.target_date ? String(s.target_date).slice(0, 10) : null,
-        agingDays: s.first_seen_at
-          ? Math.floor(
-              (Date.now() - new Date(s.first_seen_at).getTime()) / 86400000,
-            )
-          : null,
-        decisionRequired: true,
-      };
-    }),
+    ),
   };
   return overlayOverview(orgId, payload);
 }

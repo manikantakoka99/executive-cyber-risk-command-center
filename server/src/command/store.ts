@@ -144,7 +144,7 @@ export function initialState(): CommandState {
     ],
     fixes: [
       { id: "f1", title: "CVE on internal file server (High)", state: "fix_reported", attempts: 0, willPass: true },
-      { id: "f2", title: "Exposed admin interface on a test host", state: "fix_reported", attempts: 0, willPass: false },
+      { id: "f2", title: "Exposed admin interface on partner jump host", state: "fix_reported", attempts: 0, willPass: false },
       { id: "f3", title: "Outdated TLS on partner portal", state: "verified_closed", attempts: 1, willPass: true },
     ],
     decisions: [],

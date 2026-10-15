@@ -168,7 +168,7 @@ const DWAN_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "policy.read",
     "policy.approve",
   ],
-  // CxO: money + decisions only (Quiet Command / Pep) — no findings, posture depth, or connectors.
+  // CxO: money + decisions only (Quiet Command / Pep) — no ops overview, findings, or connectors.
   cxo: [
     "command.headline",
     "command.loss",
@@ -181,7 +181,6 @@ const DWAN_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "command.pack",
     "command.pack.review",
     "command.pack.approve",
-    "ops.overview",
     "decisions.read",
     "decisions.act",
     "compliance.read",

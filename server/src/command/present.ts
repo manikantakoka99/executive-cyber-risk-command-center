@@ -395,13 +395,13 @@ function presentHeadline(
   return {
     question: "Are we OK?",
     title,
-    lede: `The headline shows the worst band the evidence supports, not the average. The average alone would read ${format1(card.plain)} and ${bandName(card.plain)}.`,
+    lede: `The headline shows the worst band the evidence supports, not a simple average. A plain average of the 12 domain scores would read ${format1(card.plain)} (${bandName(card.plain)}); the coverage-adjusted average is ${format1(card.arithmetic)} (${bandName(card.arithmetic)}).`,
     band: card.headline,
     arithmetic: round1(card.arithmetic),
     plain: round1(card.plain),
     floored: card.floored,
     floorNote: card.floored
-      ? `Floor rule applied. The arithmetic score (${format1(card.arithmetic)}) is ${bandName(card.arithmetic)}, but ${card.counts.Critical} domain${card.counts.Critical > 1 ? "s are" : " is"} Critical, so the headline cannot read better than High.`
+      ? `Floor rule applied. The coverage-adjusted average (${format1(card.arithmetic)}) is ${bandName(card.arithmetic)}, but ${card.counts.Critical} domain${card.counts.Critical > 1 ? "s are" : " is"} Critical, so the headline cannot read better than High.`
       : null,
     counts: card.counts,
     confidencePct: Math.round(card.confidence * 100),
@@ -410,13 +410,14 @@ function presentHeadline(
     outsideAppetite: outside,
     domainCount: DOMAINS.length,
     expiringAcceptances: expiring,
-    acceptanceCount: state.accept.length,
+    // Open decisions awaiting executive action (queue), not accepted-risk register size.
+    acceptanceCount: state.queue.filter((item) => item.state === "open").length,
     loss: loss
       ? {
           ale: ENTERPRISE_LOSS.ale,
           p90: ENTERPRISE_LOSS.p90,
           p95: ENTERPRISE_LOSS.p95,
-          note: `In most years no major event occurs; the range is driven by rare, large events. A bad year (1 in 10) is about AED ${format1(ENTERPRISE_LOSS.p90)}M and 1 in 20 about AED ${format1(ENTERPRISE_LOSS.p95)}M. Sum of three simulated scenarios, draw by draw.`,
+          note: `In most years no major event occurs; the range is driven by rare, large events. A bad year (1 in 10) is about AED ${format2(ENTERPRISE_LOSS.p90)}M and 1 in 20 about AED ${format2(ENTERPRISE_LOSS.p95)}M. Sum of three simulated scenarios, draw by draw.`,
           drivers: Object.values(LOSS).map((item) => ({ name: item.name, ale: item.ale })),
         }
       : null,
@@ -771,7 +772,7 @@ function presentPack(role: string, state: CommandState, orgName: string): PackVi
         ? [
             {
               heading: "Money",
-              text: `Modelled annualised loss exposure is AED ${format1(ENTERPRISE_LOSS.ale)}M expected, and about AED ${format1(ENTERPRISE_LOSS.p90)}M in a bad year (1 in 10). The largest driver is ${LOSS.ran!.name.toLowerCase()} at AED ${format2(LOSS.ran!.ale)}M expected.`,
+              text: `Modelled annualised loss exposure is AED ${format2(ENTERPRISE_LOSS.ale)}M expected, and about AED ${format2(ENTERPRISE_LOSS.p90)}M in a bad year (1 in 10). The largest driver is ${LOSS.ran!.name.toLowerCase()} at AED ${format2(LOSS.ran!.ale)}M expected.`,
               items: [{ text: "Loss model", source: sourceLabel("loss_models") }],
             },
           ]

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Lock, SearchX } from "lucide-react";
+import { normalizeCxO } from "../lib/format";
 
 export function EmptyState({
   code,
@@ -20,8 +21,8 @@ export function EmptyState({
         <p className="eyebrow">
           {code} · {code === "403" ? "Forbidden" : "Not found"}
         </p>
-        <h1 className="page-title">{title}</h1>
-        <p className="page-sub">{reason}</p>
+        <h1 className="page-title">{normalizeCxO(title)}</h1>
+        <p className="page-sub">{normalizeCxO(reason)}</p>
         <Link className="btn primary sm" to={home}>
           Back to home
         </Link>

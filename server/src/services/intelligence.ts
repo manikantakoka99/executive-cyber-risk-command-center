@@ -399,7 +399,7 @@ export async function getHotspots(orgId: string) {
   );
 
   const statements: string[] = [];
-  if (byBu[0] && Number(byBu[0].n) > 0) {
+  if (byBu[0] && Number(byBu[0].n) > 0 && !isPresentationNoiseTitle(byBu[0].name)) {
     const pct = Math.round((Number(byBu[0].n) / denom) * 100);
     const name = byBu[0].name ?? "unassigned business unit";
     statements.push(
@@ -407,7 +407,10 @@ export async function getHotspots(orgId: string) {
     );
   }
   for (const bp of byBp.filter(
-    (b) => Number(b.outside) > 0 && b.name && !/Unnamed process/i.test(b.name),
+    (b) =>
+      Number(b.outside) > 0 &&
+      b.name &&
+      !isPresentationNoiseTitle(b.name),
   ).slice(0, 2)) {
     statements.push(
       `${bp.name} contains ${bp.outside} outside-tolerance scenario(s) of ${bp.n} active in that process.`,
