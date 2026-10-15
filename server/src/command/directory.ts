@@ -135,16 +135,24 @@ function toDirectory(persona: Persona): DirectoryUser {
 }
 
 function titleFor(role: string): string {
-  const canon = canonicalRole(role);
-  if (canon === "cxo") return "CxO";
-  if (canon === "ciso") return "CISO";
-  if (canon === "board_member") return "Board Member";
-  if (canon === "admin") return "Admin";
-  if (canon === "risk_lead") return "Risk Lead";
-  if (canon === "domain_analyst") return "Domain Analyst";
-  if (canon === "program_office") return "Program Office";
-  if (canon === "auditor") return "Auditor";
-  return canon.replaceAll("_", " ");
+  switch (canonicalRole(role)) {
+    case "cxo":
+      return "CxO";
+    case "ciso":
+      return "CISO";
+    case "board_member":
+      return "Board Member";
+    case "admin":
+      return "Admin";
+    case "risk_lead":
+      return "Risk Lead";
+    case "domain_analyst":
+      return "Domain Analyst";
+    case "program_office":
+      return "Program Office";
+    case "auditor":
+      return "Auditor";
+  }
 }
 
 export async function assignRole(userId: string, orgId: string, role: RoleCode): Promise<boolean> {

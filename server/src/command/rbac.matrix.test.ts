@@ -34,8 +34,10 @@ describe("RBAC matrix (schema eight roles)", () => {
   it("blocks CxO from findings and technical evidence permissions", () => {
     assert.equal(hasPermission("cxo", "findings.read"), false);
     assert.equal(hasPermission("cxo", "findings.technical"), false);
-    assert.equal(requiredPermission("GET", "/api/ecc/findings"), "findings.read");
-    assert.equal(hasPermission("cxo", requiredPermission("GET", "/api/ecc/findings")!), false);
+    const findingsPermission = requiredPermission("GET", "/api/ecc/findings");
+    assert.equal(findingsPermission, "findings.read");
+    if (findingsPermission !== "findings.read") return;
+    assert.equal(hasPermission("cxo", findingsPermission), false);
   });
 
   it("allows auditor read-only findings and connectors", () => {
