@@ -1,3 +1,4 @@
+import { formatAed } from "../lib/money.js";
 import {
   WHATIF_PRESETS,
   WHATIF_TODAY,
@@ -326,8 +327,13 @@ export function convertScenario(orgId: string, role: string, actor: string, inde
   const state = getState(orgId);
   const scenario = state.scenarios[index];
   if (!scenario) return { ok: false, status: 404, message: "Scenario not found." };
+  // lossAvoided is stored in AED millions; convert to base dirhams for formatAed.
+  const millions = Number(scenario.lossAvoided);
+  const lossText = Number.isFinite(millions)
+    ? formatAed(millions * 1_000_000)
+    : "—";
   state.decisions.push(
-    `Funding decision from scenario "${scenario.name}" (ransomware score ${scenario.score}, AED ${scenario.lossAvoided}M expected loss avoided a year; ${actor})`,
+    `Funding decision from scenario "${scenario.name}" (ransomware score ${scenario.score}, ${lossText} expected loss avoided a year; ${actor})`,
   );
   return { ok: true, toast: "Converted to a decision and logged." };
 }

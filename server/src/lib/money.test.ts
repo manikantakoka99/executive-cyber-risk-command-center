@@ -14,6 +14,11 @@ describe("formatAed", () => {
     assert.equal(formatAed(179_096), "AED 179K");
     assert.equal(formatAed(999), "AED 999");
   });
+
+  it("rounds multi-decimal millions (what-if lossAvoided) to one decimal", () => {
+    assert.equal(formatAed(1.234567 * 1_000_000), "AED 1.2M");
+    assert.equal(formatAed(2.98765 * 1_000_000), "AED 3.0M");
+  });
 });
 
 describe("reformatAedInText / formatImpactSummary", () => {

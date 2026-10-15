@@ -13,6 +13,7 @@ import {
 import {
   acceptQueue,
   approveQueue,
+  convertScenario,
   getState,
   initialState,
   resetState,
@@ -167,5 +168,21 @@ describe("command RBAC", () => {
     const cxo = presentWorkspace("cxo", getState(ORG));
     assert.equal(cxo.whatif?.saved.length, 1);
     assert.ok(cxo.whatif?.rows.some((row) => row.label.includes("expected loss")));
+  });
+
+  it("formats convertScenario funding notes with formatAed (multi-decimal millions)", () => {
+    const state = getState(ORG);
+    state.scenarios.push({
+      name: "Custom scenario",
+      score: "40.0",
+      lossAvoided: "1.234567",
+      cost: "0.5",
+      gaps: { edr: 10, siem: 10, imm: 10, dr: 10 },
+    });
+    const result = convertScenario(ORG, "cxo", "Omar Al Mansoori, CEO", 0);
+    assert.equal(result.ok, true);
+    const note = getState(ORG).decisions.at(-1)!;
+    assert.match(note, /AED 1\.2M expected loss avoided a year/);
+    assert.equal(note.includes("AED 1.234567M"), false);
   });
 });
