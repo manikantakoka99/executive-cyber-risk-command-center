@@ -8,6 +8,7 @@ describe("connector credential masking", () => {
       "2accc7de-f693-4b19-8fe8-6db501be05e2",
       "ciso",
     );
+    assert.ok(health);
     assert.ok(health.connectors.length > 0);
     const blob = JSON.stringify(health);
     assert.doesNotMatch(blob, /secret:\/\//i);

@@ -106,11 +106,16 @@ import {
   resetSampleWorkbookIngestion,
   runSampleWorkbookIngestion,
 } from "./services/sampleWorkbookIngestion.js";
+import { installRequestValidation } from "./middleware/requestValidation.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GENERATED_DIR = path.join(__dirname, "..", "generated");
 
-const app = Fastify({ logger: true });
+export const app = Fastify({ logger: true });
+
+// Before routes so each route's preHandler list ends with validation,
+// which therefore runs after auth, the permission hook, and requireRoles.
+installRequestValidation(app);
 
 await app.register(cors, {
   origin: process.env.CORS_ORIGIN?.split(",") ?? true,
@@ -1117,10 +1122,16 @@ seedCommandDirectory().catch((err) => {
 const port = Number(process.env.PORT ?? 4000);
 const host = process.env.HOST ?? "0.0.0.0";
 
-try {
-  await app.listen({ port, host });
-  console.log(`ECC API listening on http://${host}:${port}`);
-} catch (err) {
-  app.log.error(err);
-  process.exit(1);
+const entryArg = process.argv[1];
+const invokedDirectly =
+  entryArg != null && path.resolve(entryArg) === fileURLToPath(import.meta.url);
+
+if (invokedDirectly) {
+  try {
+    await app.listen({ port, host });
+    console.log(`ECC API listening on http://${host}:${port}`);
+  } catch (err) {
+    app.log.error(err);
+    process.exit(1);
+  }
 }
