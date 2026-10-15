@@ -2,108 +2,122 @@
 
 Data-backed **YVI DWAN Cyber Command Center** — executive aggregation of 12 security domains into Risk → Impact → Decision → Action.
 
-> Prior `docs/PRD.md` / demo SPA described a 5-domain sales prototype. Authoritative design for this build: `docs/ecc-*.md` + `reference/`.
+> Authoritative design: `docs/ecc-*.md`, `docs/PEP_RBAC_TEST_MATRIX.md`, and `db/dwan_schema.sql`.
 
-## Quick start
-
-### 1. Database
-
-**Option A — local Docker (default)**
+## One-command local run
 
 ```bash
+# Postgres 16 + DWAN schema + two demo tenants (Al Dhabi + Falcon)
 docker compose up -d
-# waits on localhost:5433 (5432 often taken locally)
+
+# API + Vite (installs deps on first run)
+chmod +x scripts/dev-up.sh
+./scripts/dev-up.sh
 ```
 
-**Option B — Supabase**
+Then open http://127.0.0.1:5173
 
-1. In Supabase: **Project Settings → Database → Connection string → URI** (Session or Direct).
-2. Put it in `.env` as `DATABASE_URL` (add `?sslmode=require` if missing).
-3. Apply schema + migrations (+ optional sample load):
+| Service | URL / connection |
+|--------|-------------------|
+| UI | http://127.0.0.1:5173 |
+| API | http://127.0.0.1:4000/health |
+| Postgres | `postgresql://ecc:ecc_dev_password@localhost:5433/cyber_command_center` |
+
+Docker init mounts:
+
+1. `db/dwan_schema.sql` — consolidated DWAN schema + RLS  
+2. `db/docker-init/02_app_compat.sql` — API compatibility views (`v_user_primary_role`, roles)  
+3. `db/docker-init/03_seed_tenants.sql` — Al Dhabi + Falcon personas  
+
+**Fresh DB only:** Postgres init scripts run when the volume is empty. To re-seed from scratch:
+
+```bash
+docker compose down -v
+docker compose up -d
+./scripts/dev-up.sh
+```
+
+Optional rich Al Dhabi seed (Excel signals → scores) into a DWAN database:
 
 ```bash
 python3 -m venv .venv-ecc
 .venv-ecc/bin/pip install psycopg2-binary openpyxl
-.venv-ecc/bin/python db/migrate_to_supabase.py --import-sample --reset
+DATABASE_URL=postgresql://ecc:ecc_dev_password@localhost:5433/cyber_command_center \
+  .venv-ecc/bin/python db/seed_dwan_aldhabi.py
 ```
 
-### 2. Import sample data (local Docker)
+SQL regression suite:
 
 ```bash
-python3 -m venv .venv-ecc
-.venv-ecc/bin/pip install psycopg2-binary openpyxl
-.venv-ecc/bin/python db/import_sample_data.py --reset
-.venv-ecc/bin/python db/validate_import.py
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/dwan_tests.sql
 ```
 
-### 3. API
+### Manual start (without `dev-up.sh`)
 
 ```bash
 cp .env.example .env
-cd server && npm install && npm run dev
-# http://localhost:4000/health
+docker compose up -d
+cd server && npm install && npm run dev   # :4000
+cd web && npm install && npm run dev      # :5173, proxies /api → :4000
 ```
 
-### 5. Web UI
+### Supabase (optional)
 
-```bash
-cd web && npm install && npm run dev
-# Vite proxies /api → :4000
-```
+1. Project Settings → Database → Connection string → URI  
+2. Set `DATABASE_URL` in `.env` (`?sslmode=require` if needed)  
+3. Apply `db/dwan_schema.sql` (or legacy `db/migrate_to_supabase.py` for the older migration chain)
 
-Open http://127.0.0.1:5173
+## Demo auth and tenants
 
-Default tenant: **Al Dhabi Holdings** (score ≈ 42.83 from sample DB — not the static HTML mockup numbers). Use the org switcher for tenants with awaiting CXO decisions (e.g. **Falcon National Bank**).
+Sign-in is passwordless. Pick an organization, then a persona. Every API call sends:
 
-### Tests
+- `X-Org-Id`
+- `X-User-Id`
 
-```bash
-cd server && npm test
-# or: DATABASE_URL=... npx tsx --test src/overview.test.ts
-.venv-ecc/bin/python db/validate_import.py
-```
+**Tenant isolation** is enforced in the API (user must belong to the org) and in Postgres (`SET app.current_org_id` / RLS on DWAN tables). Cross-tenant header spoofing returns **403**.
 
-## Reload sample dataset
+### Tenant A — Al Dhabi Holdings
 
-```bash
-.venv-ecc/bin/python db/import_sample_data.py --reset
-.venv-ecc/bin/python db/validate_import.py
-```
+| Persona | Role | Notes |
+|---|---|---|
+| Omar Al Mansoori, Fatima Al Nuaimi, Khalid Al Suwaidi, Mariam Al Dhaheri | CxO | Decision queue, accept risk, financials |
+| Layla Al Hashimi | CISO | Propose scoring policy / appetite; full ops |
+| Hessa Al Ketbi | Board Member | Approve & lock policy; no queue approve |
+| Yusuf Rahman | Security Analyst | Domain evidence; no financials |
+| Aisha Khan | SOC Analyst | Detection / verification |
+| Rashid Al Maktoum | Risk Lead | Accept risk, register |
+| Nadia Farouk | Admin | Users / roles |
+| Sara Ibrahim | Compliance | Framework posture |
+| James Okoye | Auditor | Read-only pack / audit |
+
+### Tenant B — Falcon National Bank (isolation tests)
+
+| Persona | Role |
+|---|---|
+| Nora Al Falasi | CISO |
+| Tariq Hassan | Board Member |
+| Samira Qureshi | CxO (CEO) |
+
+## Policy / appetite
+
+- **CISO** proposes scoring policy and risk appetite  
+- **Board** approves and locks the version (`proposed_by ≠ approved_by`)  
+- Approval makes that version immutable (DB triggers + API)
+
+Risk acceptance is allowed for **CxO** and **Risk Lead** (`role_capabilities.accept_risk` + API).
 
 ## Documentation
 
 | Doc | Purpose |
 |-----|---------|
-| `docs/ecc-research.md` | R&D with source / inference / external / recommendation |
-| `docs/ecc-product-requirements.md` | PRD |
+| `docs/PEP_RBAC_TEST_MATRIX.md` | Role × capability matrix |
 | `docs/ecc-architecture.md` | Stack & tenancy |
-| `docs/ecc-data-mapping.md` | Excel ↔ schema ↔ UI |
 | `docs/ecc-api-design.md` | API contract |
 | `docs/ecc-risk-scoring.md` | KPI / scoring model |
-| `docs/ecc-implementation-plan.md` | Phases |
-| `docs/ecc-import-validation.md` | Last validation report |
+| `db/dwan_schema.sql` | Authoritative schema |
 
-## Demo auth and roles
+## Tests
 
-Open the web app and sign in as a seeded persona. There is no password. The header can switch persona without signing out. The same headers are sent on every API call:
-
-- `X-Org-Id`
-- `X-User-Id`
-
-Access is enforced in the API, not only by hiding navigation. A role that lacks a permission receives **403** and a payload that omits restricted fields (financial exposure, feed confidence, KEV/EPSS, raw scores).
-
-| Persona | Role | What they see |
-|---|---|---|
-| Omar Al Mansoori, Fatima Al Nuaimi, Khalid Al Suwaidi, Mariam Al Dhaheri | CxO (CEO, CFO, CIO, COO) | Business impact, loss exposure, decision queue (approve / accept / defer), what-if funding |
-| Layla Al Hashimi | CISO | Full operational and technical command center, incidents, vulnerabilities, controls, verification |
-| Hessa Al Ketbi | Board Member | Headline posture, trends, financial exposure, compliance summary, board pack. No approvals |
-| Yusuf Rahman | Security Analyst | Domain evidence, trust panel, findings, verification scans. No financial approvals |
-| Aisha Khan | SOC Analyst | Detection coverage, queue, verification scans |
-| Rashid Al Maktoum | Risk Lead | Acceptance register, queue actions, what-if, audit context |
-| Nadia Farouk | Admin | User and role administration |
-| Sara Ibrahim | Compliance | Framework posture, board pack, what changed |
-| James Okoye | Auditor | Read-only pack, compliance, and audit |
-
-The command center (headline, posture, trust, queue, what-if, closure, what changed, board pack) uses the reference executive model and runs even when PostgreSQL is not up. Operational pages (domains, findings, ingestion, scenarios) need the sample database from the quick start above.
-
-Legacy executive-decision approve/decline on the operational overview remains limited to `cxo`. Command-center queue actions follow the role matrix above (`cxo`, `ciso`, `risk_manager`).
+```bash
+cd server && npm test
+```

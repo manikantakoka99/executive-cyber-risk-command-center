@@ -1,7 +1,8 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { query } from "../db.js";
-import { DEMO_ORG_NAME, findPersona, roleOverride } from "../command/personas.js";
+import { findPersona, orgNameFor, roleOverride } from "../command/personas.js";
 import { isRoleCode, type RoleCode } from "../command/rbac.js";
+import { setTenantContext } from "../db.js";
 
 export type UserRole = RoleCode;
 
@@ -75,7 +76,24 @@ export async function tenantMiddleware(
     dbUser = null;
   }
 
-  if (!dbUser && (!persona || persona.orgId !== orgId)) {
+  // Cross-tenant: persona or DB user must belong to the requested org.
+  if (persona && persona.orgId !== orgId) {
+    return reply.code(403).send({
+      error: {
+        code: "forbidden",
+        message: "User does not belong to the requested organization.",
+      },
+    });
+  }
+  if (!dbUser && !persona) {
+    return reply.code(403).send({
+      error: {
+        code: "forbidden",
+        message: "User does not belong to the requested organization.",
+      },
+    });
+  }
+  if (dbUser && dbUser.org_id !== orgId) {
     return reply.code(403).send({
       error: {
         code: "forbidden",
@@ -93,9 +111,16 @@ export async function tenantMiddleware(
     firstName: dbUser?.first_name ?? persona?.firstName ?? "User",
     lastName: dbUser?.last_name ?? persona?.lastName ?? null,
     email: dbUser?.email ?? persona?.email ?? "",
-    orgName: dbUser?.org_name ?? (persona ? DEMO_ORG_NAME : "Organization"),
+    orgName: dbUser?.org_name ?? (persona ? orgNameFor(persona.orgId) : "Organization"),
     title: persona?.title ?? role,
   };
+
+  // Bind Postgres session for RLS (dwan schema) on subsequent queries in this request.
+  try {
+    await setTenantContext(orgId, userId);
+  } catch {
+    /* pool may be unavailable; app-layer org filters still apply */
+  }
 }
 
 export function requireRoles(...roles: UserRole[]) {

@@ -4,6 +4,8 @@ import {
   DEMO_ORG_ID,
   DEMO_ORG_NAME,
   PERSONAS,
+  TENANT_B_ORG_ID,
+  TENANT_B_ORG_NAME,
   effectivePersonaRole,
   findPersona,
   personasForOrg,
@@ -28,12 +30,20 @@ export interface DirectoryOrg {
   hqCountry: string | null;
 }
 
-const DEMO_ORG: DirectoryOrg = {
-  orgId: DEMO_ORG_ID,
-  name: DEMO_ORG_NAME,
-  industry: "Holding company",
-  hqCountry: "AE",
-};
+const DEMO_ORGS: DirectoryOrg[] = [
+  {
+    orgId: DEMO_ORG_ID,
+    name: DEMO_ORG_NAME,
+    industry: "Holding company",
+    hqCountry: "AE",
+  },
+  {
+    orgId: TENANT_B_ORG_ID,
+    name: TENANT_B_ORG_NAME,
+    industry: "Banking",
+    hqCountry: "AE",
+  },
+];
 
 export async function listOrganizations(): Promise<{ organizations: DirectoryOrg[]; source: "database" | "demo" }> {
   try {
@@ -44,20 +54,30 @@ export async function listOrganizations(): Promise<{ organizations: DirectoryOrg
       hq_country: string | null;
     }>(`SELECT org_id, name, industry, hq_country FROM organizations ORDER BY name`);
     if (rows.length) {
+      const byId = new Map(
+        rows.map((org) => [
+          org.org_id,
+          {
+            orgId: org.org_id,
+            name: org.name,
+            industry: org.industry,
+            hqCountry: org.hq_country,
+          } satisfies DirectoryOrg,
+        ]),
+      );
+      // Always surface both demo tenants for login / isolation testing.
+      for (const demo of DEMO_ORGS) {
+        if (!byId.has(demo.orgId)) byId.set(demo.orgId, demo);
+      }
       return {
         source: "database",
-        organizations: rows.map((org) => ({
-          orgId: org.org_id,
-          name: org.name,
-          industry: org.industry,
-          hqCountry: org.hq_country,
-        })),
+        organizations: [...byId.values()].sort((a, b) => a.name.localeCompare(b.name)),
       };
     }
   } catch {
     /* demo directory */
   }
-  return { source: "demo", organizations: [DEMO_ORG] };
+  return { source: "demo", organizations: DEMO_ORGS };
 }
 
 export async function listUsers(orgId: string): Promise<DirectoryUser[]> {
@@ -152,22 +172,27 @@ export async function assignRole(userId: string, orgId: string, role: RoleCode):
 }
 
 export async function seedCommandDirectory(): Promise<void> {
-  let db = false;
   try {
     await query(`SELECT 1`);
-    db = true;
   } catch {
     return;
   }
-  if (!db) return;
   await query(
     `INSERT INTO roles (code, display_name, description) VALUES
       ('soc_analyst', 'SOC Analyst', 'Security operations analyst'),
       ('org_admin', 'Admin', 'Organization administrator')
      ON CONFLICT (code) DO NOTHING`,
   );
-  const { rows: orgs } = await query(`SELECT 1 FROM organizations WHERE org_id = $1`, [DEMO_ORG_ID]);
-  if (!orgs[0]) return;
+
+  for (const org of DEMO_ORGS) {
+    await query(
+      `INSERT INTO organizations (org_id, name, industry, hq_country)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (org_id) DO NOTHING`,
+      [org.orgId, org.name, org.industry, org.hqCountry],
+    );
+  }
+
   for (const persona of PERSONAS) {
     await query(
       `INSERT INTO users (user_id, org_id, first_name, last_name, email)

@@ -152,10 +152,9 @@ def main():
 
     print("Seeding DWAN demo into database…")
 
-    # Wipe prior Al Dhabi seed (order careful) — superuser
-    cur.execute("DELETE FROM organizations WHERE org_id = %s", (ORG_ID,))
-    # Also wipe by name if UUID differs
-    cur.execute("DELETE FROM organizations WHERE name = %s", ("Al Dhabi Holdings",))
+    # Wipe prior Al Dhabi seed (CASCADE via org FK). Truncate score components first if needed.
+    cur.execute("DELETE FROM domain_score_components WHERE org_id = %s", (ORG_ID,))
+    cur.execute("DELETE FROM organizations WHERE org_id = %s OR name = %s", (ORG_ID, "Al Dhabi Holdings"))
 
     cur.execute(
         """
@@ -661,6 +660,37 @@ def main():
         (ORG_ID, SNAP, ORG_ID, SNAP),
     )
 
+    # Second tenant for cross-tenant isolation (Falcon National Bank)
+    TENANT_B = "e5082391-0ae2-4ed1-93d6-c11650b39dbb"
+    cur.execute("DELETE FROM organizations WHERE org_id = %s OR name = %s", (TENANT_B, "Falcon National Bank"))
+    cur.execute(
+        """
+        INSERT INTO organizations(org_id, name, industry, hq_country, reporting_currency)
+        VALUES (%s, 'Falcon National Bank', 'Banking', 'UAE', 'AED')
+        """,
+        (TENANT_B,),
+    )
+    falcon_personas = [
+        ("c1500001-a090-41a0-8ecc-0000000000b1", "Nora", "Al Falasi", "nora.falasi@falcon.demo", "ciso"),
+        ("c1500001-a090-41a0-8ecc-0000000000b2", "Tariq", "Hassan", "tariq.hassan@falcon.demo", "board_member"),
+        ("c1500001-a090-41a0-8ecc-0000000000b3", "Samira", "Qureshi", "samira.qureshi@falcon.demo", "cxo"),
+    ]
+    for uid, first, last, email, role in falcon_personas:
+        cur.execute(
+            """
+            INSERT INTO users(user_id, org_id, first_name, last_name, email, role)
+            VALUES (%s, %s, %s, %s, %s, %s::user_role_name)
+            """,
+            (uid, TENANT_B, first, last, email, role),
+        )
+    cur.execute(
+        """
+        INSERT INTO org_domain_subscriptions(org_id, risk_domain_id)
+        SELECT %s, risk_domain_id FROM risk_domains
+        """,
+        (TENANT_B,),
+    )
+
     conn.commit()
     cur.execute(
         """
@@ -675,6 +705,8 @@ def main():
     print("Domain scores:", cur.fetchone()["n"])
     cur.execute("SELECT count(*) AS n FROM executive_decisions WHERE org_id=%s", (ORG_ID,))
     print("Decisions:", cur.fetchone()["n"])
+    cur.execute("SELECT count(*) AS n FROM users WHERE org_id=%s", (TENANT_B,))
+    print("Falcon users:", cur.fetchone()["n"])
     cur.close()
     conn.close()
     print("Seed complete.")
