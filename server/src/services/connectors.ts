@@ -15,7 +15,9 @@ export async function listConnectors(orgId: string) {
     [orgId],
   );
   // Hide test-created Generic Security Events <timestamp> fixtures from UI lists.
-  return rows.map(mapConnector).filter((c) => !isPresentationNoiseTitle(c.name));
+  return rows
+    .map(mapConnector)
+    .filter((c) => !isPresentationNoiseTitle(typeof c.name === "string" ? c.name : String(c.name ?? "")));
 }
 
 export async function getConnector(orgId: string, connectorId: string) {
@@ -34,7 +36,7 @@ function mapConnector(c: Record<string, unknown>) {
   return {
     connectorId: c.connector_id,
     orgId: c.org_id,
-    name: c.name,
+    name: String(c.name ?? ""),
     vendor: c.vendor,
     connectorType: c.connector_type,
     adapterKey: c.adapter_key,

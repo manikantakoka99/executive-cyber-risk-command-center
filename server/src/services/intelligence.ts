@@ -1097,7 +1097,12 @@ export async function generateExecutiveReport(
     compliancePosture: compliance,
     controlPosture: controls.counts,
     materialChanges: briefing.recentMaterialChanges,
-    keyRecommendations: portfolio.topRisks
+    keyRecommendations: (portfolio.topRisks as Array<{
+      scenarioId: string;
+      title: string;
+      toleranceState?: string;
+      recommendedTreatment?: string | null;
+    }>)
       .filter((r) => r.toleranceState === "outside")
       .slice(0, 5)
       .map((r) => ({

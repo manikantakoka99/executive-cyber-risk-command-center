@@ -21,9 +21,24 @@ export function canonicalLossAbsolute() {
   };
 }
 
+type OverviewOverlayFields = {
+  businessImpactExposureAed: number;
+  annualLossAedM: typeof ENTERPRISE_LOSS;
+  p90BadYearAed: number;
+  p95BadYearAed: number;
+  decisionsAwaitingCxo: number;
+  decisionsAwaitingCritical: number;
+  domainsMonitored: number;
+  riskAppetite: number;
+};
+
 /** Overlay Operations / overview KPIs. */
-export function overlayOverview<T extends Record<string, unknown>>(orgId: string, data: T | null): T | null {
-  if (!data || !isDemoOrg(orgId)) return data;
+export function overlayOverview<T extends Record<string, unknown>>(
+  orgId: string,
+  data: T | null,
+): (T & Partial<OverviewOverlayFields>) | null {
+  if (!data) return null;
+  if (!isDemoOrg(orgId)) return data;
   const loss = canonicalLossAbsolute();
   const score = Number(CANONICAL.headlineScore);
   return {

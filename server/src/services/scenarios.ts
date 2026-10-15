@@ -87,7 +87,7 @@ export async function listScenarios(
     .map(mapScenarioSummary)
     .filter(
       (s) =>
-        !isPresentationNoiseTitle(s.title) &&
+        !isPresentationNoiseTitle(typeof s.title === "string" ? s.title : String(s.title ?? "")) &&
         String((s as { scenarioType?: string }).scenarioType ?? "") !== "isolated_test",
     );
 }
@@ -231,7 +231,7 @@ function mapScenarioSummary(s: Record<string, unknown>) {
   return {
     scenarioId: s.scenario_id,
     orgId: s.org_id,
-    title: s.title,
+    title: String(s.title ?? ""),
     description: s.description,
     scenarioType: s.scenario_type,
     status: s.status,
