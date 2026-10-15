@@ -37,7 +37,7 @@ const cfg: RiskPolicyConfig = {
     unknown: 0.05,
   },
   tolerance: { default_max_residual: 50, near_band: 10 },
-  priority_bands: { critical: 80, high: 60, medium: 35 },
+  priority_bands: { critical: 70, high: 55, medium: 35 },
 };
 
 describe("risk scoring v1 (deterministic)", () => {
@@ -123,15 +123,20 @@ describe("risk scoring v1 (deterministic)", () => {
     assert.equal(within.state, "within");
   });
 
-  it("priority bands map residual with boosts", () => {
+  it("priority tier follows shared bands; boosts raise score only", () => {
     const base = priorityFromResidual(55, cfg.priority_bands, {});
-    assert.equal(base.tier, "medium");
+    assert.equal(base.tier, "high"); // High ≥55
+    assert.equal(priorityFromResidual(64.69, cfg.priority_bands, {}).tier, "high");
+    assert.equal(priorityFromResidual(52.82, cfg.priority_bands, {}).tier, "medium");
+    assert.equal(priorityFromResidual(33.7, cfg.priority_bands, {}).tier, "low");
+    assert.equal(priorityFromResidual(70, cfg.priority_bands, {}).tier, "critical");
     const boosted = priorityFromResidual(55, cfg.priority_bands, {
       criticalAsset: true,
       outsideTolerance: true,
       increasing: true,
     });
     assert.ok(boosted.score > base.score);
+    // Tier stays on raw residual even when boosts would cross Critical (≥70).
     assert.equal(boosted.tier, "high");
   });
 

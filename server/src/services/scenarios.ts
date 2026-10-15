@@ -12,6 +12,7 @@ import {
 } from "./closedLoop.js";
 import { DEMO_AS_OF, demoUuid, HERO_SCENARIO_TITLE } from "./demoConstants.js";
 import { isPresentationNoiseTitle } from "../command/demoOverlay.js";
+import { priorityTierFromScore, sqlPriorityFromResidual } from "../risk/bands.js";
 
 export { HERO_SCENARIO_TITLE };
 
@@ -36,7 +37,8 @@ export async function listScenarios(
   }
   if (filters.priority) {
     params.push(filters.priority);
-    where.push(`s.priority::text = $${params.length}`);
+    // Residual-derived tier (bands.ts), not stored s.priority.
+    where.push(`${sqlPriorityFromResidual("ra.residual_risk")} = $${params.length}`);
   }
   if (filters.toleranceState) {
     params.push(filters.toleranceState);
@@ -179,7 +181,12 @@ export async function getScenario(orgId: string, scenarioId: string) {
     ]);
 
   return {
-    ...mapScenarioSummary(rows[0]),
+    ...mapScenarioSummary({
+      ...rows[0],
+      // Detail query does not join residual; prefer current assessment.
+      residual_risk: current?.residual_risk ?? rows[0].residual_risk,
+      priority_score: current?.priority_score ?? rows[0].priority_score,
+    }),
     businessProcessName: rows[0].business_process_name,
     explanation: rows[0].explanation,
     decisionRequired: rows[0].decision_required,
@@ -228,6 +235,7 @@ export async function recalculate(orgId: string, scenarioId: string) {
 export { correlateSignal, correlateReadySignals };
 
 function mapScenarioSummary(s: Record<string, unknown>) {
+  const residualRisk = s.residual_risk != null ? Number(s.residual_risk) : null;
   return {
     scenarioId: s.scenario_id,
     orgId: s.org_id,
@@ -235,7 +243,8 @@ function mapScenarioSummary(s: Record<string, unknown>) {
     description: s.description,
     scenarioType: s.scenario_type,
     status: s.status,
-    priority: s.priority,
+    // Derive at read time — do not trust stored s.priority.
+    priority: residualRisk != null ? priorityTierFromScore(residualRisk) : "low",
     priorityScore: s.priority_score != null ? Number(s.priority_score) : null,
     toleranceState: s.tolerance_state,
     toleranceReason: s.tolerance_reason,
@@ -250,7 +259,7 @@ function mapScenarioSummary(s: Record<string, unknown>) {
     explanation: s.explanation,
     isDemo: s.is_demo,
     decisionRequired: s.decision_required,
-    residualRisk: s.residual_risk != null ? Number(s.residual_risk) : null,
+    residualRisk,
     inherentRisk: s.inherent_risk != null ? Number(s.inherent_risk) : null,
     likelihoodScore: s.likelihood_score != null ? Number(s.likelihood_score) : null,
     impactScore: s.impact_score != null ? Number(s.impact_score) : null,

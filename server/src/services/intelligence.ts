@@ -7,6 +7,12 @@ import {
   overlayPortfolio,
   overlayTrends,
 } from "../command/demoOverlay.js";
+import {
+  BAND_THRESHOLDS,
+  bandOf,
+  priorityTierFromScore,
+  sqlPriorityFromResidual,
+} from "../risk/bands.js";
 import { getOverview } from "./overview.js";
 
 export type PortfolioFilters = {
@@ -35,7 +41,10 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
   }
   if (filters.priority) {
     params.push(filters.priority);
-    activeWhere.push(`s.priority::text = $${params.length}`);
+    // Filter by residual-derived tier, not the stored (possibly stale) priority.
+    activeWhere.push(
+      `${sqlPriorityFromResidual("ra.residual_risk")} = $${params.length}`,
+    );
   }
   if (filters.tolerance) {
     params.push(filters.tolerance);
@@ -86,10 +95,10 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
   }>(
     `SELECT
        COUNT(*) FILTER (WHERE s.status NOT IN ('closed','accepted','mitigated'))::text AS active,
-       COUNT(*) FILTER (WHERE s.priority = 'critical')::text AS critical,
-       COUNT(*) FILTER (WHERE s.priority = 'high')::text AS high,
-       COUNT(*) FILTER (WHERE s.priority = 'medium')::text AS medium,
-       COUNT(*) FILTER (WHERE s.priority = 'low' OR s.priority IS NULL)::text AS low,
+       COUNT(*) FILTER (WHERE ${sqlPriorityFromResidual("ra.residual_risk")} = 'critical')::text AS critical,
+       COUNT(*) FILTER (WHERE ${sqlPriorityFromResidual("ra.residual_risk")} = 'high')::text AS high,
+       COUNT(*) FILTER (WHERE ${sqlPriorityFromResidual("ra.residual_risk")} = 'medium')::text AS medium,
+       COUNT(*) FILTER (WHERE ${sqlPriorityFromResidual("ra.residual_risk")} = 'low')::text AS low,
        COUNT(*) FILTER (WHERE s.tolerance_state = 'outside')::text AS outside,
        COUNT(*) FILTER (WHERE s.velocity = 'increasing')::text AS increasing,
        COUNT(*) FILTER (WHERE s.velocity = 'aging')::text AS aging,
@@ -156,26 +165,31 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
   };
 
   const topRisks = filterPresentationNoise(
-    top.map((r) => ({
-      scenarioId: r.scenario_id,
-      title: r.title,
-      priority: r.priority,
-      residualRisk: r.residual_risk != null ? Number(r.residual_risk) : null,
-      toleranceState: r.tolerance_state,
-      confidence: r.confidence != null ? Number(r.confidence) : null,
-      velocity: r.velocity,
-      status: r.status,
-      financialExposureAed:
-        r.financial_known && r.financial_exposure_aed != null
-          ? Number(r.financial_exposure_aed)
-          : null,
-      financialKnown: !!r.financial_known,
-      businessImpact: r.impact_explanation,
-      recommendedTreatment: r.recommended_treatment,
-      treatmentStatus: r.treatment_status,
-      owner: r.owner_name,
-      decisionStatus: r.decision_status,
-    })),
+    top.map((r) => {
+      const residualRisk = r.residual_risk != null ? Number(r.residual_risk) : null;
+      return {
+        scenarioId: r.scenario_id,
+        title: r.title,
+        // Never trust stored s.priority — derive from residual via bands.ts.
+        priority:
+          residualRisk != null ? priorityTierFromScore(residualRisk) : "low",
+        residualRisk,
+        toleranceState: r.tolerance_state,
+        confidence: r.confidence != null ? Number(r.confidence) : null,
+        velocity: r.velocity,
+        status: r.status,
+        financialExposureAed:
+          r.financial_known && r.financial_exposure_aed != null
+            ? Number(r.financial_exposure_aed)
+            : null,
+        financialKnown: !!r.financial_known,
+        businessImpact: r.impact_explanation,
+        recommendedTreatment: r.recommended_treatment,
+        treatmentStatus: r.treatment_status,
+        owner: r.owner_name,
+        decisionStatus: r.decision_status,
+      };
+    }),
   );
 
   return overlayPortfolio(orgId, {
@@ -323,11 +337,12 @@ export async function getTrends(orgId: string, window = "30d") {
 }
 
 export async function getHotspots(orgId: string) {
+  const highResidual = `ra.residual_risk >= ${BAND_THRESHOLDS.highMin}`;
   const { rows: highTotal } = await query<{ n: string }>(
     `SELECT COUNT(*)::text AS n FROM risk_scenarios s
      JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      WHERE s.org_id = $1 AND s.status NOT IN ('closed')
-       AND (s.priority IN ('critical','high') OR ra.residual_risk >= 60)`,
+       AND (${highResidual})`,
     [orgId],
   );
   const denom = Math.max(1, Number(highTotal[0]?.n ?? 0));
@@ -342,7 +357,7 @@ export async function getHotspots(orgId: string) {
      LEFT JOIN business_units bu ON bu.business_unit_id = s.business_unit_id AND bu.org_id = s.org_id
      JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      WHERE s.org_id = $1 AND s.status NOT IN ('closed')
-       AND (s.priority IN ('critical','high') OR ra.residual_risk >= 60)
+       AND (${highResidual})
      GROUP BY 1, 2 ORDER BY COUNT(*) DESC LIMIT 8`,
     [orgId],
   );
@@ -376,8 +391,9 @@ export async function getHotspots(orgId: string) {
      FROM risk_scenario_domains rd
      JOIN risk_domains d ON d.risk_domain_id = rd.risk_domain_id
      JOIN risk_scenarios s ON s.scenario_id = rd.scenario_id AND s.org_id = rd.org_id
+     LEFT JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      WHERE rd.org_id = $1 AND s.status NOT IN ('closed')
-       AND s.priority IN ('critical','high')
+       AND ra.residual_risk >= ${BAND_THRESHOLDS.highMin}
      GROUP BY 1, 2 ORDER BY COUNT(*) DESC LIMIT 8`,
     [orgId],
   );
@@ -587,14 +603,16 @@ export async function getControlPosture(orgId: string) {
   );
   const { rows: critical } = await query(
     `SELECT c.control_id, c.name, sc.effectiveness::text, sc.evidence_note,
-            s.scenario_id, s.title, s.priority::text
+            s.scenario_id, s.title,
+            ${sqlPriorityFromResidual("ra.residual_risk")} AS priority
      FROM scenario_controls sc
      JOIN controls c ON c.control_id = sc.control_id AND c.org_id = sc.org_id
      JOIN risk_scenarios s ON s.scenario_id = sc.scenario_id AND s.org_id = sc.org_id
+     LEFT JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      WHERE sc.org_id = $1
-       AND s.priority IN ('critical','high')
+       AND ra.residual_risk >= ${BAND_THRESHOLDS.highMin}
        AND s.status NOT IN ('closed')
-     ORDER BY s.priority_score DESC NULLS LAST
+     ORDER BY COALESCE(ra.residual_risk, 0) DESC
      LIMIT 40`,
     [orgId],
   );
@@ -885,15 +903,11 @@ export async function getExecutiveBriefing(orgId: string) {
   const increasing = portfolio.totals.increasing;
   const awaiting = decisions.awaitingAction.length;
   const residualBand =
-    portfolio.topRisks[0]?.residualRisk != null &&
-    portfolio.topRisks[0].residualRisk >= 60
-      ? "High"
-      : portfolio.topRisks[0]?.residualRisk != null &&
-          portfolio.topRisks[0].residualRisk >= 35
-        ? "Medium"
-        : portfolio.topRisks.length
-          ? "Low"
-          : "Unknown";
+    portfolio.topRisks[0]?.residualRisk != null
+      ? bandOf(portfolio.topRisks[0].residualRisk)
+      : portfolio.topRisks.length
+        ? "Low"
+        : "Unknown";
 
   const facts = {
     residualBand,
