@@ -5,8 +5,10 @@ import { formatAed } from "./lib/money.js";
 
 const ORG = "2accc7de-f693-4b19-8fe8-6db501be05e2";
 const CISO = "c1500001-a090-41a0-8ecc-000000000001";
-/** Has decisions.read but not command.loss — money must be stripped. */
+/** Non-financial roles (no command.loss). */
+const ANALYST = "c1500001-a090-41a0-8ecc-000000000007";
 const PROGRAM_OFFICE = "c1500001-a090-41a0-8ecc-00000000000b";
+const ADMIN = "c1500001-a090-41a0-8ecc-000000000009";
 
 /** Comma-grouped dirham amounts that must never appear once formatted. */
 const RAW_COMMA_AED = /AED\s*\d{1,3}(,\d{3})+/;
@@ -76,13 +78,21 @@ describe("formatted AED on decisions + decision-center APIs", () => {
   });
 
   it("still strips AED entirely for roles without financial access", async () => {
-    const res = await app.inject({
-      method: "GET",
-      url: "/api/ecc/decisions",
-      headers: { "x-org-id": ORG, "x-user-id": PROGRAM_OFFICE },
-    });
-    assert.equal(res.statusCode, 200, res.body.slice(0, 240));
-    const texts = collectStrings(res.json()).filter((t) => /\bAED\b/i.test(t));
-    assert.equal(texts.length, 0, texts.join(" | "));
+    // Routes each non-financial role can open; field-level strip is in financial.strip.test.ts.
+    const cases: { role: string; userId: string; url: string }[] = [
+      { role: "program_office", userId: PROGRAM_OFFICE, url: "/api/ecc/decisions" },
+      { role: "domain_analyst", userId: ANALYST, url: "/api/ecc/findings" },
+      { role: "admin", userId: ADMIN, url: "/api/ecc/audit" },
+    ];
+    for (const { role, userId, url } of cases) {
+      const res = await app.inject({
+        method: "GET",
+        url,
+        headers: { "x-org-id": ORG, "x-user-id": userId },
+      });
+      assert.equal(res.statusCode, 200, `${role} ${url}: ${res.body.slice(0, 240)}`);
+      const texts = collectStrings(res.json()).filter((t) => /\bAED\b/i.test(t));
+      assert.equal(texts.length, 0, `${role}: ${texts.join(" | ")}`);
+    }
   });
 });

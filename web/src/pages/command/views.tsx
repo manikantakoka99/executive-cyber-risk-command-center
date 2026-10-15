@@ -91,9 +91,7 @@ export function HeadlineView({
           <KpiCard
             label="Expected annual loss"
             value={data.loss.ale}
-            decimals={1}
-            prefix="AED "
-            suffix="M"
+            display={formatAedMillions(data.loss.ale)}
             tone="high"
             note={`P90 bad year ${formatAedMillions(data.loss.p90)}`}
           />
@@ -119,9 +117,7 @@ export function HeadlineView({
         <article className="card loss-card">
           <p className="lbl">Annualised loss exposure (modelled)</p>
           <div className="loss-figure mono" aria-label={`${formatAedMillions(data.loss.ale)} expected per year`}>
-            <span className="loss-currency">AED</span>
-            <span className="loss-number">{data.loss.ale.toFixed(1)}</span>
-            <span className="loss-unit">M</span>
+            <span className="loss-number">{formatAedMillions(data.loss.ale)}</span>
             <span className="loss-aside">expected per year</span>
           </div>
           <RangeBar ale={data.loss.ale} p90={data.loss.p90} max={data.loss.p95} />
@@ -386,9 +382,7 @@ export function QueueView({
           <KpiCard
             label="Modelled exposure"
             value={totalLoss}
-            decimals={1}
-            prefix="AED "
-            suffix="M"
+            display={formatAedMillions(totalLoss)}
             tone="crit"
             note="Sum of linked scenarios"
           />

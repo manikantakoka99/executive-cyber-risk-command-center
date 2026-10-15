@@ -18,7 +18,7 @@ export function formatAed(n: number | null | undefined): string {
 /** Values already stored as AED millions (command loss model). */
 export function formatAedMillions(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
-  return `AED ${n.toFixed(1)}M`;
+  return formatAed(n * 1_000_000);
 }
 
 /** Match "AED 1,539,905", "AED 610959.62", "AED 2.9M", "AED 611K".

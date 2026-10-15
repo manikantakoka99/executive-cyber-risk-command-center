@@ -477,7 +477,7 @@ export function requiredPermission(method: string, path: string): Permission | "
 }
 
 const FINANCIAL_KEY =
-  /(aed|financial|exposure|^loss$|loss[A-Z]|expectedLoss|ale|p90|p95|lossAvoided|knownExposure|businessImpact)/i;
+  /(aed|financial|exposure|^loss$|loss[A-Z]|expectedLoss|ale|p90|p95|lossAvoided|knownExposure|businessImpact|impactSummary)/i;
 /** String payloads that still carry money after key stripping (e.g. free-text notes). */
 const AED_VALUE = /\bAED\b|\bP9[05]\b|\bdirham/i;
 

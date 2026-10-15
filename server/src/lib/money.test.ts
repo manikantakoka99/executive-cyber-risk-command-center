@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   formatAed,
+  formatAedMillions,
   formatImpactSummary,
   reformatAedInText,
 } from "./money.js";
@@ -18,6 +19,11 @@ describe("formatAed", () => {
   it("rounds multi-decimal millions (what-if lossAvoided) to one decimal", () => {
     assert.equal(formatAed(1.234567 * 1_000_000), "AED 1.2M");
     assert.equal(formatAed(2.98765 * 1_000_000), "AED 3.0M");
+  });
+
+  it("maps sub-million AED millions figures to K via formatAedMillions", () => {
+    assert.equal(formatAedMillions(0.45), "AED 450K");
+    assert.equal(formatAedMillions(2.89), "AED 2.9M");
   });
 });
 

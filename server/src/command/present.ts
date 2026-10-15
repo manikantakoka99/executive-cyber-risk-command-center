@@ -1,3 +1,4 @@
+import { formatAedMillions } from "../lib/money.js";
 import {
   BASELINE,
   DOMAINS,
@@ -419,7 +420,7 @@ function presentHeadline(
           ale: ENTERPRISE_LOSS.ale,
           p90: ENTERPRISE_LOSS.p90,
           p95: ENTERPRISE_LOSS.p95,
-          note: `In most years no major event occurs; the range is driven by rare, large events. A bad year (1 in 10) is about AED ${format1(ENTERPRISE_LOSS.p90)}M and 1 in 20 about AED ${format1(ENTERPRISE_LOSS.p95)}M. Sum of three simulated scenarios, draw by draw.`,
+          note: `In most years no major event occurs; the range is driven by rare, large events. A bad year (1 in 10) is about ${formatAedMillions(ENTERPRISE_LOSS.p90)} and 1 in 20 about ${formatAedMillions(ENTERPRISE_LOSS.p95)}. Sum of three simulated scenarios, draw by draw.`,
           drivers: Object.values(LOSS).map((item) => ({ name: item.name, ale: item.ale })),
         }
       : null,
@@ -622,7 +623,7 @@ function presentWhatIf(role: string, state: CommandState, loss: boolean): WhatIf
   }
   const title = changed
     ? loss
-      ? `Ransomware Readiness moves from ${format1(before.raw)} to ${format1(raw)}, and expected loss falls by AED ${format2(red)}M a year.`
+      ? `Ransomware Readiness moves from ${format1(before.raw)} to ${format1(raw)}, and expected loss falls by ${formatAedMillions(red)} a year.`
       : `Ransomware Readiness moves from ${format1(before.raw)} to ${format1(raw)}.`
     : "Move a slider to see what a control investment would do.";
   return {
@@ -638,7 +639,7 @@ function presentWhatIf(role: string, state: CommandState, loss: boolean): WhatIf
     rows,
     roi:
       loss && cost > 0 && red > 0
-        ? `${format2(red / cost)} AED of expected annual loss avoided per AED spent (at AED ${format2(cost)}M). Show the bad-year reduction as well, since boards often fund against the tail.`
+        ? `${format2(red / cost)} AED of expected annual loss avoided per AED spent (at ${formatAedMillions(cost)}). Show the bad-year reduction as well, since boards often fund against the tail.`
         : null,
     floorNote:
       afterCard.floored || BASELINE.floored
@@ -774,7 +775,7 @@ function presentPack(role: string, state: CommandState, orgName: string): PackVi
         ? [
             {
               heading: "Money",
-              text: `Modelled annualised loss exposure is AED ${format1(ENTERPRISE_LOSS.ale)}M expected, and about AED ${format1(ENTERPRISE_LOSS.p90)}M in a bad year (1 in 10). The largest driver is ${LOSS.ran!.name.toLowerCase()} at AED ${format1(LOSS.ran!.ale)}M expected.`,
+              text: `Modelled annualised loss exposure is ${formatAedMillions(ENTERPRISE_LOSS.ale)} expected, and about ${formatAedMillions(ENTERPRISE_LOSS.p90)} in a bad year (1 in 10). The largest driver is ${LOSS.ran!.name.toLowerCase()} at ${formatAedMillions(LOSS.ran!.ale)} expected.`,
               items: [{ text: "Loss model", source: sourceLabel("loss_models") }],
             },
           ]

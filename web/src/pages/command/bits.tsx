@@ -240,6 +240,7 @@ export function KpiCard({
   decimals = 0,
   suffix = "",
   prefix = "",
+  display,
   delta,
   invertDelta,
   spark,
@@ -252,6 +253,8 @@ export function KpiCard({
   decimals?: number;
   suffix?: string;
   prefix?: string;
+  /** Preformatted value (e.g. formatAedMillions); skips prefix/number/suffix. */
+  display?: string;
   delta?: number;
   invertDelta?: boolean;
   spark?: number[];
@@ -264,9 +267,13 @@ export function KpiCard({
       <p className="lbl">{label}</p>
       <div className="kpi-main">
         <p className="big mono">
-          {prefix}
-          {value.toFixed(decimals)}
-          {suffix}
+          {display ?? (
+            <>
+              {prefix}
+              {value.toFixed(decimals)}
+              {suffix}
+            </>
+          )}
         </p>
         {typeof delta === "number" && <Delta value={delta} invert={invertDelta} />}
       </div>

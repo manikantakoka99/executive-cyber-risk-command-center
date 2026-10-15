@@ -16,7 +16,7 @@ export function formatAed(n: number | null | undefined): string {
 /** Format AED millions figure already stored as millions (command loss model). */
 export function formatAedMillions(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
-  return `AED ${n.toFixed(1)}M`;
+  return formatAed(n * 1_000_000);
 }
 
 export function formatPct(n: number | null | undefined): string {

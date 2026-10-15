@@ -40,6 +40,38 @@ describe("central financial strip (all routes × non-financial roles)", () => {
     assert.equal(canViewFinancials("cxo"), true);
   });
 
+  it("clears impactSummary and businessImpact for analyst, program office, and admin", () => {
+    const sample = {
+      decisions: [
+        {
+          title: "Approve remediation",
+          impactSummary: "AED 611K exposure, downtime ~AED 179K/hr",
+          businessImpact: "AED 1.5M exposure",
+          riskSummary: "Material AED exposure on payments",
+          financialExposureAed: 1_539_905,
+        },
+      ],
+      center: {
+        items: [{ businessImpact: "AED 2.9M exposure", status: "open" }],
+      },
+    };
+
+    for (const role of ["domain_analyst", "program_office", "admin"] as const) {
+      const stripped = redactFinancial(role, sample) as {
+        decisions: Array<Record<string, unknown>>;
+        center: { items: Array<Record<string, unknown>> };
+      };
+      const decision = stripped.decisions[0]!;
+      assert.equal("impactSummary" in decision, false, role);
+      assert.equal("businessImpact" in decision, false, role);
+      assert.equal("financialExposureAed" in decision, false, role);
+      assert.equal("businessImpact" in stripped.center.items[0]!, false, role);
+      // Free-text that still embeds AED must be scrubbed, not passed through.
+      assert.equal(decision.riskSummary, "[redacted]", role);
+      assert.equal(hasFinancialLeak(stripped), false, role);
+    }
+  });
+
   it("maps compliance_manager away from the schema role set", () => {
     assert.equal(isRoleCode("compliance_manager"), false);
     assert.equal(canonicalRole("compliance_manager"), "program_office");
