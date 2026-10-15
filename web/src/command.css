@@ -654,9 +654,11 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .pack {
   background: var(--pack-bg);
   color: var(--pack-fg);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: clamp(22px, 4vw, 40px);
   box-shadow: var(--shadow);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .pack .meta { font: 500 12px/1.5 var(--font); color: var(--text2); }
 .pack h2 { color: var(--text); font-size: 28px; line-height: 1.2; margin: 8px 0; }
@@ -957,8 +959,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 @media print {
   .sidebar, .workspace-bar, .cc-tabs, .noprint, .answer { display: none !important; }
-  .app-frame { display: block; background: white; }
-  .pack { box-shadow: none; }
+  .app-frame { display: block; background: var(--bg); }
+  .pack {
+    background: var(--surface) !important;
+    box-shadow: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }
 
 /* Quiet Command — hero score, loss figure */

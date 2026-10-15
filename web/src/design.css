@@ -25,7 +25,7 @@
   --text: #1f2a24;
   --fg: var(--text);
   --text2: #4f5a52;
-  --muted: #837c6e;
+  --muted: #5e6b63;
   --text3: var(--muted);
 
   --accent: #1f5c45;
@@ -65,7 +65,7 @@
   --shadow: 0 1px 2px rgba(60, 45, 20, 0.06);
   --shadow-card: var(--shadow);
 
-  --pack-bg: var(--surface);
+  --pack-bg: #fbf8f3; /* surface — not pure white for board pack print card */
   --pack-fg: var(--text);
 
   --font: "Inter", ui-sans-serif, system-ui, sans-serif;

@@ -14,7 +14,7 @@ Components must use CSS variables — never hard-coded palette hex outside `desi
   --border: #E0D6C6;
   --text: #1F2A24;
   --text2: #4F5A52;
-  --muted: #837C6E;
+  --muted: #5E6B63;
   --accent: #1F5C45;
   --accentSoft: #E2EBE3;
   --side: #1F3D31;
