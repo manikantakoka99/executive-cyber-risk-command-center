@@ -474,7 +474,8 @@ export function requiredPermission(method: string, path: string): Permission | "
   if (url.startsWith("/api/ecc/command") || url.startsWith("/api/ecc/admin") || url.startsWith("/api/ecc/dwan")) {
     return "self";
   }
-  if (url.startsWith("/api/ecc/findings") || url.startsWith("/api/ecc/register")) return "findings.read";
+  if (url.startsWith("/api/ecc/findings")) return "findings.read";
+  if (url.startsWith("/api/ecc/register")) return "register.read";
   if (url.startsWith("/api/ecc/risk-domains")) return "domains.read";
   if (url.startsWith("/api/ecc/decisions")) {
     return method === "GET" ? "decisions.read" : "decisions.act";
@@ -497,11 +498,8 @@ export function requiredPermission(method: string, path: string): Permission | "
   if (url.startsWith("/api/ecc/reports")) {
     return method === "GET" ? "reports.read" : "reports.generate";
   }
-  if (
-    url.startsWith("/api/ecc/ingestion") ||
-    url.startsWith("/api/ecc/connectors") ||
-    url.startsWith("/api/ecc/signals")
-  ) {
+  if (url.startsWith("/api/ecc/connectors")) return "connectors.read";
+  if (url.startsWith("/api/ecc/ingestion") || url.startsWith("/api/ecc/signals")) {
     return "ingestion.read";
   }
   if (url.startsWith("/api/ecc/scenarios") || url.startsWith("/api/ecc/portfolio")) {

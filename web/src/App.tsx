@@ -7,6 +7,7 @@ import { api } from "./lib/api";
 import type { OverviewResponse } from "./data/types";
 import { AdminPage } from "./pages/AdminPage";
 import { CommandCenter } from "./pages/command/CommandCenter";
+import { ConnectorsPage } from "./pages/ConnectorsPage";
 import {
   AuditPage,
   CompliancePage,
@@ -24,6 +25,9 @@ import { IngestionProofPage } from "./pages/IngestionProofPage";
 import { IntelligencePage } from "./pages/IntelligencePage";
 import { LoginPage } from "./pages/LoginPage";
 import { OverviewPage } from "./pages/OverviewPage";
+import { PolicyAppetitePage } from "./pages/PolicyAppetitePage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { RemediationPage } from "./pages/RemediationPage";
 import { ScenarioDetailPage, ScenariosPage } from "./pages/ScenariosPage";
 import "./index.css";
 import "./design.css";
@@ -152,6 +156,10 @@ function EccApp() {
         <Route path="/risk-domains/:id" element={<Permit permission="domains.read"><DomainDetailPage /></Permit>} />
         <Route path="/findings" element={<Permit permission="findings.read"><FindingsPage /></Permit>} />
         <Route path="/findings/:id" element={<Permit permission="findings.read"><FindingDetailPage /></Permit>} />
+        <Route path="/register" element={<Permit permission="register.read"><RegisterPage /></Permit>} />
+        <Route path="/remediation" element={<Permit permission="remediation.read"><RemediationPage /></Permit>} />
+        <Route path="/connectors" element={<Permit permission="connectors.read"><ConnectorsPage /></Permit>} />
+        <Route path="/policy" element={<Permit permission="policy.read"><PolicyAppetitePage /></Permit>} />
         <Route path="/decisions" element={<Permit permission="decisions.read"><DecisionsPage /></Permit>} />
         <Route path="/decisions/:id" element={<Permit permission="decisions.read"><DecisionDetailPage /></Permit>} />
         <Route path="/compliance" element={<Permit permission="compliance.read"><CompliancePage /></Permit>} />

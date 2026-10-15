@@ -3,6 +3,7 @@ import {
   Activity,
   BarChart3,
   Briefcase,
+  BookMarked,
   ClipboardList,
   FileText,
   Gauge,
@@ -11,8 +12,10 @@ import {
   LayoutDashboard,
   ListChecks,
   Package,
+  Plug,
   Radar,
   Scale,
+  ScrollText,
   Search,
   Settings2,
   Shield,
@@ -22,6 +25,7 @@ import {
   Target,
   Users,
   Workflow,
+  Wrench,
 } from "lucide-react";
 
 export const NAV_ICONS: Record<string, LucideIcon> = {
@@ -39,6 +43,10 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   "/ingestion": Workflow,
   "/risk-domains": Radar,
   "/findings": Search,
+  "/register": BookMarked,
+  "/remediation": Wrench,
+  "/connectors": Plug,
+  "/policy": ScrollText,
   "/decisions": ClipboardList,
   "/compliance": Scale,
   "/reports": FileText,

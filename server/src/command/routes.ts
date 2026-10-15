@@ -3,6 +3,13 @@ import { z } from "zod";
 import { getCompliance } from "../services/catalog.js";
 import { assignRole, listUsers } from "./directory.js";
 import { actorLabel } from "./personas.js";
+import {
+  approveAppetite,
+  approvePolicy,
+  listPolicyBundle,
+  proposeAppetite,
+  proposePolicy,
+} from "./policyStore.js";
 import { presentEvidence, presentWorkspace, type ComplianceLive } from "./present.js";
 import { hasPermission, isRoleCode, type Permission } from "./rbac.js";
 import {
@@ -20,6 +27,7 @@ import {
   verifyFix,
   type ActionResult,
 } from "./store.js";
+import { getRegister, getRemediation } from "./workspaceExtras.js";
 
 function deny(reply: FastifyReply, permission: Permission, role: string) {
   return reply.code(403).send({
@@ -211,5 +219,94 @@ export async function registerCommandRoutes(app: FastifyInstance) {
     const ok = await assignRole(id, req.tenant.orgId, body.data.role);
     if (!ok) return reply.code(404).send({ error: { code: "not_found", message: "User not found in this organization." } });
     return { ok: true, users: await listUsers(req.tenant.orgId) };
+  });
+
+  // ---- Scoring policy & appetite (CISO proposes, Board/CxO approve + lock) ----
+  app.get("/api/ecc/policy", async (req, reply) => {
+    if (!requirePermission(req, reply, "policy.read")) return;
+    return listPolicyBundle(req.tenant.orgId);
+  });
+
+  app.post("/api/ecc/policy", async (req, reply) => {
+    if (!requirePermission(req, reply, "policy.propose")) return;
+    const body = z
+      .object({
+        notes: z.string().max(2000).optional(),
+        unobservedDefault: z.number().min(0).max(100).optional(),
+        bandMediumMin: z.number().min(0).max(100).optional(),
+        bandHighMin: z.number().min(0).max(100).optional(),
+        bandCriticalMin: z.number().min(0).max(100).optional(),
+        floorEnabled: z.boolean().optional(),
+        floorBand: z.enum(["high", "critical"]).optional(),
+      })
+      .safeParse(req.body ?? {});
+    if (!body.success) {
+      return reply.code(400).send({ error: { code: "invalid_body", message: body.error.message } });
+    }
+    const result = proposePolicy(req.tenant.orgId, req.tenant.role, {
+      userId: req.tenant.userId,
+      name: actorLabel(req.tenant.userId, req.tenant.role),
+    }, body.data);
+    if (!result.ok) return reply.code(result.status).send({ error: { code: "forbidden", message: result.message } });
+    return { ok: true, policy: result.policy, ...listPolicyBundle(req.tenant.orgId) };
+  });
+
+  app.post("/api/ecc/policy/:id/approve", async (req, reply) => {
+    if (!requirePermission(req, reply, "policy.approve")) return;
+    const { id } = req.params as { id: string };
+    const result = approvePolicy(req.tenant.orgId, req.tenant.role, {
+      userId: req.tenant.userId,
+      name: actorLabel(req.tenant.userId, req.tenant.role),
+    }, id);
+    if (!result.ok) return reply.code(result.status).send({ error: { code: "forbidden", message: result.message } });
+    return { ok: true, policy: result.policy, ...listPolicyBundle(req.tenant.orgId) };
+  });
+
+  app.get("/api/ecc/appetite", async (req, reply) => {
+    if (!requirePermission(req, reply, "policy.read")) return;
+    const bundle = listPolicyBundle(req.tenant.orgId);
+    return { appetites: bundle.appetites, rules: bundle.rules };
+  });
+
+  app.post("/api/ecc/appetite", async (req, reply) => {
+    if (!requirePermission(req, reply, "policy.propose")) return;
+    const body = z
+      .object({
+        domainCode: z.string().nullable(),
+        maxScore: z.number().min(0).max(100),
+        rationale: z.string().max(2000).optional(),
+        reviewDate: z.string().optional(),
+      })
+      .safeParse(req.body ?? {});
+    if (!body.success) {
+      return reply.code(400).send({ error: { code: "invalid_body", message: body.error.message } });
+    }
+    const result = proposeAppetite(req.tenant.orgId, req.tenant.role, {
+      userId: req.tenant.userId,
+      name: actorLabel(req.tenant.userId, req.tenant.role),
+    }, body.data);
+    if (!result.ok) return reply.code(result.status).send({ error: { code: "forbidden", message: result.message } });
+    return { ok: true, appetite: result.appetite, appetites: listPolicyBundle(req.tenant.orgId).appetites };
+  });
+
+  app.post("/api/ecc/appetite/:id/approve", async (req, reply) => {
+    if (!requirePermission(req, reply, "policy.approve")) return;
+    const { id } = req.params as { id: string };
+    const result = approveAppetite(req.tenant.orgId, req.tenant.role, {
+      userId: req.tenant.userId,
+      name: actorLabel(req.tenant.userId, req.tenant.role),
+    }, id);
+    if (!result.ok) return reply.code(result.status).send({ error: { code: "forbidden", message: result.message } });
+    return { ok: true, appetite: result.appetite, appetites: listPolicyBundle(req.tenant.orgId).appetites };
+  });
+
+  app.get("/api/ecc/register", async (req, reply) => {
+    if (!requirePermission(req, reply, "register.read")) return;
+    return getRegister(req.tenant.orgId, req.tenant.role);
+  });
+
+  app.get("/api/ecc/remediation", async (req, reply) => {
+    if (!requirePermission(req, reply, "remediation.read")) return;
+    return getRemediation(req.tenant.orgId, req.tenant.role);
   });
 }

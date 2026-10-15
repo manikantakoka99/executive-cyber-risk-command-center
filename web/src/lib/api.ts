@@ -177,6 +177,25 @@ export const api = {
   executiveBriefing: () => request<any>("/api/ecc/executive-briefing"),
   materialChanges: () => request<{ changes: any[] }>("/api/ecc/material-changes"),
   connectorCatalog: () => request<any>("/api/ecc/connectors/catalog"),
+  connectorHealth: () => request<any>("/api/ecc/connectors/health"),
+  policyBundle: () =>
+    request<{
+      active: any;
+      versions: any[];
+      appetites: any[];
+      rules: Record<string, unknown>;
+      policy?: any;
+    }>("/api/ecc/policy"),
+  proposePolicy: (body: Record<string, unknown>) =>
+    request<any>("/api/ecc/policy", { method: "POST", body: JSON.stringify(body) }),
+  approvePolicy: (id: string) =>
+    request<any>(`/api/ecc/policy/${id}/approve`, { method: "POST", body: "{}" }),
+  proposeAppetite: (body: Record<string, unknown>) =>
+    request<any>("/api/ecc/appetite", { method: "POST", body: JSON.stringify(body) }),
+  approveAppetite: (id: string) =>
+    request<any>(`/api/ecc/appetite/${id}/approve`, { method: "POST", body: "{}" }),
+  register: () => request<any>("/api/ecc/register"),
+  remediation: () => request<any>("/api/ecc/remediation"),
   orgSettings: () => request<any>("/api/ecc/org/settings"),
   reportSnapshots: () =>
     request<{ reports: any[] }>("/api/ecc/reports/snapshots"),

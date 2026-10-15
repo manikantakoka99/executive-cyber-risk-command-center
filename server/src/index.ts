@@ -23,6 +23,7 @@ import {
   requiredPermission,
   viewsFor,
 } from "./command/rbac.js";
+import { getConnectorHealth } from "./command/workspaceExtras.js";
 import { getOverview } from "./services/overview.js";
 import {
   applyDecisionAction,
@@ -380,6 +381,15 @@ app.get("/api/ecc/reports/:id/content", async (req, reply) => {
 // ---------------------------------------------------------------------------
 // Phase 2 — Connector + Canonical Signal ingestion APIs
 // ---------------------------------------------------------------------------
+app.get("/api/ecc/connectors/health", async (req, reply) => {
+  if (!hasPermission(req.tenant.role, "connectors.read")) {
+    return reply.code(403).send({
+      error: { code: "forbidden", message: `Role ${req.tenant.role} cannot access connectors.read.` },
+    });
+  }
+  return getConnectorHealth(req.tenant.orgId, req.tenant.role);
+});
+
 app.get("/api/ecc/connectors", async (req) => ({
   connectors: await listConnectors(req.tenant.orgId),
 }));
