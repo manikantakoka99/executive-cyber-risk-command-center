@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# One-command local run: Postgres (DWAN schema + seed) + API + Vite.
+# One-command local run: Postgres (schema.sql + migrations 001–008 + tenant seed) + API + Vite.
+# Demo scenarios are a separate step: cd server && npm run demo:seed
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
