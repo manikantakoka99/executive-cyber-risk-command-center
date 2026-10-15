@@ -159,7 +159,7 @@ export async function getConnectorHealth(orgId: string, role: string) {
       lastSyncAt: new Date(Date.now() - (i + 1) * 3600_000).toISOString(),
       lastSuccessAt: new Date(Date.now() - (i + 1) * 3600_000).toISOString(),
       lastFailureAt: i % 5 === 0 ? new Date().toISOString() : null,
-      credentialsReference: `vault:secret/aldhabi/${d.id}`,
+      credentialsConfigured: true,
       configRef: null,
       configuration: {},
       createdAt: new Date().toISOString(),

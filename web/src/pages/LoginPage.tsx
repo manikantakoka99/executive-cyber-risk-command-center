@@ -9,21 +9,19 @@ const GROUPS: { title: string; match: (user: UserRef) => boolean }[] = [
   { title: "Executive committee", match: (user) => user.role === "cxo" },
   {
     title: "Security leadership",
-    match: (user) => user.role === "ciso" || user.role === "risk_manager",
+    match: (user) => user.role === "ciso" || user.role === "risk_lead",
   },
   {
     title: "Board and assurance",
-    match: (user) => ["board_member", "compliance_manager", "auditor"].includes(user.role),
+    match: (user) => ["board_member", "program_office", "auditor"].includes(user.role),
   },
   {
     title: "Security operations",
-    match: (user) =>
-      ["security_analyst", "soc_analyst", "domain_analyst"].includes(user.role),
+    match: (user) => user.role === "domain_analyst",
   },
   {
     title: "Administration",
-    match: (user) =>
-      user.role === "org_admin" || user.role === "super_admin" || user.role === "platform_admin",
+    match: (user) => user.role === "admin",
   },
 ];
 

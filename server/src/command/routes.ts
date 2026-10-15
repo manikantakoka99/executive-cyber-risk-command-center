@@ -11,7 +11,13 @@ import {
   proposePolicy,
 } from "./policyStore.js";
 import { presentEvidence, presentWorkspace, type ComplianceLive } from "./present.js";
-import { hasPermission, isRoleCode, type Permission } from "./rbac.js";
+import {
+  canAcceptRisk,
+  hasPermission,
+  isRoleCode,
+  redactFinancial,
+  type Permission,
+} from "./rbac.js";
 import {
   acceptQueue,
   approveQueue,
@@ -48,11 +54,17 @@ function requirePermission(req: FastifyRequest, reply: FastifyReply, permission:
 
 async function workspaceFor(req: FastifyRequest) {
   const state = getState(req.tenant.orgId);
-  const workspace = presentWorkspace(req.tenant.role, state, req.tenant.orgName);
+  const workspace = presentWorkspace(
+    req.tenant.role,
+    state,
+    req.tenant.orgName,
+    req.tenant.orgId,
+  );
   if (hasPermission(req.tenant.role, "compliance.read")) {
     workspace.complianceLive = await loadCompliance(req.tenant.orgId);
   }
-  return workspace;
+  // Belt-and-suspenders: never emit AED / loss figures without command.loss.
+  return redactFinancial(req.tenant.role, workspace);
 }
 
 async function loadCompliance(orgId: string): Promise<ComplianceLive | null> {
@@ -99,7 +111,7 @@ export async function registerCommandRoutes(app: FastifyInstance) {
         error: { code: "forbidden", message: "Evidence is outside this role." },
       });
     }
-    return { evidence };
+    return { evidence: redactFinancial(req.tenant.role, evidence) };
   });
 
   app.patch("/api/ecc/command/whatif", async (req, reply) => {
@@ -156,6 +168,12 @@ export async function registerCommandRoutes(app: FastifyInstance) {
   });
 
   app.post("/api/ecc/command/queue/:id/accept", async (req, reply) => {
+    // Authorization before input validation so unauthorized roles always get 403.
+    if (!canAcceptRisk(req.tenant.role) || !hasPermission(req.tenant.role, "command.queue.accept")) {
+      return reply.code(403).send({
+        error: { code: "forbidden", message: `Role ${req.tenant.role} cannot accept risk.` },
+      });
+    }
     const { id } = req.params as { id: string };
     const body = z
       .object({

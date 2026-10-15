@@ -129,6 +129,8 @@ export interface QueueView {
   canAct: boolean;
   /** CxO + Risk Lead (server canAcceptRisk); independent of Decide/canAct */
   canAccept?: boolean;
+  /** When false, omit modelled-exposure KPI (no AED placeholders). */
+  canSeeLoss?: boolean;
   items: {
     id: string;
     domainId: string;
@@ -160,11 +162,19 @@ export interface WhatIfView {
   preset: string | null;
   changed: boolean;
   canSave: boolean;
+  /** When false, omit cost input and money columns (no AED placeholders). */
+  canSeeLoss?: boolean;
   rows: { label: string; now: string; after: string; improved: boolean }[];
   roi: string | null;
   floorNote: string | null;
   modelNote: string;
-  saved: { index: number; name: string; score: string; lossAvoided: string; cost: string }[];
+  saved: {
+    index: number;
+    name: string;
+    score: string;
+    lossAvoided: string | null;
+    cost: string | null;
+  }[];
 }
 
 export interface ClosureView {

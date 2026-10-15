@@ -4,18 +4,16 @@ import type { UserRef } from "../data/types";
 import { ApiError, api } from "../lib/api";
 import { roleLabel } from "../lib/format";
 
+/** Schema `user_role_name` — eight roles only. */
 const ASSIGNABLE = [
-  "ciso",
-  "cxo",
   "board_member",
-  "security_analyst",
-  "soc_analyst",
-  "risk_manager",
-  "compliance_manager",
-  "program_office",
+  "cxo",
+  "ciso",
+  "risk_lead",
   "domain_analyst",
+  "program_office",
   "auditor",
-  "org_admin",
+  "admin",
 ];
 
 export function AdminPage() {

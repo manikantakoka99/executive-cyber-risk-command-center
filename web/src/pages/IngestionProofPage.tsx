@@ -112,8 +112,8 @@ export function IngestionProofPage() {
     <div className="page demo-present">
       <div className="page-head">
         <div>
-          <div className="eyebrow">Phase 6 · Ingestion Proof of Feasibility</div>
-          <h1 className="page-title">ECC Sample Ingestion</h1>
+          <div className="eyebrow">Sample data ingestion</div>
+          <h1 className="page-title">Ingestion proof</h1>
           <p className="page-sub">
             Synthetic workbook fixture → raw events → canonical records. Not live
             vendor integrations. Workbook Domain Risk Calc is{" "}

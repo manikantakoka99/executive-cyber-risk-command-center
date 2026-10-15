@@ -1,10 +1,13 @@
 -- DWAN consolidated schema tests.  Run as a superuser on a database where dwan_schema.sql is installed:
 --   psql -v ON_ERROR_STOP=1 -d dwan -f dwan_tests.sql
--- Everything runs in one transaction that is rolled back, so it is safe to re-run.
+-- Self-contained: own fixtures inside one transaction that always rolls back.
+-- Safe on empty and seeded databases (does not depend on demo seed rows).
 -- Prints PASS lines; the first failure raises and stops.
 \set ON_ERROR_STOP 1
 SET client_min_messages = notice;
 BEGIN;
+-- Pin timezone so date→timestamptz casts in movers / snapshots are stable everywhere.
+SET LOCAL TIME ZONE 'UTC';
 
 CREATE FUNCTION pg_temp.ok(c BOOLEAN, msg TEXT) RETURNS VOID LANGUAGE plpgsql AS $$
 BEGIN IF c IS NOT TRUE THEN RAISE EXCEPTION 'FAIL: %', msg; END IF; RAISE NOTICE 'PASS: %', msg; END $$;
@@ -19,22 +22,25 @@ BEGIN
   RAISE EXCEPTION 'FAIL: % did not fail', msg;
 END $$;
 
--- ------------------------------------------------------------------ fixtures
+-- ------------------------------------------------------------------ fixtures (unique names; independent of seed data)
 CREATE TEMP TABLE fx(k TEXT PRIMARY KEY, id UUID);
 CREATE FUNCTION pg_temp.f(k TEXT) RETURNS UUID LANGUAGE sql AS $$ SELECT id FROM fx WHERE fx.k = $1 $$;
 CREATE FUNCTION pg_temp.d(c TEXT) RETURNS UUID LANGUAGE sql AS $$ SELECT risk_domain_id FROM risk_domains WHERE code = $1::domain_code $$;
 CREATE FUNCTION pg_temp.c(c TEXT) RETURNS UUID LANGUAGE sql AS $$ SELECT category_id FROM tool_categories WHERE code = $1 $$;
 
-INSERT INTO organizations(name, industry, hq_country) VALUES ('Org A','Bank','UAE');
-INSERT INTO organizations(name, industry, hq_country, reporting_currency) VALUES ('Org B','Retail','USA','USD');
-INSERT INTO fx SELECT 'orgA', org_id FROM organizations WHERE name='Org A';
-INSERT INTO fx SELECT 'orgB', org_id FROM organizations WHERE name='Org B';
+INSERT INTO organizations(name, industry, hq_country) VALUES ('__dwan_test_org_a__','Bank','UAE');
+INSERT INTO organizations(name, industry, hq_country, reporting_currency) VALUES ('__dwan_test_org_b__','Retail','USA','USD');
+INSERT INTO fx SELECT 'orgA', org_id FROM organizations WHERE name='__dwan_test_org_a__';
+INSERT INTO fx SELECT 'orgB', org_id FROM organizations WHERE name='__dwan_test_org_b__';
 INSERT INTO users(org_id, first_name, last_name, email, role) VALUES
-  (pg_temp.f('orgA'),'Cara','Xo','cxo@a.test','cxo'), (pg_temp.f('orgA'),'Dan','Analyst','an@a.test','domain_analyst'),
-  (pg_temp.f('orgA'),'Bo','Ard','board@a.test','board_member'), (pg_temp.f('orgA'),'Cy','So','ciso@a.test','ciso'),
-  (pg_temp.f('orgA'),'Fin','Cfo','cfo@a.test','cxo'), (pg_temp.f('orgA'),'Risk','Lead','risk@a.test','risk_lead'),
-  (pg_temp.f('orgB'),'Bea','Xo','cxo@b.test','cxo');
-INSERT INTO fx SELECT split_part(email,'@',1) || CASE WHEN email LIKE '%@b.test' THEN 'B' ELSE 'A' END, user_id FROM users;
+  (pg_temp.f('orgA'),'Cara','Xo','cxo@dwan-test.a','cxo'), (pg_temp.f('orgA'),'Dan','Analyst','an@dwan-test.a','domain_analyst'),
+  (pg_temp.f('orgA'),'Bo','Ard','board@dwan-test.a','board_member'), (pg_temp.f('orgA'),'Cy','So','ciso@dwan-test.a','ciso'),
+  (pg_temp.f('orgA'),'Fin','Cfo','cfo@dwan-test.a','cxo'), (pg_temp.f('orgA'),'Risk','Lead','risk@dwan-test.a','risk_lead'),
+  (pg_temp.f('orgB'),'Bea','Xo','cxo@dwan-test.b','cxo');
+INSERT INTO fx
+SELECT split_part(email,'@',1) || CASE WHEN email LIKE '%@dwan-test.b' THEN 'B' ELSE 'A' END, user_id
+FROM users
+WHERE email LIKE '%@dwan-test.%';
 -- keys: cxoA anA boardA cisoA cfoA riskA cxoB
 INSERT INTO org_domain_subscriptions(org_id, risk_domain_id) SELECT pg_temp.f('orgA'), risk_domain_id FROM risk_domains;
 
@@ -42,7 +48,7 @@ SELECT pg_temp.ok((SELECT count(*) FROM tool_categories) >= 26 AND (SELECT count
 SELECT pg_temp.ok((SELECT count(*) FROM fn_check_signal_ownership()) = 0, 'every seeded tool category has exactly one owning domain');
 SELECT pg_temp.fails($$INSERT INTO signal_domain_map VALUES ((SELECT category_id FROM tool_categories WHERE code='cspm'), (SELECT risk_domain_id FROM risk_domains WHERE code='iam_pam'), 'owning')$$,
   'uq_signal_one_owner', 'a category cannot be owned by two domains (no double counting)');
-SELECT pg_temp.fails($$INSERT INTO users(org_id, first_name, email) VALUES ((SELECT id FROM fx WHERE k='orgA'), 'Dup', 'CXO@A.TEST')$$,
+SELECT pg_temp.fails($$INSERT INTO users(org_id, first_name, email) VALUES ((SELECT id FROM fx WHERE k='orgA'), 'Dup', 'CXO@DWAN-TEST.A')$$,
   'uq_users_email', 'e-mail is unique regardless of case');
 SELECT pg_temp.ok(fn_user_can('approve_decisions', pg_temp.f('cxoA')) AND NOT fn_user_can('approve_decisions', pg_temp.f('boardA'))
   AND NOT fn_user_can('view_financials', pg_temp.f('anA'))
@@ -61,19 +67,19 @@ INSERT INTO policy_sla(policy_id, org_id, severity, days) VALUES
   (pg_temp.f('pol1'), pg_temp.f('orgA'), 'critical', 7),(pg_temp.f('pol1'), pg_temp.f('orgA'), 'high', 30),
   (pg_temp.f('pol1'), pg_temp.f('orgA'), 'medium', 60),(pg_temp.f('pol1'), pg_temp.f('orgA'), 'low', 90);
 SELECT pg_temp.ok((SELECT count(*) FROM fn_check_policy_weights(pg_temp.f('pol1'))) = 0, 'category weights total 100 in every weighted domain');
-SELECT pg_temp.fails($$UPDATE scoring_policy SET status='approved', proposed_by=(SELECT id FROM fx WHERE k='cisoA'), approved_by=(SELECT id FROM fx WHERE k='anA'), approved_at=now(), effective_from=now() - interval '1 day' WHERE version=1$$,
+SELECT pg_temp.fails($$UPDATE scoring_policy SET status='approved', proposed_by=(SELECT id FROM fx WHERE k='cisoA'), approved_by=(SELECT id FROM fx WHERE k='anA'), approved_at=now(), effective_from=now() - interval '1 day' WHERE policy_id=(SELECT id FROM fx WHERE k='pol1')$$,
   'lacks capability approve_policy', 'an analyst cannot approve a scoring policy');
-SELECT pg_temp.fails($$UPDATE scoring_policy SET status='approved', proposed_by=(SELECT id FROM fx WHERE k='cisoA'), approved_by=(SELECT id FROM fx WHERE k='cisoA'), approved_at=now(), effective_from=now() - interval '1 day' WHERE version=1$$,
+SELECT pg_temp.fails($$UPDATE scoring_policy SET status='approved', proposed_by=(SELECT id FROM fx WHERE k='cisoA'), approved_by=(SELECT id FROM fx WHERE k='cisoA'), approved_at=now(), effective_from=now() - interval '1 day' WHERE policy_id=(SELECT id FROM fx WHERE k='pol1')$$,
   'cannot approve their own', 'the CISO cannot approve their own policy proposal');
-SELECT pg_temp.fails($$UPDATE scoring_policy SET status='approved', proposed_by=(SELECT id FROM fx WHERE k='cisoA'), approved_by=(SELECT id FROM fx WHERE k='cxoB'), approved_at=now(), effective_from=now() - interval '1 day' WHERE version=1$$,
+SELECT pg_temp.fails($$UPDATE scoring_policy SET status='approved', proposed_by=(SELECT id FROM fx WHERE k='cisoA'), approved_by=(SELECT id FROM fx WHERE k='cxoB'), approved_at=now(), effective_from=now() - interval '1 day' WHERE policy_id=(SELECT id FROM fx WHERE k='pol1')$$,
   'same organization', 'an approver from another tenant is rejected');
 UPDATE scoring_policy SET status='approved', proposed_by=pg_temp.f('cisoA'), approved_by=pg_temp.f('boardA'), approved_at=now(), effective_from=now() - interval '30 days' WHERE policy_id=pg_temp.f('pol1');
 SELECT pg_temp.ok(fn_active_policy(pg_temp.f('orgA')) = pg_temp.f('pol1'), 'policy v1 proposed by CISO, approved by Board, and active');
-SELECT pg_temp.fails($$UPDATE scoring_policy SET band_high_min = 50 WHERE version=1$$, 'immutable', 'approved policy is immutable');
-SELECT pg_temp.fails($$UPDATE policy_category_weights SET weight = 1$$, 'frozen', 'approved policy weights are frozen');
-SELECT pg_temp.fails($$INSERT INTO policy_sla(policy_id, org_id, severity, days) SELECT policy_id, org_id, 'critical', 1 FROM scoring_policy WHERE version=1$$, 'frozen', 'approved policy SLAs are frozen');
+SELECT pg_temp.fails($$UPDATE scoring_policy SET band_high_min = 50 WHERE policy_id=(SELECT id FROM fx WHERE k='pol1')$$, 'immutable', 'approved policy is immutable');
+SELECT pg_temp.fails($$UPDATE policy_category_weights SET weight = 1 WHERE policy_id=(SELECT id FROM fx WHERE k='pol1')$$, 'frozen', 'approved policy weights are frozen');
+SELECT pg_temp.fails($$INSERT INTO policy_sla(policy_id, org_id, severity, days) SELECT policy_id, org_id, 'critical', 1 FROM scoring_policy WHERE policy_id=(SELECT id FROM fx WHERE k='pol1')$$, 'frozen', 'approved policy SLAs are frozen');
 INSERT INTO scoring_policy(org_id, version, proposed_by) VALUES (pg_temp.f('orgA'), 2, pg_temp.f('cisoA'));
-SELECT pg_temp.fails($$UPDATE scoring_policy SET status='approved', proposed_by=(SELECT id FROM fx WHERE k='cisoA'), approved_by=(SELECT id FROM fx WHERE k='boardA'), approved_at=now(), effective_from=now() WHERE version=2$$,
+SELECT pg_temp.fails($$UPDATE scoring_policy SET status='approved', proposed_by=(SELECT id FROM fx WHERE k='cisoA'), approved_by=(SELECT id FROM fx WHERE k='boardA'), approved_at=now(), effective_from=now() WHERE org_id=(SELECT id FROM fx WHERE k='orgA') AND version=2$$,
   'ex_policy_no_overlap', 'two approved policies cannot have overlapping effective windows');
 SELECT pg_temp.ok(fn_band(54.99, pg_temp.f('pol1')) = 'medium' AND fn_band(55, pg_temp.f('pol1')) = 'high' AND fn_band(70, pg_temp.f('pol1')) = 'critical' AND fn_band(34.99, pg_temp.f('pol1')) = 'low',
   'band thresholds: <35 low, 35-54 medium, 55-69 high, >=70 critical');
@@ -122,15 +128,15 @@ SELECT pg_temp.ok((SELECT coverage FROM v_category_coverage WHERE category_id = 
 
 -- ------------------------------------------------------------------ domain scores
 SELECT sp_score_domain(pg_temp.f('orgA'), pg_temp.d('cspm_cnapp'), pg_temp.f('pol1'), now());
-SELECT pg_temp.ok((SELECT adjusted_score FROM domain_scores WHERE risk_domain_id = pg_temp.d('cspm_cnapp')) = 30.75, 'cloud adjusted = 0.75 x 21 + 0.25 x 60 = 30.75');
-SELECT pg_temp.ok((SELECT band FROM domain_scores WHERE risk_domain_id = pg_temp.d('cspm_cnapp')) = 'low', 'cloud band = low');
-SELECT pg_temp.ok((SELECT confidence FROM domain_scores WHERE risk_domain_id = pg_temp.d('cspm_cnapp')) = round(1 * 0.75 * (1 - 0.01), 3), 'confidence = fresh/total x coverage x (1 - rejected)');
+SELECT pg_temp.ok((SELECT adjusted_score FROM domain_scores WHERE org_id = pg_temp.f('orgA') AND risk_domain_id = pg_temp.d('cspm_cnapp')) = 30.75, 'cloud adjusted = 0.75 x 21 + 0.25 x 60 = 30.75');
+SELECT pg_temp.ok((SELECT band FROM domain_scores WHERE org_id = pg_temp.f('orgA') AND risk_domain_id = pg_temp.d('cspm_cnapp')) = 'low', 'cloud band = low');
+SELECT pg_temp.ok((SELECT confidence FROM domain_scores WHERE org_id = pg_temp.f('orgA') AND risk_domain_id = pg_temp.d('cspm_cnapp')) = round(1 * 0.75 * (1 - 0.01), 3), 'confidence = fresh/total x coverage x (1 - rejected)');
 SELECT sp_score_domain(pg_temp.f('orgA'), pg_temp.d('ransomware_readiness'), pg_temp.f('pol1'), now(), 'Only 7 of 28 recovery tests met target');
-SELECT pg_temp.ok((SELECT adjusted_score FROM domain_scores WHERE risk_domain_id = pg_temp.d('ransomware_readiness')) = 54.00, 'ransomware at full coverage: adjusted = raw = 54.0');
-SELECT pg_temp.ok((SELECT band FROM domain_scores WHERE risk_domain_id = pg_temp.d('ransomware_readiness')) = 'medium', 'ransomware 54.0 = medium');
-SELECT pg_temp.ok((SELECT count(*) = 4 AND sum(points) = 54.00 FROM domain_score_components c JOIN domain_scores s USING (score_id) WHERE s.risk_domain_id = pg_temp.d('ransomware_readiness')),
+SELECT pg_temp.ok((SELECT adjusted_score FROM domain_scores WHERE org_id = pg_temp.f('orgA') AND risk_domain_id = pg_temp.d('ransomware_readiness')) = 54.00, 'ransomware at full coverage: adjusted = raw = 54.0');
+SELECT pg_temp.ok((SELECT band FROM domain_scores WHERE org_id = pg_temp.f('orgA') AND risk_domain_id = pg_temp.d('ransomware_readiness')) = 'medium', 'ransomware 54.0 = medium');
+SELECT pg_temp.ok((SELECT count(*) = 4 AND sum(points) = 54.00 FROM domain_score_components c JOIN domain_scores s USING (score_id) WHERE s.org_id = pg_temp.f('orgA') AND s.risk_domain_id = pg_temp.d('ransomware_readiness')),
   'score explanation: 4 components whose points sum to the raw score');
-SELECT pg_temp.ok((SELECT max(points) FROM domain_score_components c JOIN domain_scores s USING (score_id) WHERE s.risk_domain_id = pg_temp.d('ransomware_readiness')) = 22.50,
+SELECT pg_temp.ok((SELECT max(points) FROM domain_score_components c JOIN domain_scores s USING (score_id) WHERE s.org_id = pg_temp.f('orgA') AND s.risk_domain_id = pg_temp.d('ransomware_readiness')) = 22.50,
   'largest driver is DR / recovery testing (30 x 75% = 22.5 points)');
 SELECT pg_temp.fails($$SELECT sp_score_domain((SELECT id FROM fx WHERE k='orgA'), (SELECT risk_domain_id FROM risk_domains WHERE code='iam_pam'), (SELECT id FROM fx WHERE k='pol1'))$$,
   'refusing to score silently', 'a domain with no signals is not silently scored');
@@ -141,42 +147,43 @@ SELECT pg_temp.fails($$INSERT INTO domain_scores(org_id,risk_domain_id,policy_id
   SELECT org_id, risk_domain_id, policy_id, now() + interval '1 day', 50, 1.5, 60, 0, 1, 1, 0, 'low' FROM domain_scores LIMIT 1$$, 'coverage', 'coverage above 1 rejected');
 
 -- ------------------------------------------------------------------ enterprise headline and floor rule
-DELETE FROM domain_scores;   -- superuser only; the app roles cannot
+DELETE FROM domain_scores WHERE org_id = pg_temp.f('orgA');   -- fixture org only; seed rows untouched outside this txn
 INSERT INTO domain_scores(org_id,risk_domain_id,policy_id,snapshot_at,raw_score,coverage,unobserved_default,adjusted_score,feeds_total,feeds_fresh,confidence,band)
-  SELECT pg_temp.f('orgA'), d.risk_domain_id, pg_temp.f('pol1'), '2026-10-01 00:00+00',
+  SELECT pg_temp.f('orgA'), d.risk_domain_id, pg_temp.f('pol1'), TIMESTAMPTZ '2026-10-01 00:00:00+00',
          (ARRAY[75,72,60,58,45,40,38,36,20,18,15,10])[row_number() over (order by d.code)], 1, 60, 0, 2, 2, 0, 'low'
   FROM risk_domains d;
-SELECT pg_temp.ok((SELECT n_critical + n_high + n_medium + n_low FROM fn_enterprise_headline(pg_temp.f('orgA'), '2026-10-01 00:00+00')) = 12, '12 subscribed domains roll up');
+SELECT pg_temp.ok((SELECT n_critical + n_high + n_medium + n_low FROM fn_enterprise_headline(pg_temp.f('orgA'), TIMESTAMPTZ '2026-10-01 00:00:00+00')) = 12, '12 subscribed domains roll up');
 UPDATE org_domain_subscriptions SET is_active = false WHERE org_id = pg_temp.f('orgA') AND risk_domain_id = pg_temp.d('ot_ics');
-SELECT pg_temp.ok((SELECT n_critical + n_high + n_medium + n_low FROM fn_enterprise_headline(pg_temp.f('orgA'), '2026-10-01 00:00+00')) = 11, 'an unsubscribed domain drops out of the enterprise roll-up');
+SELECT pg_temp.ok((SELECT n_critical + n_high + n_medium + n_low FROM fn_enterprise_headline(pg_temp.f('orgA'), TIMESTAMPTZ '2026-10-01 00:00:00+00')) = 11, 'an unsubscribed domain drops out of the enterprise roll-up');
 UPDATE org_domain_subscriptions SET is_active = true WHERE org_id = pg_temp.f('orgA') AND risk_domain_id = pg_temp.d('ot_ics');
-SELECT sp_snapshot_enterprise(pg_temp.f('orgA'), '2026-10-01 00:00+00', 'Driven by attack surface and SOC');
-INSERT INTO fx SELECT 'snap1', snapshot_id FROM enterprise_scores;
-SELECT pg_temp.ok((SELECT arithmetic_score FROM enterprise_scores) = 40.58, 'enterprise arithmetic score = weighted mean (40.58)');
-SELECT pg_temp.ok((SELECT arithmetic_band FROM enterprise_scores) = 'medium', 'arithmetic band = medium');
-SELECT pg_temp.ok((SELECT displayed_band FROM enterprise_scores) = 'high', 'displayed band = high (floor rule: a Critical domain exists)');
-SELECT pg_temp.ok((SELECT floor_applied FROM enterprise_scores), 'floor_applied is flagged');
-SELECT pg_temp.ok((SELECT (n_critical, n_high, n_medium, n_low) FROM enterprise_scores) = ROW(2,2,4,4), 'spread by band = 2 / 2 / 4 / 4');
-SELECT pg_temp.ok((SELECT n_outside_appetite FROM enterprise_scores) = 1, 'SOC (75) is outside its appetite (45): 1 domain outside');
-SELECT pg_temp.fails($$UPDATE enterprise_scores SET displayed_band = 'low'$$, 'append-only', 'enterprise snapshots cannot be edited');
+SELECT sp_snapshot_enterprise(pg_temp.f('orgA'), TIMESTAMPTZ '2026-10-01 00:00:00+00', 'Driven by attack surface and SOC');
+INSERT INTO fx SELECT 'snap1', snapshot_id FROM enterprise_scores WHERE org_id = pg_temp.f('orgA') AND snapshot_at = TIMESTAMPTZ '2026-10-01 00:00:00+00';
+SELECT pg_temp.ok((SELECT arithmetic_score FROM enterprise_scores WHERE snapshot_id = pg_temp.f('snap1')) = 40.58, 'enterprise arithmetic score = weighted mean (40.58)');
+SELECT pg_temp.ok((SELECT arithmetic_band FROM enterprise_scores WHERE snapshot_id = pg_temp.f('snap1')) = 'medium', 'arithmetic band = medium');
+SELECT pg_temp.ok((SELECT displayed_band FROM enterprise_scores WHERE snapshot_id = pg_temp.f('snap1')) = 'high', 'displayed band = high (floor rule: a Critical domain exists)');
+SELECT pg_temp.ok((SELECT floor_applied FROM enterprise_scores WHERE snapshot_id = pg_temp.f('snap1')), 'floor_applied is flagged');
+SELECT pg_temp.ok((SELECT (n_critical, n_high, n_medium, n_low) FROM enterprise_scores WHERE snapshot_id = pg_temp.f('snap1')) = ROW(2,2,4,4), 'spread by band = 2 / 2 / 4 / 4');
+SELECT pg_temp.ok((SELECT n_outside_appetite FROM enterprise_scores WHERE snapshot_id = pg_temp.f('snap1')) = 1, 'SOC (75) is outside its appetite (45): 1 domain outside');
+SELECT pg_temp.fails($$UPDATE enterprise_scores SET displayed_band = 'low' WHERE snapshot_id=(SELECT id FROM fx WHERE k='snap1')$$, 'append-only', 'enterprise snapshots cannot be edited');
 SELECT pg_temp.fails($$INSERT INTO enterprise_scores(org_id,policy_id,snapshot_at,arithmetic_score,arithmetic_band,displayed_band,floor_applied,n_critical,n_high,n_medium,n_low,confidence)
   VALUES ((SELECT id FROM fx WHERE k='orgA'),(SELECT id FROM fx WHERE k='pol1'),now(),60,'high','medium',true,0,1,0,0,.5)$$, 'ck_floor_never_lowers', 'the displayed band can never be below the arithmetic band');
 SELECT pg_temp.fails($$INSERT INTO enterprise_scores(org_id,policy_id,snapshot_at,arithmetic_score,arithmetic_band,displayed_band,floor_applied,n_critical,n_high,n_medium,n_low,confidence)
   VALUES ((SELECT id FROM fx WHERE k='orgA'),(SELECT id FROM fx WHERE k='pol1'),now(),40,'medium','high',false,1,0,0,0,.5)$$, 'ck_floor_consistent', 'floor_applied must match the band difference');
 INSERT INTO enterprise_loss_estimates(snapshot_id, org_id, ale_expected, ale_p90, ale_p95) VALUES (pg_temp.f('snap1'), pg_temp.f('orgA'), 2890000, 10070000, 14940000);
-SELECT pg_temp.ok((SELECT currency FROM enterprise_loss_estimates) = 'AED', 'currency defaults to the organisation''s reporting currency');
+SELECT pg_temp.ok((SELECT currency FROM enterprise_loss_estimates WHERE snapshot_id = pg_temp.f('snap1')) = 'AED', 'currency defaults to the organisation''s reporting currency');
 SELECT pg_temp.fails($$INSERT INTO enterprise_loss_estimates(snapshot_id, org_id, ale_expected, ale_p90, ale_p95) VALUES ((SELECT id FROM fx WHERE k='snap1'), (SELECT id FROM fx WHERE k='orgA'), 1, 5, 9)$$,
   'enterprise_loss_estimates_pkey', 'one loss estimate per enterprise snapshot');
-SELECT pg_temp.ok((SELECT displayed_band = 'high' AND ale_expected = 2890000 FROM v_enterprise_headline), 'headline view joins band and money');
+SELECT pg_temp.ok((SELECT displayed_band = 'high' AND ale_expected = 2890000 FROM v_enterprise_headline WHERE org_id = pg_temp.f('orgA')), 'headline view joins band and money');
 
 -- second snapshot one week later: SOC +2, ransomware -2.4 (same policy)
+-- Use explicit timestamptz bounds so movers are timezone-stable (date casts vary by session TZ).
 INSERT INTO domain_scores(org_id,risk_domain_id,policy_id,snapshot_at,raw_score,coverage,unobserved_default,adjusted_score,feeds_total,feeds_fresh,confidence,band)
-  SELECT org_id, risk_domain_id, policy_id, '2026-10-08 00:00+00',
+  SELECT org_id, risk_domain_id, policy_id, TIMESTAMPTZ '2026-10-08 00:00:00+00',
          raw_score + CASE WHEN risk_domain_id = pg_temp.d('soc_mdr') THEN 2 WHEN risk_domain_id = pg_temp.d('ransomware_readiness') THEN -2.4 ELSE 0 END,
          1, 60, 0, 2, 2, 0, 'low'
-  FROM domain_scores WHERE snapshot_at = '2026-10-01 00:00+00';
-SELECT pg_temp.ok((SELECT delta FROM fn_domain_movers(pg_temp.f('orgA'), '2026-10-01', '2026-10-08') WHERE domain_code='ransomware_readiness') = -2.40
-  AND (SELECT bool_and(same_policy) FROM fn_domain_movers(pg_temp.f('orgA'), '2026-10-01', '2026-10-08')), 'what changed: movers computed under the same policy');
+  FROM domain_scores WHERE org_id = pg_temp.f('orgA') AND snapshot_at = TIMESTAMPTZ '2026-10-01 00:00:00+00';
+SELECT pg_temp.ok((SELECT delta FROM fn_domain_movers(pg_temp.f('orgA'), TIMESTAMPTZ '2026-10-01 00:00:00+00', TIMESTAMPTZ '2026-10-08 00:00:00+00') WHERE domain_code='ransomware_readiness') = -2.40
+  AND (SELECT bool_and(same_policy) FROM fn_domain_movers(pg_temp.f('orgA'), TIMESTAMPTZ '2026-10-01 00:00:00+00', TIMESTAMPTZ '2026-10-08 00:00:00+00')), 'what changed: movers computed under the same policy');
 
 -- ------------------------------------------------------------------ findings, priority, SLA, dedup
 INSERT INTO risk_findings(org_id, risk_domain_id, title, severity, asset_id, cve_id, kev_listed, epss, owner_user_id, source_category_id, external_ref)

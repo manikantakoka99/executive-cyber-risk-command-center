@@ -1,7 +1,7 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { query } from "../db.js";
 import { findPersona, orgNameFor, roleOverride } from "../command/personas.js";
-import { isRoleCode, type RoleCode } from "../command/rbac.js";
+import { canonicalRole, type RoleCode } from "../command/rbac.js";
 import { setTenantContext } from "../db.js";
 
 export type UserRole = RoleCode;
@@ -102,8 +102,9 @@ export async function tenantMiddleware(
     });
   }
 
+  // Always store a schema role (legacy aliases normalized).
   const roleSource = roleOverride(userId) ?? dbUser?.role ?? persona?.role ?? "domain_analyst";
-  const role: UserRole = isRoleCode(roleSource) ? roleSource : "domain_analyst";
+  const role: UserRole = canonicalRole(roleSource);
   req.tenant = {
     orgId,
     userId,
@@ -125,7 +126,8 @@ export async function tenantMiddleware(
 
 export function requireRoles(...roles: UserRole[]) {
   return async (req: FastifyRequest, reply: FastifyReply) => {
-    if (!roles.includes(req.tenant.role)) {
+    const allowed = new Set(roles.map((r) => canonicalRole(r)));
+    if (!allowed.has(canonicalRole(req.tenant.role))) {
       return reply.code(403).send({
         error: {
           code: "forbidden",

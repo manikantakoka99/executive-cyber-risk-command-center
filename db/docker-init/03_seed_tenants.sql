@@ -33,18 +33,11 @@ INSERT INTO users (user_id, org_id, first_name, last_name, email, role, job_titl
   ('c1500001-a090-41a0-8ecc-0000000000b3', 'e5082391-0ae2-4ed1-93d6-c11650b39dbb', 'Samira', 'Qureshi', 'samira.qureshi@falcon.demo', 'cxo', 'CEO')
 ON CONFLICT DO NOTHING;
 
--- Re-map user_roles after seed
+-- Re-map user_roles after seed (schema role codes only)
 INSERT INTO user_roles (user_id, role_id, org_id, is_primary)
 SELECT u.user_id, r.role_id, u.org_id, true
 FROM users u
-JOIN roles r ON r.code = CASE u.role::text
-  WHEN 'admin' THEN 'org_admin'
-  WHEN 'risk_lead' THEN 'risk_manager'
-  WHEN 'program_office' THEN 'compliance_manager'
-  WHEN 'domain_analyst' THEN
-    CASE WHEN u.email LIKE 'aisha.khan%' THEN 'soc_analyst' ELSE 'security_analyst' END
-  ELSE u.role::text
-END
+JOIN roles r ON r.code = u.role::text
 WHERE NOT EXISTS (
   SELECT 1 FROM user_roles ur WHERE ur.user_id = u.user_id AND ur.is_primary
 )

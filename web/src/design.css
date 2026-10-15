@@ -1,52 +1,58 @@
-/* Premium ECC design system — Linear × Wiz security console */
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap");
+/*
+ * ECC design tokens — ALL colors live here so a designer palette can drop in.
+ * HOLD: do not apply rejected dark tokens (#0B0F17 / #111827 / #4FA3FF).
+ * Typography/layout (Inter, tabular nums, 12px min) are active; palette TBD.
+ */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600;700&display=swap");
 
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #06080d;
-  --bg-elevated: #0b1018;
-  --panel: #0d1219;
-  --surface: rgba(16, 22, 32, 0.78);
-  --surface-solid: #101621;
-  --panel2: #151c28;
-  --surface-2: #151c28;
-  --border: rgba(148, 163, 184, 0.12);
-  --line: rgba(148, 163, 184, 0.12);
-  --border2: rgba(148, 163, 184, 0.2);
-  --text: #f1f5f9;
-  --fg: #f1f5f9;
-  --text2: #94a3b8;
-  --muted: #94a3b8;
-  --text3: #64748b;
-  --cyan: #22d3ee;
-  --accent: #22d3ee;
-  --accent-2: #818cf8;
+  /* Surfaces — provisional; replace as a block when designer ships palette */
+  --bg: #0f1419;
+  --bg-elevated: #151b22;
+  --panel: #151b22;
+  --surface: #151b22;
+  --surface-solid: #151b22;
+  --panel2: #1c2430;
+  --surface-2: #1c2430;
+  --border: #2a3441;
+  --line: #2a3441;
+  --border2: #3a4656;
+  --text: #e8eef4;
+  --fg: #e8eef4;
+  --text2: #9aa8b5;
+  --muted: #9aa8b5;
+  --text3: #7a8794;
+  --cyan: #3d9ec9;
+  --accent: #3d9ec9;
+  --accent-2: #5b8fd9;
   --accent-ink: #041016;
-  --cyan-bg: rgba(34, 211, 238, 0.12);
-  --glow: rgba(34, 211, 238, 0.28);
-  --critical: #fb7185;
-  --crit: #fb7185;
-  --critical-bg: rgba(251, 113, 133, 0.14);
-  --high: #fb923c;
-  --high-bg: rgba(251, 146, 60, 0.14);
-  --medium: #fbbf24;
-  --med: #fbbf24;
-  --medium-bg: rgba(251, 191, 36, 0.14);
-  --good: #34d399;
-  --low: #34d399;
-  --good-bg: rgba(52, 211, 153, 0.14);
+  --cyan-bg: rgba(61, 158, 201, 0.12);
+  --glow: transparent; /* no glow */
+  --critical: #e85d66;
+  --crit: #e85d66;
+  --critical-bg: rgba(232, 93, 102, 0.14);
+  --high: #e0904a;
+  --high-bg: rgba(224, 144, 74, 0.14);
+  --medium: #d4b84a;
+  --med: #d4b84a;
+  --medium-bg: rgba(212, 184, 74, 0.14);
+  --good: #3faf72;
+  --low: #3faf72;
+  --good-bg: rgba(63, 175, 114, 0.14);
   --font: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-head: "Outfit", "Inter", ui-sans-serif, sans-serif;
+  --font-head: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --display: var(--font-head);
   --body: var(--font);
   --mono: var(--font-mono);
-  --radius: 14px;
-  --radius-sm: 10px;
+  --font-size-min: 12px;
+  --radius: 12px;
+  --radius-sm: 8px;
   --radius-pill: 999px;
-  --shadow: 0 24px 60px -36px rgba(0, 0, 0, 0.85);
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 18px 40px -28px rgba(0, 0, 0, 0.7);
+  --shadow: 0 12px 32px -20px rgba(0, 0, 0, 0.55);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
   --pack-bg: #f8fafc;
   --pack-fg: #0f172a;
   --sidebar-w: 264px;
@@ -57,40 +63,40 @@
 
 [data-theme="light"] {
   color-scheme: light;
-  --bg: #f4f7fb;
+  --bg: #f3f6f8;
   --bg-elevated: #ffffff;
   --panel: #ffffff;
-  --surface: rgba(255, 255, 255, 0.82);
+  --surface: #ffffff;
   --surface-solid: #ffffff;
   --panel2: #eef2f7;
   --surface-2: #eef2f7;
-  --border: rgba(15, 23, 42, 0.08);
-  --line: rgba(15, 23, 42, 0.08);
-  --border2: rgba(15, 23, 42, 0.14);
-  --text: #0f172a;
-  --fg: #0f172a;
-  --text2: #475569;
-  --muted: #475569;
-  --text3: #64748b;
-  --cyan: #0891b2;
-  --accent: #0891b2;
-  --accent-2: #6366f1;
+  --border: #d5dee7;
+  --line: #d5dee7;
+  --border2: #c5d1dc;
+  --text: #10202c;
+  --fg: #10202c;
+  --text2: #3e5566;
+  --muted: #3e5566;
+  --text3: #4d6476;
+  --cyan: #0b6d90;
+  --accent: #0b6d90;
+  --accent-2: #2563a8;
   --accent-ink: #ffffff;
-  --cyan-bg: rgba(8, 145, 178, 0.1);
-  --glow: rgba(8, 145, 178, 0.18);
-  --critical: #e11d48;
-  --crit: #e11d48;
-  --critical-bg: rgba(225, 29, 72, 0.1);
-  --high: #ea580c;
-  --high-bg: rgba(234, 88, 12, 0.1);
-  --medium: #ca8a04;
-  --med: #ca8a04;
-  --medium-bg: rgba(202, 138, 4, 0.12);
-  --good: #059669;
-  --low: #059669;
-  --good-bg: rgba(5, 150, 105, 0.1);
-  --shadow: 0 20px 50px -34px rgba(15, 23, 42, 0.28);
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 14px 30px -20px rgba(15, 23, 42, 0.18);
+  --cyan-bg: rgba(11, 109, 144, 0.1);
+  --glow: transparent;
+  --critical: #b4232c;
+  --crit: #b4232c;
+  --critical-bg: rgba(180, 35, 44, 0.1);
+  --high: #9a4e0d;
+  --high-bg: rgba(154, 78, 13, 0.1);
+  --medium: #7a5a08;
+  --med: #7a5a08;
+  --medium-bg: rgba(122, 90, 8, 0.12);
+  --good: #157a3e;
+  --low: #157a3e;
+  --good-bg: rgba(21, 122, 62, 0.1);
+  --shadow: 0 12px 28px -20px rgba(15, 23, 42, 0.22);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
   --pack-bg: #ffffff;
   --pack-fg: #0f172a;
 }
@@ -110,14 +116,25 @@ body,
 body {
   margin: 0;
   font-family: var(--font);
-  background:
-    radial-gradient(1100px 520px at 8% -8%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 55%),
-    radial-gradient(900px 480px at 92% 0%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 50%),
-    var(--bg);
+  font-size: 14px;
+  background: var(--bg);
   color: var(--text);
   line-height: 1.5;
   min-width: 320px;
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
+}
+
+small,
+.note,
+.lbl,
+.eyebrow,
+.nav-label,
+.meta,
+.act-meta,
+.di-domain,
+.src {
+  font-size: max(12px, var(--font-size-min));
 }
 
 h1,
@@ -158,10 +175,10 @@ input {
   background: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
+/* Solid surface only — no glass / blur (designer direction). */
 .glass {
-  background: var(--surface);
+  background: var(--surface-solid);
   border: 1px solid var(--line);
-  backdrop-filter: blur(18px) saturate(1.2);
   box-shadow: var(--shadow-card);
 }
 

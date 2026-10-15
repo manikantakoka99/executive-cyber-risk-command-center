@@ -91,26 +91,16 @@ export function roleLabel(role: string): string {
       return "CISO";
     case "board_member":
       return "Board Member";
-    case "security_analyst":
-      return "Security Analyst";
-    case "soc_analyst":
-      return "SOC Analyst";
-    case "risk_manager":
+    case "risk_lead":
       return "Risk Lead";
-    case "org_admin":
-    case "super_admin":
-    case "platform_admin":
+    case "admin":
       return "Admin";
     case "program_office":
       return "Program Office";
     case "domain_analyst":
       return "Domain Analyst";
-    case "compliance_manager":
-      return "Compliance";
     case "auditor":
       return "Auditor";
-    case "business_owner":
-      return "Business Owner";
     default:
       return role.replaceAll("_", " ");
   }

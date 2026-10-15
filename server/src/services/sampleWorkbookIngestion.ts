@@ -35,7 +35,7 @@ async function ensureSampleConnector(orgId: string): Promise<string> {
        credentials_reference, config_nonsecret, vendor
      ) VALUES (
        $1,$2,'demo',$3,$4,'active',
-       'secret://local/sample-workbook',
+       'configured',
        $5::jsonb,
        'ecc-sample-workbook'
      ) RETURNING connector_id`,

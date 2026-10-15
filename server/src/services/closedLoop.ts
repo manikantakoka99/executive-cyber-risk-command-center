@@ -810,7 +810,7 @@ export async function createIsolatedScenario(
   opts: { title?: string; ineffectiveControl?: boolean } = {},
 ) {
   const title =
-    opts.title ?? `P4 isolated ${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    opts.title ?? `Isolated scenario ${Date.now().toString(36)}`;
   await query(
     `INSERT INTO assets (org_id, name, asset_type, criticality, environment, internet_exposed, status)
      VALUES ($1,$2,'application','critical','production',true,'active')

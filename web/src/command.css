@@ -39,7 +39,7 @@
   place-items: center;
   color: var(--accent-ink);
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent), 0 10px 30px -12px var(--glow);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
   flex-shrink: 0;
 }
 
@@ -263,8 +263,11 @@
   animation: fade-up 0.35s var(--ease);
 }
 
-.role-board .cc { max-width: 1080px; }
-.role-ciso .cc { max-width: 1360px; }
+.role-board .cc,
+.role-ciso .cc,
+.role-cxo .cc {
+  max-width: none;
+}
 
 .cc-tabs {
   display: flex;
@@ -324,11 +327,11 @@
 .answer h1 {
   font-size: clamp(28px, 3.6vw, 44px);
   font-weight: 650;
-  max-width: 18ch;
+  max-width: none;
 }
 
-.role-ciso .answer h1 { max-width: 28ch; font-size: clamp(24px, 2.8vw, 34px); }
-.role-board .answer h1 { max-width: 16ch; }
+.role-ciso .answer h1 { max-width: none; font-size: clamp(24px, 2.8vw, 34px); }
+.role-board .answer h1 { max-width: none; }
 
 .answer p:last-child,
 .note {
@@ -370,7 +373,7 @@
 
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -381,14 +384,7 @@
 }
 
 .kpi::after {
-  content: "";
-  position: absolute;
-  inset: auto -20% -40% auto;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--glow), transparent 70%);
-  pointer-events: none;
+  display: none;
 }
 
 .band-big,
@@ -590,7 +586,7 @@ tbody tr.click:hover td { background: color-mix(in srgb, var(--accent) 6%, trans
 
 .range { position: relative; height: 36px; margin: 16px 0 8px; }
 .range .rail { position: absolute; left: 0; right: 0; top: 16px; height: 4px; border-radius: 4px; background: var(--surface-2); }
-.range .span { position: absolute; top: 12px; height: 12px; border-radius: 8px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); box-shadow: 0 0 18px var(--glow); }
+.range .span { position: absolute; top: 12px; height: 12px; border-radius: 8px; background: var(--accent); }
 .range .mk { position: absolute; top: 6px; width: 2px; height: 24px; background: var(--fg); }
 .range .t { position: absolute; top: -2px; transform: translateX(-50%); font: 500 11px/1 var(--mono); color: var(--muted); }
 
@@ -627,11 +623,14 @@ tbody tr.click:hover td { background: color-mix(in srgb, var(--accent) 6%, trans
 .sl .w { margin-left: 8px; color: var(--muted); font: 500 12px/1.4 var(--mono); }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
 
-.cmp { display: grid; grid-template-columns: 1fr auto auto; gap: 10px 16px; align-items: baseline; }
+.cmp { display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px 16px; align-items: baseline; }
 .cmp-row { display: contents; }
-.cmp .h { font: 650 10px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
-.cmp .n { font-weight: 650; }
+.cmp .h { font: 650 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.cmp .n { font-weight: 650; font-variant-numeric: tabular-nums; }
 .cmp .d { color: var(--low); }
+.cmp .delta-up { color: var(--crit); font-variant-numeric: tabular-nums; }
+.cmp .delta-down { color: var(--low); font-variant-numeric: tabular-nums; }
+.cmp .delta-flat { color: var(--muted); font-variant-numeric: tabular-nums; }
 .presets { margin-bottom: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
 .presets button[aria-pressed="true"] {
   border-color: var(--accent);
@@ -750,10 +749,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 }
 .btn:hover { border-color: var(--accent); transform: translateY(-1px); }
 .btn.primary {
-  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent-2) 55%, var(--accent)));
+  background: var(--accent);
   color: var(--accent-ink);
   border-color: transparent;
-  box-shadow: 0 10px 30px -16px var(--glow);
 }
 .btn.ghost { background: transparent; }
 .btn.sm { padding: 6px 12px; font-size: 13px; }
@@ -794,7 +792,6 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .persona:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
   transform: translateY(-2px);
-  box-shadow: 0 16px 40px -28px var(--glow);
 }
 .persona strong { display: block; }
 .login-tools { justify-content: space-between; margin-bottom: 8px; }

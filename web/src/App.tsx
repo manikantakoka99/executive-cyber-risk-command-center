@@ -12,12 +12,10 @@ import {
   AuditPage,
   CompliancePage,
   DecisionDetailPage,
-  DecisionsPage,
   ReportsPage,
 } from "./pages/DecisionsReports";
 import {
   DomainDetailPage,
-  DomainsPage,
   FindingDetailPage,
   FindingsPage,
 } from "./pages/DomainsFindings";
@@ -27,7 +25,6 @@ import { LoginPage } from "./pages/LoginPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { PolicyAppetitePage } from "./pages/PolicyAppetitePage";
 import { RegisterPage } from "./pages/RegisterPage";
-import { RemediationPage } from "./pages/RemediationPage";
 import { ScenarioDetailPage, ScenariosPage } from "./pages/ScenariosPage";
 import "./index.css";
 import "./design.css";
@@ -44,9 +41,11 @@ function Permit({
   if (!me?.permissions.includes(permission)) {
     return (
       <div className="page">
+        <p className="eyebrow">403 · Forbidden</p>
         <h1 className="page-title">Outside this role</h1>
         <p className="page-sub">
-          {me?.title ?? "This persona"} cannot open this workspace. Switch role from the header or sign in as a different demo user.
+          {me?.title ?? "This persona"} cannot open this workspace. Switch role from the header or
+          sign in as a different demo user.
         </p>
       </div>
     );
@@ -152,21 +151,37 @@ function EccApp() {
         <Route path="/scenarios" element={<Permit permission="scenarios.read"><ScenariosPage /></Permit>} />
         <Route path="/scenarios/:id" element={<Permit permission="scenarios.read"><ScenarioDetailPage /></Permit>} />
         <Route path="/ingestion" element={<Permit permission="ingestion.read"><IngestionProofPage /></Permit>} />
-        <Route path="/risk-domains" element={<Permit permission="domains.read"><DomainsPage /></Permit>} />
+        {/* Merged nav aliases — deep links still work */}
+        <Route path="/risk-domains" element={<Navigate to="/c/posture" replace />} />
         <Route path="/risk-domains/:id" element={<Permit permission="domains.read"><DomainDetailPage /></Permit>} />
         <Route path="/findings" element={<Permit permission="findings.read"><FindingsPage /></Permit>} />
         <Route path="/findings/:id" element={<Permit permission="findings.read"><FindingDetailPage /></Permit>} />
         <Route path="/register" element={<Permit permission="register.read"><RegisterPage /></Permit>} />
-        <Route path="/remediation" element={<Permit permission="remediation.read"><RemediationPage /></Permit>} />
+        <Route path="/remediation" element={<Navigate to="/c/closure" replace />} />
         <Route path="/connectors" element={<Permit permission="connectors.read"><ConnectorsPage /></Permit>} />
         <Route path="/policy" element={<Permit permission="policy.read"><PolicyAppetitePage /></Permit>} />
-        <Route path="/decisions" element={<Permit permission="decisions.read"><DecisionsPage /></Permit>} />
+        <Route path="/decisions" element={<Navigate to="/c/queue" replace />} />
         <Route path="/decisions/:id" element={<Permit permission="decisions.read"><DecisionDetailPage /></Permit>} />
         <Route path="/compliance" element={<Permit permission="compliance.read"><CompliancePage /></Permit>} />
         <Route path="/reports" element={<Permit permission="reports.read"><ReportsPage /></Permit>} />
         <Route path="/audit" element={<Permit permission="audit.read"><AuditPage /></Permit>} />
         <Route path="/admin" element={<AdminPage />} />
-        <Route path="*" element={<Navigate to={me.home} replace />} />
+        <Route
+          path="*"
+          element={
+            <div className="page">
+              <p className="eyebrow">404 · Not found</p>
+              <h1 className="page-title">Page not found</h1>
+              <p className="page-sub">
+                That route is not part of this demo. Use the sidebar or return to{" "}
+                <a className="text-link" href={me.home}>
+                  your home view
+                </a>
+                .
+              </p>
+            </div>
+          }
+        />
       </Routes>
     </Shell>
   );

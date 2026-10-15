@@ -1,81 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap");
-
-:root,
-[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #04080c;
-  --panel: #0b131a;
-  --surface: #0b131a;
-  --panel2: #121d27;
-  --surface-2: #121d27;
-  --border: #1e2c3a;
-  --line: #1e2c3a;
-  --border2: #2a3c4c;
-  --text: #e8eef4;
-  --fg: #e8eef4;
-  --text2: #9daebe;
-  --muted: #9daebe;
-  --text3: #8ea0b0;
-  --cyan: #37b6e8;
-  --accent: #37b6e8;
-  --accent-ink: #04141c;
-  --cyan-bg: #12303f;
-  --critical: #f0555c;
-  --crit: #f0555c;
-  --critical-bg: #3a1518;
-  --high: #f0923e;
-  --high-bg: #3a2413;
-  --medium: #e8c547;
-  --med: #e8c547;
-  --medium-bg: #39320f;
-  --good: #3fb966;
-  --low: #3fb966;
-  --good-bg: #0f3320;
-  --font: "IBM Plex Sans", "Segoe UI", sans-serif;
-  --font-head: "Sora", "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-  --display: var(--font-head);
-  --body: var(--font);
-  --mono: var(--font-mono);
-  --shadow: 0 30px 70px -40px #000;
-  --pack-bg: #f4f6f8;
-  --pack-fg: #12202b;
-}
-
-[data-theme="light"] {
-  color-scheme: light;
-  --bg: #f3f6f8;
-  --panel: #ffffff;
-  --surface: #ffffff;
-  --panel2: #eef3f7;
-  --surface-2: #eef3f7;
-  --border: #d5dee7;
-  --line: #d5dee7;
-  --border2: #c5d1dc;
-  --text: #10202c;
-  --fg: #10202c;
-  --text2: #3e5566;
-  --muted: #3e5566;
-  --text3: #4d6476;
-  --cyan: #0b6d90;
-  --accent: #0b6d90;
-  --accent-ink: #ffffff;
-  --cyan-bg: #e5f4fa;
-  --critical: #b4232c;
-  --crit: #b4232c;
-  --critical-bg: #fdecee;
-  --high: #9a4e0d;
-  --high-bg: #fff1e4;
-  --medium: #7a5a08;
-  --med: #7a5a08;
-  --medium-bg: #fff6d8;
-  --good: #157a3e;
-  --low: #157a3e;
-  --good-bg: #e7f6ec;
-  --shadow: 0 18px 40px -28px rgba(16, 32, 44, 0.28);
-  --pack-bg: #ffffff;
-  --pack-fg: #12202b;
-}
+/* Component styles only — color/type tokens live in design.css (designer-swappable). */
 
 *,
 *::before,
@@ -992,7 +915,7 @@ textarea {
 
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
 }

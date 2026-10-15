@@ -28,6 +28,7 @@ export async function getConnector(orgId: string, connectorId: string) {
 }
 
 function mapConnector(c: Record<string, unknown>) {
+  const credRef = c.credentials_reference ?? c.secret_ref;
   return {
     connectorId: c.connector_id,
     orgId: c.org_id,
@@ -43,7 +44,8 @@ function mapConnector(c: Record<string, unknown>) {
     lastSyncAt: c.last_sync_at,
     lastSuccessAt: c.last_success_at,
     lastFailureAt: c.last_failure_at,
-    credentialsReference: c.credentials_reference ?? c.secret_ref,
+    // Never return real credential references — only a configured flag.
+    credentialsConfigured: Boolean(credRef),
     configRef: c.config_ref,
     configuration: c.config_nonsecret,
     createdAt: c.created_at,
@@ -95,7 +97,8 @@ export async function createConnector(
       input.name,
       input.vendor ?? "ecc-demo",
       input.connectorType ?? "demo",
-      input.credentialsReference ?? "secret://local/placeholder",
+      // Persist only an opaque marker — never a secret URI or raw credential.
+      "configured",
       JSON.stringify(cfg),
       adapterKey,
       input.pollingIntervalSeconds ?? null,

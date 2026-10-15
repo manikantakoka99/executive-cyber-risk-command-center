@@ -1,7 +1,7 @@
 /**
- * Role-based access aligned to DWAN consolidated schema `role_capabilities`
- * and ECC product context. Demo HTML permissions that conflict with the DB
- * are overridden — see docs/CONFLICT_RESOLUTIONS.md.
+ * Role-based access aligned exactly to DWAN schema `user_role_name` /
+ * `role_capabilities` (8 roles). Legacy aliases are normalized at the edge
+ * via `canonicalRole()` but are not first-class RoleCode values.
  */
 
 export const ROLE_CODES = [
@@ -13,32 +13,13 @@ export const ROLE_CODES = [
   "program_office",
   "auditor",
   "admin",
-  // Legacy aliases mapped at the edge for older seeded users
-  "risk_manager",
-  "security_analyst",
-  "soc_analyst",
-  "org_admin",
-  "super_admin",
-  "platform_admin",
-  "compliance_manager",
-  "business_owner",
 ] as const;
 
 export type RoleCode = (typeof ROLE_CODES)[number];
+export type DwanRole = RoleCode;
 
-/** Canonical 8 DWAN roles. */
-export const DWAN_ROLES = [
-  "board_member",
-  "cxo",
-  "ciso",
-  "risk_lead",
-  "domain_analyst",
-  "program_office",
-  "auditor",
-  "admin",
-] as const;
-
-export type DwanRole = (typeof DWAN_ROLES)[number];
+/** Canonical 8 DWAN roles (alias of ROLE_CODES). */
+export const DWAN_ROLES = ROLE_CODES;
 
 export const PERMISSIONS = [
   "command.headline",
@@ -117,8 +98,14 @@ export const VIEW_LABEL: Record<ViewId, string> = {
   pack: "Pack",
 };
 
-/** Map legacy / alternate role codes onto the DWAN eight. */
-export function canonicalRole(role: string): DwanRole {
+/**
+ * Normalize inbound / legacy role strings onto the schema's 8 roles.
+ * - org_admin → admin
+ * - risk_manager → risk_lead
+ * - security_analyst / soc_analyst → domain_analyst
+ * - compliance_manager → program_office
+ */
+export function canonicalRole(role: string): RoleCode {
   switch (role) {
     case "risk_manager":
     case "risk_lead":
@@ -148,11 +135,10 @@ export function canonicalRole(role: string): DwanRole {
 }
 
 /**
- * Who may sign risk acceptances.
- * Default matches DB role_capabilities: CxO and Risk Lead.
- * Override with ACCEPT_RISK_ROLES=cxo (comma-separated) if needed.
+ * Who may sign risk acceptances (matches DB role_capabilities.accept_risk).
+ * Default: CxO and Risk Lead.
  */
-export function acceptRiskRoles(): DwanRole[] {
+export function acceptRiskRoles(): RoleCode[] {
   const raw = process.env.ACCEPT_RISK_ROLES?.trim();
   if (!raw) return ["cxo", "risk_lead"];
   return raw
@@ -166,7 +152,7 @@ export function canAcceptRisk(role: string): boolean {
 }
 
 /** DB role_capabilities → app permissions. */
-const DWAN_PERMISSIONS: Record<DwanRole, Permission[]> = {
+const DWAN_PERMISSIONS: Record<RoleCode, Permission[]> = {
   board_member: [
     "command.headline",
     "command.posture",
@@ -181,6 +167,7 @@ const DWAN_PERMISSIONS: Record<DwanRole, Permission[]> = {
     "policy.read",
     "policy.approve",
   ],
+  // CxO: business decisions + loss; no findings / technical evidence.
   cxo: [
     "command.headline",
     "command.posture",
@@ -197,7 +184,6 @@ const DWAN_PERMISSIONS: Record<DwanRole, Permission[]> = {
     "command.pack.approve",
     "ops.overview",
     "domains.read",
-    "findings.read",
     "decisions.read",
     "decisions.act",
     "compliance.read",
@@ -307,6 +293,7 @@ const DWAN_PERMISSIONS: Record<DwanRole, Permission[]> = {
     "decisions.read",
     "policy.read",
   ],
+  // Auditor: read-only pack/compliance/audit + findings + connectors.
   auditor: [
     "command.headline",
     "command.posture",
@@ -321,12 +308,14 @@ const DWAN_PERMISSIONS: Record<DwanRole, Permission[]> = {
     "decisions.read",
     "register.read",
     "policy.read",
+    "findings.read",
+    "connectors.read",
   ],
   admin: ["admin.users", "admin.roles", "audit.read"],
 };
 
 /** Grant accept-risk permissions only (not general Decide / queue.act). */
-function withAccept(role: DwanRole, perms: Permission[]): Permission[] {
+function withAccept(role: RoleCode, perms: Permission[]): Permission[] {
   const out = new Set(perms);
   if (canAcceptRisk(role)) {
     out.add("command.closure.register");
@@ -344,14 +333,6 @@ export const ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
   program_office: DWAN_PERMISSIONS.program_office,
   auditor: DWAN_PERMISSIONS.auditor,
   admin: DWAN_PERMISSIONS.admin,
-  risk_manager: withAccept("risk_lead", DWAN_PERMISSIONS.risk_lead),
-  security_analyst: DWAN_PERMISSIONS.domain_analyst,
-  soc_analyst: DWAN_PERMISSIONS.domain_analyst,
-  org_admin: DWAN_PERMISSIONS.admin,
-  super_admin: [...new Set([...DWAN_PERMISSIONS.ciso, ...DWAN_PERMISSIONS.admin])],
-  platform_admin: [...new Set([...DWAN_PERMISSIONS.ciso, ...DWAN_PERMISSIONS.admin])],
-  compliance_manager: DWAN_PERMISSIONS.program_office,
-  business_owner: withAccept("cxo", DWAN_PERMISSIONS.cxo),
 };
 
 export const ROLE_LABEL: Record<RoleCode, string> = {
@@ -359,42 +340,25 @@ export const ROLE_LABEL: Record<RoleCode, string> = {
   cxo: "CxO",
   ciso: "CISO",
   risk_lead: "Risk Lead",
-  domain_analyst: "Analyst",
+  domain_analyst: "Domain Analyst",
   program_office: "Program Office",
   auditor: "Auditor",
   admin: "Admin",
-  risk_manager: "Risk Lead",
-  security_analyst: "Analyst",
-  soc_analyst: "SOC Analyst",
-  org_admin: "Admin",
-  super_admin: "Super Admin",
-  platform_admin: "Platform Admin",
-  compliance_manager: "Compliance",
-  business_owner: "Business Owner",
 };
 
 export const CAPABILITY: Record<RoleCode, string> = {
   board_member:
     "You can view risk posture, trends, financial exposure and the board pack. You approve scoring policy and appetite proposals. Technical feeds and what-if are outside this role.",
-  cxo: "You can approve decisions, accept risk with an expiry, and run what-if funding against expected loss.",
+  cxo: "You can approve decisions, accept risk with an expiry, and run what-if funding against expected loss. Findings and technical evidence stay with security roles.",
   ciso: "You can see technical evidence, assign owners, propose scoring policy and appetite, and verify closures. Board locks approved versions.",
   risk_lead:
     "You can accept risk with an expiry, manage the acceptance register, run verification scans and the audit trail. General Decide stays with CxO/CISO.",
   domain_analyst:
     "You can verify findings, inspect feed confidence and open technical evidence. Money and approvals are outside this role.",
   program_office: "You prepare the board pack and compliance reports. Technical verification stays with security.",
-  auditor: "You can read the audit trail, compliance evidence and packs. You cannot change decisions.",
+  auditor:
+    "You can read findings, connectors, the audit trail, compliance evidence and packs. You cannot change decisions.",
   admin: "You manage users and roles for this organization. Cyber decisions are outside this role.",
-  risk_manager:
-    "You manage the acceptance register, verification scans and the audit trail.",
-  security_analyst:
-    "You can verify findings, inspect feed confidence and open technical evidence. Money is masked.",
-  soc_analyst: "You can verify findings and inspect feed confidence. Money is masked.",
-  org_admin: "You manage users and roles for this organization.",
-  super_admin: "Full platform access including administration.",
-  platform_admin: "Full platform access including administration.",
-  compliance_manager: "You review framework posture and the board pack.",
-  business_owner: "You can see business-impact exposure and funding what-if.",
 };
 
 export const LANDING: Record<RoleCode, ViewId> = {
@@ -406,30 +370,19 @@ export const LANDING: Record<RoleCode, ViewId> = {
   program_office: "pack",
   auditor: "changed",
   admin: "headline",
-  risk_manager: "closure",
-  security_analyst: "trust",
-  soc_analyst: "trust",
-  org_admin: "headline",
-  super_admin: "headline",
-  platform_admin: "headline",
-  compliance_manager: "headline",
-  business_owner: "headline",
 };
 
 export function isRoleCode(value: string): value is RoleCode {
-  return Object.prototype.hasOwnProperty.call(ROLE_PERMISSIONS, value);
+  return (ROLE_CODES as readonly string[]).includes(value);
 }
 
 export function hasPermission(role: string, permission: Permission): boolean {
-  const canon = canonicalRole(role);
-  // Prefer canonical DWAN matrix so legacy aliases stay consistent
-  const list = ROLE_PERMISSIONS[canon] ?? ROLE_PERMISSIONS[role as RoleCode];
+  const list = ROLE_PERMISSIONS[canonicalRole(role)];
   return !!list?.includes(permission);
 }
 
 export function permissionsFor(role: string): Permission[] {
-  const canon = canonicalRole(role);
-  return [...(ROLE_PERMISSIONS[canon] ?? [])];
+  return [...ROLE_PERMISSIONS[canonicalRole(role)]];
 }
 
 export function viewsFor(role: string): ViewId[] {
@@ -458,8 +411,7 @@ export function homeFor(role: string): string {
 }
 
 export function capabilityFor(role: string): string {
-  const canon = canonicalRole(role);
-  return CAPABILITY[canon] ?? "This role has no command-center permissions.";
+  return CAPABILITY[canonicalRole(role)];
 }
 
 export function maxAcceptanceDays(severity: string): number {
@@ -486,7 +438,6 @@ export function requiredPermission(method: string, path: string): Permission | "
   if (url.startsWith("/api/ecc/audit")) return "audit.read";
   if (url.startsWith("/api/ecc/policy") || url.startsWith("/api/ecc/appetite")) {
     if (method === "GET") return "policy.read";
-    // Approve / lock endpoints require approve_policy; drafts use propose.
     if (/\/(approve|lock)\b/i.test(url) || /[?&]action=approve\b/i.test(path)) {
       return "policy.approve";
     }
@@ -523,20 +474,26 @@ export function requiredPermission(method: string, path: string): Permission | "
   return null;
 }
 
-const FINANCIAL_KEY = /(aed|financial|exposure|^loss$|loss[A-Z]|expectedLoss|ale|p90|p95)/i;
+const FINANCIAL_KEY = /(aed|financial|exposure|^loss$|loss[A-Z]|expectedLoss|ale|p90|p95|lossAvoided)/i;
+/** String payloads that still carry money after key-based nulling (e.g. free-text notes). */
+const AED_VALUE = /\bAED\b|\bP9[05]\b/i;
 
 export function redactFinancial<T>(role: string, value: T): T {
-  // command.loss mirrors view_financials
   if (hasPermission(role, "command.loss")) return value;
   return stripFinancial(value) as T;
 }
 
 function stripFinancial(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stripFinancial);
+  if (typeof value === "string") return AED_VALUE.test(value) ? null : value;
   if (!value || typeof value !== "object") return value;
   const copy: Record<string, unknown> = {};
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    copy[key] = FINANCIAL_KEY.test(key) ? null : stripFinancial(child);
+    if (FINANCIAL_KEY.test(key)) {
+      copy[key] = null;
+      continue;
+    }
+    copy[key] = stripFinancial(child);
   }
   return copy;
 }

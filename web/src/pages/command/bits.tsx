@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import type { Band } from "../../data/commandTypes";
 
@@ -42,10 +41,10 @@ export function Answer({
   );
 }
 
+/** Static numeral display (count-up animations removed for trust / single source of truth). */
 export function CountUp({
   value,
   decimals = 0,
-  duration = 900,
   prefix = "",
   suffix = "",
 }: {
@@ -55,24 +54,10 @@ export function CountUp({
   prefix?: string;
   suffix?: string;
 }) {
-  const [display, setDisplay] = useState(0);
-  useEffect(() => {
-    let frame = 0;
-    const start = performance.now();
-    const from = 0;
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - (1 - t) ** 3;
-      setDisplay(from + (value - from) * eased);
-      if (t < 1) frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [value, duration]);
   return (
     <span className="count-up mono">
       {prefix}
-      {display.toFixed(decimals)}
+      {value.toFixed(decimals)}
       {suffix}
     </span>
   );

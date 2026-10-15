@@ -13,36 +13,8 @@ import {
 import { useAppState } from "../context/AppState";
 import { useTheme } from "../context/Theme";
 import { initials, roleLabel } from "../lib/format";
+import { navForRole } from "../lib/nav";
 import { NAV_ICONS, Shield } from "./icons";
-
-const COMMAND = [
-  { to: "/c/headline", label: "Board headline", perm: "command.headline", hint: "Are we OK?" },
-  { to: "/c/posture", label: "Domain posture", perm: "command.posture", hint: "Weakest domains" },
-  { to: "/c/trust", label: "Trust panel", perm: "command.trust", hint: "Feed confidence" },
-  { to: "/c/queue", label: "Decision queue", perm: "command.queue", hint: "Approvals" },
-  { to: "/c/whatif", label: "What-if", perm: "command.whatif", hint: "Funding scenarios" },
-  { to: "/c/closure", label: "Closure", perm: "command.closure", hint: "Verify fixes" },
-  { to: "/c/changed", label: "What changed", perm: "command.changed", hint: "Since last board" },
-  { to: "/c/pack", label: "Board pack", perm: "command.pack", hint: "Export brief" },
-];
-
-const WORK = [
-  { to: "/operations", label: "Operations", perm: "ops.overview", hint: "Live DB overview" },
-  { to: "/intelligence", label: "Intelligence", perm: "scenarios.read", hint: "Enterprise intel" },
-  { to: "/scenarios", label: "Risk scenarios", perm: "scenarios.read", hint: "Correlated risk" },
-  { to: "/ingestion", label: "Ingestion", perm: "ingestion.read", hint: "Sample workbook" },
-  { to: "/risk-domains", label: "Risk domains", perm: "domains.read", hint: "Domain drill-down" },
-  { to: "/findings", label: "Findings", perm: "findings.read", hint: "Open findings" },
-  { to: "/register", label: "Risk register", perm: "register.read", hint: "Combined register" },
-  { to: "/remediation", label: "Remediation", perm: "remediation.read", hint: "Fix tracking" },
-  { to: "/connectors", label: "Connectors", perm: "connectors.read", hint: "Feed health" },
-  { to: "/policy", label: "Policy & appetite", perm: "policy.read", hint: "Scoring policy" },
-  { to: "/decisions", label: "Decisions", perm: "decisions.read", hint: "Decision history" },
-  { to: "/compliance", label: "Compliance", perm: "compliance.read", hint: "Frameworks" },
-  { to: "/reports", label: "Reports", perm: "reports.read", hint: "Generated reports" },
-  { to: "/audit", label: "Audit", perm: "audit.read", hint: "Audit trail" },
-  { to: "/admin", label: "Users and roles", perm: "admin.users", hint: "RBAC admin" },
-];
 
 export function Shell({ children }: { children: ReactNode }) {
   const { organizations, orgId, setOrgId, users, userId, setUserId, me, signOut, error } =
@@ -55,12 +27,22 @@ export function Shell({ children }: { children: ReactNode }) {
   );
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const perms = new Set(me?.permissions ?? []);
-  const roleTone = me?.role === "board_member" ? "board" : me?.role === "ciso" ? "ciso" : me?.role === "cxo" ? "cxo" : "ops";
+  const perms = me?.permissions ?? [];
+  const roleTone =
+    me?.role === "board_member"
+      ? "board"
+      : me?.role === "ciso"
+        ? "ciso"
+        : me?.role === "cxo"
+          ? "cxo"
+          : "ops";
 
   useEffect(() => {
     if (!me || me.userId !== userId) return;
-    if (previousUser.current && previousUser.current !== userId) navigate(me.home);
+    if (previousUser.current && previousUser.current !== userId) {
+      // Persona switch: land on role home and drop any stale view state.
+      navigate(me.home, { replace: true });
+    }
     previousUser.current = userId;
   }, [userId, me, navigate]);
 
@@ -80,19 +62,21 @@ export function Shell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const command = COMMAND.filter((item) => perms.has(item.perm));
-  const work = WORK.filter((item) => perms.has(item.perm));
+  const nav = useMemo(
+    () => (me ? navForRole(me.role, perms) : []),
+    [me, perms],
+  );
+
   const paletteItems = useMemo(() => {
-    const all = [...command, ...work];
     const q = query.trim().toLowerCase();
-    if (!q) return all;
-    return all.filter(
+    if (!q) return nav;
+    return nav.filter(
       (item) =>
         item.label.toLowerCase().includes(q) ||
         item.hint.toLowerCase().includes(q) ||
         item.to.includes(q),
     );
-  }, [command, work, query]);
+  }, [nav, query]);
 
   return (
     <div className={`app-frame role-${roleTone}${collapsed ? " sidebar-collapsed" : ""}`}>
@@ -109,25 +93,10 @@ export function Shell({ children }: { children: ReactNode }) {
           )}
         </div>
 
-        {command.length > 0 && (
-          <nav aria-label="Command">
-            {!collapsed && <p className="nav-label">Command</p>}
-            {command.map((item) => {
-              const Icon = NAV_ICONS[item.to] ?? Search;
-              return (
-                <NavLink key={item.to} to={item.to} title={item.label}>
-                  <Icon size={18} strokeWidth={1.8} />
-                  {!collapsed && <span>{item.label}</span>}
-                </NavLink>
-              );
-            })}
-          </nav>
-        )}
-
-        {work.length > 0 && (
-          <nav aria-label="Workspace">
-            {!collapsed && <p className="nav-label">Workspace</p>}
-            {work.map((item) => {
+        {nav.length > 0 && (
+          <nav aria-label="Primary">
+            {!collapsed && <p className="nav-label">Navigate</p>}
+            {nav.map((item) => {
               const Icon = NAV_ICONS[item.to] ?? Search;
               return (
                 <NavLink key={item.to} to={item.to} title={item.label}>

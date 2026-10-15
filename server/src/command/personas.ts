@@ -31,17 +31,17 @@ function aldhabiPersonas(): Persona[] {
     persona(DEMO_ORG_ID, "04", "Khalid", "Al Suwaidi", "cxo", "CIO", "khalid.suwaidi", "aldhabi.demo"),
     persona(DEMO_ORG_ID, "05", "Mariam", "Al Dhaheri", "cxo", "COO", "mariam.dhaheri", "aldhabi.demo"),
     persona(DEMO_ORG_ID, "06", "Hessa", "Al Ketbi", "board_member", "Board Member", "hessa.ketbi", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "07", "Yusuf", "Rahman", "security_analyst", "Security Analyst", "yusuf.rahman", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "08", "Aisha", "Khan", "soc_analyst", "SOC Analyst", "aisha.khan", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "09", "Nadia", "Farouk", "org_admin", "Admin", "nadia.farouk", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "0a", "Rashid", "Al Maktoum", "risk_manager", "Risk Lead", "rashid.maktoum", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "0b", "Sara", "Ibrahim", "compliance_manager", "Compliance Manager", "sara.ibrahim", "aldhabi.demo"),
+    // Schema role domain_analyst (job titles differ for demo clarity).
+    persona(DEMO_ORG_ID, "07", "Yusuf", "Rahman", "domain_analyst", "Security Analyst", "yusuf.rahman", "aldhabi.demo"),
+    persona(DEMO_ORG_ID, "08", "Aisha", "Khan", "domain_analyst", "SOC Analyst", "aisha.khan", "aldhabi.demo"),
+    persona(DEMO_ORG_ID, "09", "Nadia", "Farouk", "admin", "Admin", "nadia.farouk", "aldhabi.demo"),
+    persona(DEMO_ORG_ID, "0a", "Rashid", "Al Maktoum", "risk_lead", "Risk Lead", "rashid.maktoum", "aldhabi.demo"),
+    persona(DEMO_ORG_ID, "0b", "Sara", "Ibrahim", "program_office", "Compliance Manager", "sara.ibrahim", "aldhabi.demo"),
     persona(DEMO_ORG_ID, "0c", "James", "Okoye", "auditor", "Auditor", "james.okoye", "aldhabi.demo"),
   ];
 }
 
 function tenantBPersonas(): Persona[] {
-  // Distinct user-id prefix so they cannot collide with Al Dhabi personas.
   return [
     persona(TENANT_B_ORG_ID, "b1", "Nora", "Al Falasi", "ciso", "CISO", "nora.falasi", "falcon.demo"),
     persona(TENANT_B_ORG_ID, "b2", "Tariq", "Hassan", "board_member", "Board Member", "tariq.hassan", "falcon.demo"),

@@ -69,26 +69,29 @@ cd web && npm install && npm run dev      # :5173, proxies /api → :4000
 
 ## Demo auth and tenants
 
-Sign-in is passwordless. Pick an organization, then a persona. Every API call sends:
+> **Must-fix before production:** demo auth trusts `X-Org-Id` / `X-User-Id` headers with no signature, session, or IdP. Anyone who can call the API can impersonate any seeded persona. Replace with real authentication (OIDC/SAML + short-lived tokens) and never ship header-trusted identity to production.
+
+Sign-in is passwordless for local/demo use. Pick an organization, then a persona. Every API call sends:
 
 - `X-Org-Id`
 - `X-User-Id`
 
-**Tenant isolation** is enforced in the API (user must belong to the org) and in Postgres (`SET app.current_org_id` / RLS on DWAN tables). Cross-tenant header spoofing returns **403**.
+App roles match the schema’s eight `user_role_name` values exactly: `board_member`, `cxo`, `ciso`, `risk_lead`, `domain_analyst`, `program_office`, `auditor`, `admin`.
+
+**Tenant isolation** is enforced in the API (user must belong to the org) and in Postgres (`SET app.current_org_id` / RLS on DWAN tables). Cross-tenant header spoofing returns **403**. Authorization is checked before input validation on mutating endpoints (unauthorized → **403**, not **400**).
 
 ### Tenant A — Al Dhabi Holdings
 
 | Persona | Role | Notes |
 |---|---|---|
-| Omar Al Mansoori, Fatima Al Nuaimi, Khalid Al Suwaidi, Mariam Al Dhaheri | CxO | Decision queue, accept risk, financials |
-| Layla Al Hashimi | CISO | Propose scoring policy / appetite; full ops |
-| Hessa Al Ketbi | Board Member | Approve & lock policy; no queue approve |
-| Yusuf Rahman | Security Analyst | Domain evidence; no financials |
-| Aisha Khan | SOC Analyst | Detection / verification |
-| Rashid Al Maktoum | Risk Lead | Accept risk, register |
-| Nadia Farouk | Admin | Users / roles |
-| Sara Ibrahim | Compliance | Framework posture |
-| James Okoye | Auditor | Read-only pack / audit |
+| Omar Al Mansoori, Fatima Al Nuaimi, Khalid Al Suwaidi, Mariam Al Dhaheri | `cxo` | Decision queue, accept risk, financials; **no** findings/technical evidence |
+| Layla Al Hashimi | `ciso` | Propose scoring policy / appetite; full ops |
+| Hessa Al Ketbi | `board_member` | Approve & lock policy; no queue approve |
+| Yusuf Rahman, Aisha Khan | `domain_analyst` | Domain evidence / SOC; no financials |
+| Rashid Al Maktoum | `risk_lead` | Accept risk, register |
+| Nadia Farouk | `admin` | Users / roles |
+| Sara Ibrahim | `program_office` | Framework posture / pack prep |
+| James Okoye | `auditor` | Read-only pack, audit, **findings**, **connectors** |
 
 ### Tenant B — Falcon National Bank (isolation tests)
 

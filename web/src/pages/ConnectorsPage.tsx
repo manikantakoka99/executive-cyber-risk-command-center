@@ -78,7 +78,7 @@ export function ConnectorsPage() {
                     <th>Status</th>
                     <th>Last success</th>
                     <th>Age (h)</th>
-                    <th>Credential ref</th>
+                    <th>Credentials</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -101,7 +101,7 @@ export function ConnectorsPage() {
                       <td>{c.status}</td>
                       <td className="note">{c.lastSuccessAt ? String(c.lastSuccessAt).replace("T", " ").slice(0, 16) : "—"}</td>
                       <td className="mono">{c.ageHours ?? "—"}</td>
-                      <td className="mono note">{c.credentialsReference ?? "—"}</td>
+                      <td className="note">{c.credentialsConfigured ? "Configured" : "Not set"}</td>
                     </tr>
                   ))}
                 </tbody>

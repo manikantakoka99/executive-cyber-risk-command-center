@@ -183,14 +183,16 @@ app.get("/api/ecc/overview", async (req, reply) => {
 });
 
 app.get("/api/ecc/risk-domains", async (req) => ({
-  domains: await listDomains(req.tenant.orgId),
+  domains: (await listDomains(req.tenant.orgId)).map((domain) =>
+    redactFinancial(req.tenant.role, domain as unknown as Record<string, unknown>),
+  ),
 }));
 
 app.get("/api/ecc/risk-domains/:id", async (req, reply) => {
   const { id } = req.params as { id: string };
   const data = await getDomain(req.tenant.orgId, id);
   if (!data) return reply.code(404).send({ error: { code: "not_found", message: "Domain not found" } });
-  return data;
+  return redactFinancial(req.tenant.role, data as unknown as Record<string, unknown>);
 });
 
 app.get("/api/ecc/findings", async (req) => ({
@@ -208,14 +210,18 @@ app.get("/api/ecc/findings/:id", async (req, reply) => {
 
 app.get("/api/ecc/decisions", async (req) => {
   const q = req.query as { status?: string };
-  return { decisions: await listDecisions(req.tenant.orgId, q.status) };
+  return {
+    decisions: (await listDecisions(req.tenant.orgId, q.status)).map((decision) =>
+      redactFinancial(req.tenant.role, decision as unknown as Record<string, unknown>),
+    ),
+  };
 });
 
 app.get("/api/ecc/decisions/:id", async (req, reply) => {
   const { id } = req.params as { id: string };
   const data = await getDecision(req.tenant.orgId, id);
   if (!data) return reply.code(404).send({ error: { code: "not_found", message: "Decision not found" } });
-  return data;
+  return redactFinancial(req.tenant.role, data as unknown as Record<string, unknown>);
 });
 
 const actionBody = z.object({ notes: z.string().max(2000).optional() });
@@ -727,7 +733,7 @@ app.get("/api/ecc/scenarios/:id/decisions", async (req, reply) => {
 
 app.post(
   "/api/ecc/scenarios/:id/decision",
-  { preHandler: requireRoles("cxo", "risk_lead", "risk_manager", "program_office", "ciso") },
+  { preHandler: requireRoles("cxo", "risk_lead", "program_office", "ciso") },
   async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = z

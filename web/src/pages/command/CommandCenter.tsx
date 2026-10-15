@@ -48,8 +48,13 @@ export function CommandCenter() {
 
   useEffect(() => {
     if (!ready || !me) return;
+    // Clear cached workspace/evidence on persona switch so stale 403 views cannot linger.
+    setWorkspace(null);
+    setEvidence(null);
+    setAcceptFor(null);
+    setError(null);
     void load();
-  }, [ready, me, load]);
+  }, [ready, me?.userId, me?.role, load]);
 
   useEffect(() => {
     if (!toast) return;

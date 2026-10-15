@@ -122,11 +122,13 @@ export function OverviewPage({
             </div>
           </div>
         </div>
-        <div className="hero-card metric">
-          <div className="m-l">Business Impact Exposure</div>
-          <div className="m-n mono">{formatAed(data.businessImpactExposureAed)}</div>
-          <div className="m-d d-up">Open findings financial exposure</div>
-        </div>
+        {data.businessImpactExposureAed != null && (
+          <div className="hero-card metric">
+            <div className="m-l">Business Impact Exposure</div>
+            <div className="m-n mono">{formatAed(data.businessImpactExposureAed)}</div>
+            <div className="m-d d-up">Open findings financial exposure</div>
+          </div>
+        )}
         <div className="hero-card metric">
           <div className="m-l">Compliance Posture</div>
           <div className="m-n mono">{formatPct(data.compliancePosturePct)}</div>
@@ -176,12 +178,11 @@ export function OverviewPage({
                       {s.actionOwner ? ` · owner ${s.actionOwner}` : ""}
                       {s.dueDate ? ` · due ${s.dueDate}` : ""}
                     </div>
-                    <div className="di-domain">
-                      Exposure:{" "}
-                      {s.financialKnown && s.financialExposureAed != null
-                        ? formatAed(s.financialExposureAed)
-                        : "unknown"}
-                    </div>
+                    {s.financialExposureAed != null && (
+                      <div className="di-domain">
+                        Exposure: {formatAed(s.financialExposureAed)}
+                      </div>
+                    )}
                   </div>
                   <div className={`dc-status ${severityBadge(s.priority ?? "medium")}`}>
                     {(s.priority ?? "n/a").toUpperCase()}

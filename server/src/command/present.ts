@@ -41,7 +41,36 @@ import {
   type RoleCode,
   type ViewId,
 } from "./rbac.js";
+import { listPolicyBundle } from "./policyStore.js";
 import type { CommandState, SavedScenario } from "./store.js";
+
+function activePolicyLabel(orgId?: string): string {
+  if (!orgId) return "v1 (approved)";
+  const active = listPolicyBundle(orgId).active;
+  if (!active) return "v1 (approved)";
+  return `v${active.version} (approved)`;
+}
+
+function sourceLabel(table: string): string {
+  switch (table) {
+    case "enterprise_scores_v2":
+      return "Enterprise scorecard";
+    case "domain_scores_v2":
+      return "Domain scorecard";
+    case "loss_models":
+      return "Loss model";
+    case "risk_findings":
+      return "Risk findings";
+    case "executive_decisions":
+      return "Decision log";
+    case "risk_appetite, risk_acceptances":
+      return "Appetite register";
+    case "ingestion_runs, asset_coverage":
+      return "Feed confidence";
+    default:
+      return table.replaceAll("_", " ");
+  }
+}
 
 export interface CommandWorkspace {
   asOf: string;
@@ -170,6 +199,8 @@ interface QueueView {
   lede: string;
   canAct: boolean;
   canAccept: boolean;
+  /** False for roles without command.loss — UI omits money KPI entirely. */
+  canSeeLoss: boolean;
   items: QueueItemView[];
   log: string[];
 }
@@ -203,11 +234,19 @@ interface WhatIfView {
   preset: string | null;
   changed: boolean;
   canSave: boolean;
+  /** False for roles without command.loss — omit cost field and money columns. */
+  canSeeLoss: boolean;
   rows: { label: string; now: string; after: string; improved: boolean }[];
   roi: string | null;
   floorNote: string | null;
   modelNote: string;
-  saved: { index: number; name: string; score: string; lossAvoided: string; cost: string }[];
+  saved: {
+    index: number;
+    name: string;
+    score: string;
+    lossAvoided: string | null;
+    cost: string | null;
+  }[];
 }
 
 interface ClosureView {
@@ -301,6 +340,7 @@ export function presentWorkspace(
   role: string,
   state: CommandState,
   orgName = "Al Dhabi Holdings",
+  orgId?: string,
 ): CommandWorkspace {
   const known = isRoleCode(role);
   const views = viewsFor(role);
@@ -309,6 +349,7 @@ export function presentWorkspace(
   const loss = allow("command.loss");
   const outside = outsideCount();
   const expiring = state.accept.filter((item) => daysUntil(item.expires) <= 30).length;
+  const policyVersion = activePolicyLabel(orgId);
 
   return {
     asOf: "2026-09-05T00:00:00.000Z",
@@ -322,7 +363,9 @@ export function presentWorkspace(
     views: views.map((id) => ({ id, label: VIEW_LABEL[id] })),
     home: homeFor(role),
     openDecisions: state.queue.filter((item) => item.state === "open").length,
-    headline: allow("command.headline") ? presentHeadline(state, loss, expiring, outside) : null,
+    headline: allow("command.headline")
+      ? presentHeadline(state, loss, expiring, outside, policyVersion)
+      : null,
     posture: allow("command.posture") ? presentPosture(technical, outside) : null,
     trust: allow("command.trust") ? presentTrust() : null,
     queue: allow("command.queue") ? presentQueue(role, state, technical, loss) : null,
@@ -339,6 +382,7 @@ function presentHeadline(
   loss: boolean,
   expiring: number,
   outside: number,
+  policyVersion: string,
 ): HeadlineView {
   const card = BASELINE;
   const critical = card.rows.filter((row) => row.band === "Critical").map((row) => row.domain.name);
@@ -362,7 +406,7 @@ function presentHeadline(
     counts: card.counts,
     confidencePct: Math.round(card.confidence * 100),
     confidenceLabel: confidenceLabel(card.confidence),
-    policyVersion: "v1 (draft)",
+    policyVersion,
     outsideAppetite: outside,
     domainCount: DOMAINS.length,
     expiringAcceptances: expiring,
@@ -501,6 +545,7 @@ function presentQueue(role: string, state: CommandState, technical: boolean, los
     lede: `Priority = exploitability × asset criticality × exposure. ${isRoleCode(role) ? CAPABILITY[role] : ""}`,
     canAct: hasPermission(role, "command.queue.act"),
     canAccept: canAcceptRisk(role),
+    canSeeLoss: loss,
     log: state.decisions,
     items: items.map((item) => {
       const domain = domainById(item.domainId);
@@ -583,7 +628,7 @@ function presentWhatIf(role: string, state: CommandState, loss: boolean): WhatIf
     lede: "Each slider is the remaining gap for a ransomware control category, using the deck’s weights. The engine reuses the production scoring rules; nothing here changes the live score.",
     gaps,
     weights: RANSOM_CATEGORIES.map((cat) => ({ key: cat.key, name: cat.name, weight: cat.weight })),
-    cost: state.whatif.cost,
+    cost: loss ? state.whatif.cost : "",
     preset: state.whatif.preset,
     changed,
     canSave: changed && hasPermission(role, "command.whatif.save"),
@@ -596,14 +641,16 @@ function presentWhatIf(role: string, state: CommandState, loss: boolean): WhatIf
       afterCard.floored || BASELINE.floored
         ? "The headline stays High while any domain is Critical, so a ransomware investment alone does not change it. That is the floor rule working as designed."
         : null,
-    modelNote:
-      "Modelled output. Expected loss scales with the adjusted score: ALE after = ALE before × (score after ÷ score before), exponent 1 (illustrative). Replace with the client’s calibrated loss model.",
+    canSeeLoss: loss,
+    modelNote: loss
+      ? "Modelled output. Expected loss scales with the adjusted score: ALE after = ALE before × (score after ÷ score before), exponent 1 (illustrative). Replace with the client’s calibrated loss model."
+      : "Modelled output. The engine reuses production scoring rules; nothing here changes the live score.",
     saved: state.scenarios.map((scenario, index) => ({
       index,
       name: scenario.name,
       score: scenario.score,
-      lossAvoided: loss ? scenario.lossAvoided : "restricted",
-      cost: loss ? scenario.cost || "n/a" : "restricted",
+      lossAvoided: loss ? scenario.lossAvoided : null,
+      cost: loss ? scenario.cost || "n/a" : null,
     })),
   };
 }
@@ -718,20 +765,22 @@ function presentPack(role: string, state: CommandState, orgName: string): PackVi
       {
         heading: "Posture",
         text: `The weighted, coverage-adjusted score is ${format1(card.arithmetic)} (${bandName(card.arithmetic)}); the floor rule raises the headline to ${card.headline} because ${critical.map((row) => row.domain.name).join(" and ")} ${critical.length > 1 ? "are" : "is"} Critical. Spread: ${card.counts.Critical} Critical, ${card.counts.High} High, ${card.counts.Medium} Medium, ${card.counts.Low} Low.`,
-        items: [{ text: "Enterprise score", source: "enterprise_scores_v2" }],
+        items: [{ text: "Enterprise score", source: sourceLabel("enterprise_scores_v2") }],
       },
-      {
-        heading: "Money",
-        text: lossAllowed
-          ? `Modelled annualised loss exposure is AED ${format1(ENTERPRISE_LOSS.ale)}M expected, and about AED ${format1(ENTERPRISE_LOSS.p90)}M in a bad year (1 in 10). The largest driver is ${LOSS.ran!.name.toLowerCase()} at AED ${format2(LOSS.ran!.ale)}M expected.`
-          : "Financial exposure is restricted for this role.",
-        items: lossAllowed ? [{ text: "Loss model", source: "loss_models" }] : [],
-      },
+      ...(lossAllowed
+        ? [
+            {
+              heading: "Money",
+              text: `Modelled annualised loss exposure is AED ${format1(ENTERPRISE_LOSS.ale)}M expected, and about AED ${format1(ENTERPRISE_LOSS.p90)}M in a bad year (1 in 10). The largest driver is ${LOSS.ran!.name.toLowerCase()} at AED ${format2(LOSS.ran!.ale)}M expected.`,
+              items: [{ text: "Loss model", source: sourceLabel("loss_models") }],
+            },
+          ]
+        : []),
       {
         heading: `What changed since the ${month} meeting`,
         items: movers.map((mover) => ({
           text: `${mover.name} ${mover.delta >= 1 ? "worsened" : mover.delta <= -1 ? "improved" : "was broadly flat"} (${mover.delta > 0 ? "+" : ""}${format1(mover.delta)} points).`,
-          source: "domain_scores_v2",
+          source: sourceLabel("domain_scores_v2"),
         })),
       },
       {
@@ -739,15 +788,18 @@ function presentPack(role: string, state: CommandState, orgName: string): PackVi
         items: open.length
           ? open.map((item) => ({
               text: `${item.title}. Recommended: ${item.recommendation.charAt(0).toLowerCase()}${item.recommendation.slice(1)}`,
-              source: "risk_findings",
+              source: sourceLabel("risk_findings"),
             }))
-          : [{ text: "No open decisions.", source: "risk_findings" }],
+          : [{ text: "No open decisions.", source: sourceLabel("risk_findings") }],
       },
       ...(state.decisions.length
         ? [
             {
               heading: "Decisions taken",
-              items: state.decisions.map((line) => ({ text: line, source: "executive_decisions" })),
+              items: state.decisions.map((line) => ({
+                text: line,
+                source: sourceLabel("executive_decisions"),
+              })),
             },
           ]
         : []),
@@ -758,12 +810,12 @@ function presentPack(role: string, state: CommandState, orgName: string): PackVi
             ? `${expiring.length} accepted risk${expiring.length > 1 ? "s expire" : " expires"} within 30 days and need a renewal decision: ${expiring.map((item) => item.title).join("; ")}.`
             : "No accepted risks expire within 30 days."
         }`,
-        items: [{ text: "Appetite register", source: "risk_appetite, risk_acceptances" }],
+        items: [{ text: "Appetite register", source: sourceLabel("risk_appetite, risk_acceptances") }],
       },
       {
         heading: "Confidence",
         text: `Overall confidence is ${confidenceLabel(card.confidence).toLowerCase()} (${Math.round(card.confidence * 100)}%). Lowest-confidence domains: ${lowest}.`,
-        items: [{ text: "Feed confidence", source: "ingestion_runs, asset_coverage" }],
+        items: [{ text: "Feed confidence", source: sourceLabel("ingestion_runs, asset_coverage") }],
       },
     ],
   };

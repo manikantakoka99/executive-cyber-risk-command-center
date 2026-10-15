@@ -1,5 +1,5 @@
 import { query } from "../db.js";
-import { isRoleCode, type RoleCode } from "./rbac.js";
+import { canonicalRole, isRoleCode, type RoleCode } from "./rbac.js";
 import {
   DEMO_ORG_ID,
   DEMO_ORG_NAME,
@@ -106,8 +106,8 @@ export async function listUsers(orgId: string): Promise<DirectoryUser[]> {
         firstName: row.first_name,
         lastName: row.last_name,
         email: row.email,
-        role: effectivePersonaRole(row.user_id, (isRoleCode(row.role) ? row.role : "domain_analyst")),
-        title: persona?.title ?? titleFor(row.role),
+        role: effectivePersonaRole(row.user_id, canonicalRole(row.role)),
+        title: persona?.title ?? titleFor(canonicalRole(row.role)),
       });
     }
   } catch {
@@ -135,13 +135,16 @@ function toDirectory(persona: Persona): DirectoryUser {
 }
 
 function titleFor(role: string): string {
-  if (role === "cxo") return "CxO";
-  if (role === "ciso") return "CISO";
-  if (role === "board_member") return "Board Member";
-  if (role === "org_admin") return "Admin";
-  if (role === "soc_analyst") return "SOC Analyst";
-  if (role === "security_analyst") return "Security Analyst";
-  return role.replaceAll("_", " ");
+  const canon = canonicalRole(role);
+  if (canon === "cxo") return "CxO";
+  if (canon === "ciso") return "CISO";
+  if (canon === "board_member") return "Board Member";
+  if (canon === "admin") return "Admin";
+  if (canon === "risk_lead") return "Risk Lead";
+  if (canon === "domain_analyst") return "Domain Analyst";
+  if (canon === "program_office") return "Program Office";
+  if (canon === "auditor") return "Auditor";
+  return canon.replaceAll("_", " ");
 }
 
 export async function assignRole(userId: string, orgId: string, role: RoleCode): Promise<boolean> {
@@ -179,8 +182,14 @@ export async function seedCommandDirectory(): Promise<void> {
   }
   await query(
     `INSERT INTO roles (code, display_name, description) VALUES
-      ('soc_analyst', 'SOC Analyst', 'Security operations analyst'),
-      ('org_admin', 'Admin', 'Organization administrator')
+      ('board_member', 'Board Member', 'Board oversight'),
+      ('cxo', 'CxO', 'Executive decision maker'),
+      ('ciso', 'CISO', 'Chief information security officer'),
+      ('risk_lead', 'Risk Lead', 'Risk acceptance and register'),
+      ('domain_analyst', 'Domain Analyst', 'Domain evidence analyst'),
+      ('program_office', 'Program Office', 'PMO / compliance program'),
+      ('auditor', 'Auditor', 'Read-only auditor'),
+      ('admin', 'Admin', 'Organization administrator')
      ON CONFLICT (code) DO NOTHING`,
   );
 

@@ -501,6 +501,7 @@ export function QueueView({
   onEvidence: (id: string) => void;
 }) {
   const open = data.items.filter((item) => item.state === "open").length;
+  const canSeeLoss = data.canSeeLoss ?? data.items.some((item) => item.loss != null);
   const totalLoss = data.items.reduce((sum, item) => sum + (item.loss?.ale ?? 0), 0);
 
   return (
@@ -508,15 +509,17 @@ export function QueueView({
       <Answer question={data.question} title={data.title} lede={data.lede} />
       <div className="kpi-row">
         <KpiCard label="Open decisions" value={open} tone={open > 0 ? "high" : "low"} note={`${data.items.length} in queue`} />
-        <KpiCard
-          label="Modelled exposure"
-          value={totalLoss}
-          decimals={1}
-          prefix="AED "
-          suffix="M"
-          tone="crit"
-          note="Sum of linked scenarios"
-        />
+        {canSeeLoss && (
+          <KpiCard
+            label="Modelled exposure"
+            value={totalLoss}
+            decimals={1}
+            prefix="AED "
+            suffix="M"
+            tone="crit"
+            note="Sum of linked scenarios"
+          />
+        )}
         <article className="card kpi">
           <p className="lbl">Authority</p>
           <p className="big">{data.canAct || data.canAccept ? "Act" : "View"}</p>
@@ -595,7 +598,7 @@ export function QueueView({
                     Approve
                   </button>
                   <button
-                    className="btn sm"
+                    className="btn primary sm"
                     type="button"
                     disabled={!(data.canAccept ?? data.canAct)}
                     onClick={() => onAcceptFor(item.id)}
@@ -763,22 +766,24 @@ export function WhatIfView({
               />
             </div>
           ))}
-          <div className="sl">
-            <label htmlFor="wi-cost">Estimated cost (AED millions, optional)</label>
-            <input
-              id="wi-cost"
-              className="text-input mono"
-              type="number"
-              min={0}
-              step={0.1}
-              placeholder="e.g. 0.4"
-              value={cost}
-              onChange={(event) => {
-                setCost(event.target.value);
-                onChange({ cost: event.target.value });
-              }}
-            />
-          </div>
+          {data.canSeeLoss !== false && (
+            <div className="sl">
+              <label htmlFor="wi-cost">Estimated cost (AED millions, optional)</label>
+              <input
+                id="wi-cost"
+                className="text-input mono"
+                type="number"
+                min={0}
+                step={0.1}
+                placeholder="e.g. 0.4"
+                value={cost}
+                onChange={(event) => {
+                  setCost(event.target.value);
+                  onChange({ cost: event.target.value });
+                }}
+              />
+            </div>
+          )}
         </section>
         <section className="card">
           <h3>Before and after</h3>
@@ -786,13 +791,33 @@ export function WhatIfView({
             <span className="h">Measure</span>
             <span className="h num">Now</span>
             <span className="h num">After</span>
-            {data.rows.map((row) => (
-              <span key={row.label} className="cmp-row">
-                <span>{row.label}</span>
-                <span className="n">{row.now}</span>
-                <span className={`n${row.improved ? " d" : ""}`}>{row.after}</span>
-              </span>
-            ))}
+            <span className="h num">Delta</span>
+            {data.rows.map((row) => {
+              const nowN = Number.parseFloat(row.now);
+              const afterN = Number.parseFloat(row.after);
+              const numeric = Number.isFinite(nowN) && Number.isFinite(afterN);
+              const delta = numeric ? afterN - nowN : null;
+              const deltaClass =
+                delta == null || delta === 0
+                  ? "delta-flat"
+                  : delta < 0
+                    ? "delta-down"
+                    : "delta-up";
+              const deltaLabel =
+                delta == null
+                  ? row.now === row.after
+                    ? "—"
+                    : "changed"
+                  : `${delta > 0 ? "+" : ""}${delta.toFixed(row.now.includes(".") ? 1 : 0)}`;
+              return (
+                <span key={row.label} className="cmp-row">
+                  <span>{row.label}</span>
+                  <span className="n">{row.now}</span>
+                  <span className={`n${row.improved ? " d" : ""}`}>{row.after}</span>
+                  <span className={`n ${deltaClass}`}>{deltaLabel}</span>
+                </span>
+              );
+            })}
           </div>
           {data.roi && (
             <div className="why good">
@@ -817,8 +842,12 @@ export function WhatIfView({
                 <tr>
                   <th>Scenario</th>
                   <th className="num">Score after</th>
-                  <th className="num">Loss avoided (AED M)</th>
-                  <th className="num">Cost (AED M)</th>
+                  {data.canSeeLoss !== false && (
+                    <>
+                      <th className="num">Loss avoided (AED M)</th>
+                      <th className="num">Cost (AED M)</th>
+                    </>
+                  )}
                   <th />
                 </tr>
               </thead>
@@ -827,8 +856,12 @@ export function WhatIfView({
                   <tr key={`${row.index}-${row.name}`}>
                     <td>{row.name}</td>
                     <td className="num">{row.score}</td>
-                    <td className="num">{row.lossAvoided}</td>
-                    <td className="num">{row.cost || "n/a"}</td>
+                    {data.canSeeLoss !== false && (
+                      <>
+                        <td className="num">{row.lossAvoided}</td>
+                        <td className="num">{row.cost || "n/a"}</td>
+                      </>
+                    )}
                     <td>
                       <button
                         className="btn sm"
