@@ -11,34 +11,12 @@
  */
 import { BAND_THRESHOLDS } from "../risk/bands.js";
 
-/** PostgreSQL ~* pattern for free text (findings, activity). Unanchored on purpose. */
+/** PostgreSQL ~* pattern. Keep in sync with FIXTURE_TEXT. */
 export const SEEDED_TEST_TITLE_SQL =
   "(P4 isolated|P4-base-|P4-al-|P4-fal-|p3-corr-|Isolated scenario |Generic Security Events [0-9]+|isolated_test)";
 
-/**
- * Scenario titles are matched from the start, same as the 7bcc5be presentation
- * filter. An unanchored pattern drops real seeds whose titles merely contain
- * a token such as "P4-al-".
- */
-export const SEEDED_TEST_SCENARIO_TITLE_SQL =
-  "^(P4 isolated|P4-base-|P4-al-|P4-fal-|p3-corr-|Isolated scenario |Generic Security Events [0-9]+)";
-
 const FIXTURE_TEXT =
   /(P4 isolated|P4-base-|P4-al-|P4-fal-|p3-corr-|Isolated scenario |Generic Security Events \d+|\bisolated_test\b)/i;
-
-/** Start-anchored scenario title check. Does not treat a trailing "(DEMO)" as a scenario fixture. */
-const SCENARIO_TITLE =
-  /^(P4 isolated|P4-base-|P4-al-|P4-fal-|p3-corr-|Isolated scenario |Generic Security Events \d+)/i;
-
-export function isSeededTestScenarioTitle(text: string | null | undefined): boolean {
-  if (!text) return false;
-  return (
-    SCENARIO_TITLE.test(text) ||
-    /Unnamed process/i.test(text) ||
-    /\btest host\b/i.test(text) ||
-    /\bisolated_test\b/i.test(text)
-  );
-}
 
 export function isSeededTestText(text: string | null | undefined): boolean {
   if (!text) return false;
@@ -50,29 +28,19 @@ export function isSeededTestText(text: string | null | undefined): boolean {
   );
 }
 
-/**
- * True when a scenario row is a test fixture.
- * Demo seeds (`is_demo`) stay even if a p4/phase3 signal was later linked on.
- * Title match is start-anchored so real seeds are not dropped for a substring.
- */
+/** True when a scenario row is a seeded test fixture. */
 export function sqlScenarioIsTest(alias = "s"): string {
   const title = `COALESCE(${alias}.title, '')`;
   return `(
     COALESCE(${alias}.scenario_type, '') = 'isolated_test'
-    OR ${title} ~* '${SEEDED_TEST_SCENARIO_TITLE_SQL}'
-    OR ${title} ~* 'Unnamed process'
-    OR ${title} ~* '\\mtest host\\M'
-    OR ${title} ~* '\\misolated_test\\M'
-    OR (
-      COALESCE(${alias}.is_demo, false) = false
-      AND EXISTS (
-        SELECT 1 FROM risk_scenario_signals rss
-        JOIN security_signals sig
-          ON sig.signal_id = rss.signal_id AND sig.org_id = rss.org_id
-        WHERE rss.scenario_id = ${alias}.scenario_id
-          AND rss.org_id = ${alias}.org_id
-          AND sig.source_name IN ('p4_test', 'phase3_test')
-      )
+    OR ${title} ~* '${SEEDED_TEST_TITLE_SQL}'
+    OR EXISTS (
+      SELECT 1 FROM risk_scenario_signals rss
+      JOIN security_signals sig
+        ON sig.signal_id = rss.signal_id AND sig.org_id = rss.org_id
+      WHERE rss.scenario_id = ${alias}.scenario_id
+        AND rss.org_id = ${alias}.org_id
+        AND sig.source_name IN ('p4_test', 'phase3_test')
     )
   )`;
 }

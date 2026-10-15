@@ -88,12 +88,11 @@ export async function listScenarios(
   );
   return rows
     .map(mapScenarioSummary)
-    .filter((s) => {
-      if (String(s.scenarioType ?? "") === "isolated_test") return false;
-      if (s.isDemo) return true;
-      const title = typeof s.title === "string" ? s.title : String(s.title ?? "");
-      return !isPresentationNoiseTitle(title);
-    });
+    .filter(
+      (s) =>
+        !isPresentationNoiseTitle(typeof s.title === "string" ? s.title : String(s.title ?? "")) &&
+        String((s as { scenarioType?: string }).scenarioType ?? "") !== "isolated_test",
+    );
 }
 
 export async function getScenario(orgId: string, scenarioId: string) {

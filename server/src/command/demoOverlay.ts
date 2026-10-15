@@ -6,7 +6,6 @@ import { CANONICAL } from "./canonical.js";
 import { BASELINE, ENTERPRISE_LOSS, MONTHS, monthScorecards } from "./model.js";
 import { DEMO_ORG_ID } from "./personas.js";
 import {
-  isSeededTestScenarioTitle,
   isSeededTestText,
   scenarioSetFromRisks,
   type ScenarioSetCounts,
@@ -108,7 +107,7 @@ export function overlayPortfolio(orgId: string, portfolio: any) {
       "Enterprise portfolio posture uses the 12 risk-domain bands and canonical annual loss; scenario list is filtered and is not averaged into the headline.",
     totals: {
       ...portfolio.totals,
-      // Same cards as topRisks / /scenarios. Do not floor the count when the list is shorter.
+      // Visible demo scenarios (test fixtures stripped) — same length as the scenario cards.
       activeScenarios: topRisks.length,
       byPriority: {
         critical: CANONICAL.domainSpread.Critical,
@@ -207,7 +206,7 @@ export function overlayTrends(orgId: string, trends: any) {
 }
 
 export function isPresentationNoiseTitle(title: string | null | undefined): boolean {
-  return isSeededTestScenarioTitle(title);
+  return isSeededTestText(title);
 }
 
 function rowsOf(data: Record<string, unknown>, key: string): Array<Record<string, unknown>> {
@@ -276,12 +275,8 @@ function alignExecutiveQueue(existing: Array<Record<string, unknown>>) {
   return padded;
 }
 
-export function filterPresentationNoise<
-  T extends { title?: string; name?: string; isDemo?: boolean },
->(rows: T[]): T[] {
-  return rows.filter(
-    (row) => row.isDemo || !isPresentationNoiseTitle(row.title ?? row.name),
-  );
+export function filterPresentationNoise<T extends { title?: string; name?: string }>(rows: T[]): T[] {
+  return rows.filter((row) => !isPresentationNoiseTitle(row.title ?? row.name));
 }
 
 export function canonicalDomainBands() {

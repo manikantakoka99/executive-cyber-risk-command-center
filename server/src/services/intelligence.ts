@@ -147,8 +147,7 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
             bu.name AS business_unit_name,
             bp.name AS business_process_name,
             d.code::text AS domain_code,
-            d.short_label AS domain_label,
-            s.is_demo
+            d.short_label AS domain_label
      FROM risk_scenarios s
      LEFT JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      LEFT JOIN scenario_business_impacts sbi ON sbi.scenario_impact_id = s.current_impact_id
@@ -208,7 +207,6 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
         businessProcess: r.business_process_name ?? null,
         domainCode: r.domain_code ?? null,
         domainLabel: r.domain_label ?? null,
-        isDemo: !!r.is_demo,
       };
     }),
   );
@@ -219,8 +217,7 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
     filters,
     scenarioSet: scenarioSetFromRisks(topRisks),
     totals: {
-      // Card count, not the pre-filter SQL total and not a floored minimum.
-      activeScenarios: topRisks.length,
+      activeScenarios: Number(s?.active ?? 0),
       byPriority: scenarioByPriority,
       outsideTolerance: Number(s?.outside ?? 0),
       increasing: Number(s?.increasing ?? 0),
