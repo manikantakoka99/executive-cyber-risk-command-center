@@ -80,17 +80,23 @@ Command center can demo without DB. Ops pages show empty/errors until Postgres i
 
 Supabase hosts (`*.supabase.co`) get SSL automatically in `server/src/db.ts`.
 
-## Local bring-up
+## Local bring-up (Fedora / docker-compose.yml)
 
 ```bash
-docker compose up -d          # Postgres on localhost:5433
+cp .env.example .env
+docker compose up -d db       # service `db` → localhost:5433 (schema + tenant seed on first boot)
+docker compose exec -T db pg_isready -U ecc -d cyber_command_center
+cd server && npm install && npm run demo:seed && npm run dev   # :4000  GET /health
+cd web && npm install && npm run dev                           # :5173  proxies /api → :4000
+```
+
+Optional Excel import (not required for demo login):
+
+```bash
 python3 -m venv .venv-ecc
-.venv-ecc/bin/pip install -r db/requirements.txt   # or psycopg2-binary openpyxl
+.venv-ecc/bin/pip install psycopg2-binary openpyxl
 .venv-ecc/bin/python db/import_sample_data.py --reset
 .venv-ecc/bin/python db/validate_import.py
-cp .env.example .env
-cd server && npm install && npm run dev             # :4000  health: GET /health
-cd web && npm install && npm run dev                # :5173
 ```
 
 Supabase cutover (when URI available):

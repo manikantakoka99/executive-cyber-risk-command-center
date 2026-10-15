@@ -20,14 +20,14 @@ Path: `/scenarios/b08b8689-df6c-433a-a976-08a83bec8389`
 
 ## Commands
 
-From repo root (Postgres on `:5433` via `docker compose up -d`):
+From repo root (Postgres on `:5433` via `docker compose up -d db`):
 
 ```bash
-# 1) Database
-docker compose up -d
+# 1) Database (service name `db` in docker-compose.yml)
+docker compose up -d db
 
 # 2) Prepare demo (reset → seed → verify) — Al Dhabi by default
-cd server && npm run demo:prepare
+cd server && npm install && npm run demo:prepare
 
 # Optional discrete steps:
 # npm run demo:reset
@@ -35,12 +35,12 @@ cd server && npm run demo:prepare
 # npm run demo:verify
 
 # 3) API
-cd server && npm run dev
-# → http://localhost:4000
+npm run dev
+# → http://127.0.0.1:4000
 
-# 4) UI
-cd web && npm run dev
-# → http://localhost:5173
+# 4) UI (second terminal)
+cd ../web && npm install && npm run dev
+# → http://127.0.0.1:5173
 ```
 
 HTTP equivalents (CXO / CISO / program_office headers):

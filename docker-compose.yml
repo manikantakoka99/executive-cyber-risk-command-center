@@ -1,7 +1,9 @@
-# One-command local stack: Postgres 16 + DWAN schema + two demo tenants.
-# Usage:
-#   docker compose up -d
-#   # then start API + web (see README) OR: ./scripts/dev-up.sh
+# Local Postgres 16 + DWAN schema + two demo tenants (Al Dhabi + Falcon).
+# Usage (Fedora / any host with Docker Compose v2):
+#   docker compose up -d db
+#   cd server && npm install && npm run demo:seed && npm run dev   # :4000
+#   cd web && npm install && npm run dev                          # :5173
+# Or: ./scripts/dev-up.sh  (see README “Fedora local run”)
 services:
   db:
     image: postgres:16-alpine

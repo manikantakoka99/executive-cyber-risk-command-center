@@ -4,18 +4,38 @@ Data-backed **YVI DWAN Cyber Command Center** — executive aggregation of 12 se
 
 > Authoritative design: `docs/ecc-*.md`, `docs/PEP_RBAC_TEST_MATRIX.md`, and `db/dwan_schema.sql`.
 
-## One-command local run
+## Fedora local run (docker-compose.yml)
+
+Exact path on a fresh Fedora host (Podman works if you alias `docker` → `podman`):
 
 ```bash
-# Postgres 16 + DWAN schema + two demo tenants (Al Dhabi + Falcon)
-docker compose up -d
+# 0) Host packages (once)
+sudo dnf install -y git nodejs npm docker docker-compose-plugin
+# or: sudo dnf install -y git nodejs npm podman podman-compose
+sudo systemctl enable --now docker   # skip if using rootless podman
 
-# API + Vite (installs deps on first run)
-chmod +x scripts/dev-up.sh
-./scripts/dev-up.sh
+# 1) Clone this branch
+git clone https://github.com/manikantakoka99/executive-cyber-risk-command-center.git
+cd executive-cyber-risk-command-center
+git checkout cursor/ecc-command-rbac-a090
+cp .env.example .env
+
+# 2) Postgres only (service name is `db` in docker-compose.yml)
+#    First boot applies db/dwan_schema.sql + docker-init seed (Al Dhabi + Falcon).
+docker compose up -d db
+docker compose exec -T db pg_isready -U ecc -d cyber_command_center
+
+# 3) API (:4000) — install, optional demo seed, then watch mode
+cd server
+npm install
+npm run demo:seed          # rich Al Dhabi demo scenarios (idempotent-ish)
+npm run dev                # http://127.0.0.1:4000/health
+
+# 4) Web (:5173) — new terminal; Vite proxies /api → :4000
+cd ../web
+npm install
+npm run dev                # http://127.0.0.1:5173
 ```
-
-Then open http://127.0.0.1:5173
 
 | Service | URL / connection |
 |--------|-------------------|
@@ -23,7 +43,7 @@ Then open http://127.0.0.1:5173
 | API | http://127.0.0.1:4000/health |
 | Postgres | `postgresql://ecc:ecc_dev_password@localhost:5433/cyber_command_center` |
 
-Docker init mounts:
+Docker init mounts (empty volume only):
 
 1. `db/dwan_schema.sql` — consolidated DWAN schema + RLS  
 2. `db/docker-init/02_app_compat.sql` — API compatibility views (`v_user_primary_role`, roles)  
@@ -33,11 +53,18 @@ Docker init mounts:
 
 ```bash
 docker compose down -v
-docker compose up -d
-./scripts/dev-up.sh
+docker compose up -d db
+cd server && npm run demo:seed && npm run dev
 ```
 
-Optional rich Al Dhabi seed (Excel signals → scores) into a DWAN database:
+### One-command helper
+
+```bash
+chmod +x scripts/dev-up.sh
+./scripts/dev-up.sh          # starts `db`, then API + Vite (logs in /tmp)
+```
+
+Optional Excel → scores seed (Python):
 
 ```bash
 python3 -m venv .venv-ecc
@@ -50,15 +77,6 @@ SQL regression suite:
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/dwan_tests.sql
-```
-
-### Manual start (without `dev-up.sh`)
-
-```bash
-cp .env.example .env
-docker compose up -d
-cd server && npm install && npm run dev   # :4000
-cd web && npm install && npm run dev      # :5173, proxies /api → :4000
 ```
 
 ### Supabase (optional)

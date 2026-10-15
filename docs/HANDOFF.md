@@ -52,29 +52,26 @@ Latest commits on this PR branch (newest first):
 
 ---
 
-## 3. How to run locally
+## 3. How to run locally (Fedora / docker-compose.yml)
+
+Authoritative steps live in the root `README.md` (“Fedora local run”). Short form:
 
 ```bash
-# DB (Docker default → localhost:5433)
-docker compose up -d
+git checkout cursor/ecc-command-rbac-a090
+cp .env.example .env
 
-# Sample data
-python3 -m venv .venv-ecc
-.venv-ecc/bin/pip install psycopg2-binary openpyxl
-.venv-ecc/bin/python db/import_sample_data.py --reset
-.venv-ecc/bin/python db/validate_import.py
+# Postgres service name is `db` → host port 5433
+docker compose up -d db
+docker compose exec -T db pg_isready -U ecc -d cyber_command_center
 
-# Env
-cp .env.example .env   # DATABASE_URL points at :5433 by default
+# API :4000
+cd server && npm install && npm run demo:seed && npm run dev
 
-# API
-cd server && npm install && npm run dev   # :4000
-
-# Web (proxies /api → :4000)
-cd web && npm install && npm run dev      # :5173
+# Web :5173 (proxies /api → :4000) — second terminal
+cd web && npm install && npm run dev
 ```
 
-Open http://127.0.0.1:5173 and pick a persona (no password).
+Open http://127.0.0.1:5173 and pick a persona (no password). Docker init already seeds Al Dhabi + Falcon personas; `npm run demo:seed` adds the manager-demo scenario pack.
 
 **Tests:**
 
