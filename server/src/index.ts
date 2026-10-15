@@ -12,6 +12,7 @@ import { requireRoles, tenantMiddleware } from "./middleware/tenant.js";
 import { listOrganizations, listUsers, seedCommandDirectory } from "./command/directory.js";
 import { registerCommandRoutes } from "./command/routes.js";
 import {
+  canAcceptRisk,
   capabilityFor,
   hasPermission,
   homeFor,
@@ -154,6 +155,9 @@ app.get("/api/ecc/me", async (req) => ({
     landing: landingFor(req.tenant.role),
     capability: capabilityFor(req.tenant.role),
     home: homeFor(req.tenant.role),
+    canAcceptRisk: canAcceptRisk(req.tenant.role),
+    canApprovePolicy: hasPermission(req.tenant.role, "policy.approve"),
+    canProposePolicy: hasPermission(req.tenant.role, "policy.propose"),
   },
 }));
 
@@ -713,7 +717,7 @@ app.get("/api/ecc/scenarios/:id/decisions", async (req, reply) => {
 
 app.post(
   "/api/ecc/scenarios/:id/decision",
-  { preHandler: requireRoles("cxo", "program_office") },
+  { preHandler: requireRoles("cxo", "risk_lead", "risk_manager", "program_office", "ciso") },
   async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = z
@@ -744,12 +748,19 @@ app.post(
         error: { code: "invalid_body", message: body.error.message },
       });
     }
-    if (
-      ["approve", "decline", "accept_risk"].includes(body.data.outcome) &&
-      req.tenant.role !== "cxo"
+    const role = req.tenant.role;
+    if (body.data.outcome === "accept_risk") {
+      if (!canAcceptRisk(role)) {
+        return reply.code(403).send({
+          error: { code: "forbidden", message: "Only CxO or Risk Lead can accept risk" },
+        });
+      }
+    } else if (
+      ["approve", "decline"].includes(body.data.outcome) &&
+      !["cxo", "ciso", "business_owner"].includes(role)
     ) {
       return reply.code(403).send({
-        error: { code: "forbidden", message: "CXO role required for this outcome" },
+        error: { code: "forbidden", message: "CxO or CISO role required for this outcome" },
       });
     }
     try {

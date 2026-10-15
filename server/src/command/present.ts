@@ -30,6 +30,7 @@ import {
   ROLE_LABEL,
   VIEW_LABEL,
   VIEW_PERMISSION,
+  canAcceptRisk,
   hasPermission,
   homeFor,
   isRoleCode,
@@ -168,6 +169,7 @@ interface QueueView {
   title: string;
   lede: string;
   canAct: boolean;
+  canAccept: boolean;
   items: QueueItemView[];
   log: string[];
 }
@@ -464,7 +466,7 @@ function presentTrust(): TrustView {
     confidenceLabel: confidenceLabel(BASELINE.confidence),
     doubleCount: "Pass",
     policy: "v1",
-    policyNote: "Draft, awaiting CISO sign-off.",
+    policyNote: "Draft, awaiting Board approval (CISO proposes).",
     rows: rows.map((row) => {
       const domain = row.domain;
       const reading =
@@ -498,6 +500,7 @@ function presentQueue(role: string, state: CommandState, technical: boolean, los
     title: open ? `${open} decision${open > 1 ? "s" : ""} waiting, ranked by priority.` : "The queue is clear.",
     lede: `Priority = exploitability × asset criticality × exposure. ${isRoleCode(role) ? CAPABILITY[role] : ""}`,
     canAct: hasPermission(role, "command.queue.act"),
+    canAccept: canAcceptRisk(role),
     log: state.decisions,
     items: items.map((item) => {
       const domain = domainById(item.domainId);

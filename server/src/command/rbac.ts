@@ -1,26 +1,44 @@
 /**
- * Role-based access for the command center and operational APIs.
- * Code is the enforcement source of truth (demo and hosted).
+ * Role-based access aligned to DWAN consolidated schema `role_capabilities`
+ * and ECC product context. Demo HTML permissions that conflict with the DB
+ * are overridden — see docs/CONFLICT_RESOLUTIONS.md.
  */
 
 export const ROLE_CODES = [
-  "ciso",
-  "cxo",
   "board_member",
+  "cxo",
+  "ciso",
+  "risk_lead",
+  "domain_analyst",
+  "program_office",
+  "auditor",
+  "admin",
+  // Legacy aliases mapped at the edge for older seeded users
+  "risk_manager",
   "security_analyst",
   "soc_analyst",
-  "risk_manager",
   "org_admin",
   "super_admin",
   "platform_admin",
   "compliance_manager",
-  "program_office",
-  "domain_analyst",
-  "auditor",
   "business_owner",
 ] as const;
 
 export type RoleCode = (typeof ROLE_CODES)[number];
+
+/** Canonical 8 DWAN roles. */
+export const DWAN_ROLES = [
+  "board_member",
+  "cxo",
+  "ciso",
+  "risk_lead",
+  "domain_analyst",
+  "program_office",
+  "auditor",
+  "admin",
+] as const;
+
+export type DwanRole = (typeof DWAN_ROLES)[number];
 
 export const PERMISSIONS = [
   "command.headline",
@@ -38,6 +56,7 @@ export const PERMISSIONS = [
   "command.changed",
   "command.pack",
   "command.pack.review",
+  "command.pack.approve",
   "ops.overview",
   "domains.read",
   "domains.technical",
@@ -52,8 +71,16 @@ export const PERMISSIONS = [
   "ingestion.read",
   "scenarios.read",
   "scenarios.act",
+  "policy.read",
+  "policy.propose",
+  "policy.approve",
+  "command.queue.accept",
   "admin.users",
   "admin.roles",
+  "register.read",
+  "remediation.read",
+  "remediation.act",
+  "connectors.read",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -80,26 +107,80 @@ export const VIEW_PERMISSION: Record<ViewId, Permission> = {
 };
 
 export const VIEW_LABEL: Record<ViewId, string> = {
-  headline: "Board headline",
-  posture: "Domain posture",
-  trust: "Trust panel",
-  queue: "Decision queue",
+  headline: "Headline",
+  posture: "Posture",
+  trust: "Trust",
+  queue: "Queue",
   whatif: "What-if",
-  closure: "Closure and acceptance",
-  changed: "What changed",
-  pack: "Board pack",
+  closure: "Closure",
+  changed: "Changed",
+  pack: "Pack",
 };
 
-const ALL = [...PERMISSIONS];
+/** Map legacy / alternate role codes onto the DWAN eight. */
+export function canonicalRole(role: string): DwanRole {
+  switch (role) {
+    case "risk_manager":
+    case "risk_lead":
+      return "risk_lead";
+    case "security_analyst":
+    case "soc_analyst":
+    case "domain_analyst":
+      return "domain_analyst";
+    case "org_admin":
+    case "super_admin":
+    case "platform_admin":
+    case "admin":
+      return "admin";
+    case "compliance_manager":
+    case "program_office":
+      return "program_office";
+    case "business_owner":
+      return "cxo";
+    case "board_member":
+    case "cxo":
+    case "ciso":
+    case "auditor":
+      return role;
+    default:
+      return "domain_analyst";
+  }
+}
 
-const CISO: Permission[] = ALL.filter(
-  (p) => p !== "admin.users" && p !== "admin.roles",
-);
+/**
+ * Who may sign risk acceptances.
+ * Default matches DB role_capabilities: CxO and Risk Lead.
+ * Override with ACCEPT_RISK_ROLES=cxo (comma-separated) if needed.
+ */
+export function acceptRiskRoles(): DwanRole[] {
+  const raw = process.env.ACCEPT_RISK_ROLES?.trim();
+  if (!raw) return ["cxo", "risk_lead"];
+  return raw
+    .split(",")
+    .map((r) => canonicalRole(r.trim()))
+    .filter((r, i, arr) => arr.indexOf(r) === i);
+}
 
-export const ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
-  ciso: CISO,
-  super_admin: ALL,
-  platform_admin: ALL,
+export function canAcceptRisk(role: string): boolean {
+  return acceptRiskRoles().includes(canonicalRole(role));
+}
+
+/** DB role_capabilities → app permissions. */
+const DWAN_PERMISSIONS: Record<DwanRole, Permission[]> = {
+  board_member: [
+    "command.headline",
+    "command.posture",
+    "command.loss",
+    "command.changed",
+    "command.pack",
+    "command.pack.review",
+    "ops.overview",
+    "compliance.read",
+    "reports.read",
+    "decisions.read",
+    "policy.read",
+    "policy.approve",
+  ],
   cxo: [
     "command.headline",
     "command.posture",
@@ -113,6 +194,7 @@ export const ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "command.changed",
     "command.pack",
     "command.pack.review",
+    "command.pack.approve",
     "ops.overview",
     "domains.read",
     "findings.read",
@@ -124,48 +206,12 @@ export const ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "scenarios.read",
     "scenarios.act",
     "audit.read",
+    "policy.read",
+    "policy.approve",
+    "register.read",
+    "remediation.read",
   ],
-  board_member: [
-    "command.headline",
-    "command.posture",
-    "command.loss",
-    "command.changed",
-    "command.pack",
-    "ops.overview",
-    "compliance.read",
-    "reports.read",
-    "decisions.read",
-  ],
-  security_analyst: [
-    "command.posture",
-    "command.posture.technical",
-    "command.trust",
-    "command.queue",
-    "command.closure",
-    "command.closure.verify",
-    "ops.overview",
-    "domains.read",
-    "domains.technical",
-    "findings.read",
-    "findings.technical",
-    "ingestion.read",
-    "scenarios.read",
-  ],
-  soc_analyst: [
-    "command.posture",
-    "command.posture.technical",
-    "command.trust",
-    "command.queue",
-    "command.closure",
-    "command.closure.verify",
-    "ops.overview",
-    "domains.read",
-    "domains.technical",
-    "findings.read",
-    "findings.technical",
-    "ingestion.read",
-  ],
-  risk_manager: [
+  ciso: [
     "command.headline",
     "command.posture",
     "command.posture.technical",
@@ -177,7 +223,6 @@ export const ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "command.whatif.save",
     "command.closure",
     "command.closure.verify",
-    "command.closure.register",
     "command.changed",
     "command.pack",
     "command.pack.review",
@@ -190,23 +235,65 @@ export const ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "decisions.act",
     "compliance.read",
     "reports.read",
+    "reports.generate",
     "audit.read",
     "ingestion.read",
     "scenarios.read",
     "scenarios.act",
+    "policy.read",
+    "policy.propose",
+    "register.read",
+    "remediation.read",
+    "remediation.act",
+    "connectors.read",
   ],
-  org_admin: ["admin.users", "admin.roles", "audit.read"],
-  compliance_manager: [
+  risk_lead: [
     "command.headline",
     "command.posture",
+    "command.posture.technical",
+    "command.trust",
+    "command.loss",
+    "command.queue",
+    "command.closure",
+    "command.closure.verify",
     "command.changed",
     "command.pack",
+    "command.pack.review",
     "ops.overview",
+    "domains.read",
+    "domains.technical",
+    "findings.read",
+    "findings.technical",
+    "decisions.read",
     "compliance.read",
     "reports.read",
-    "reports.generate",
     "audit.read",
-    "decisions.read",
+    "ingestion.read",
+    "scenarios.read",
+    "policy.read",
+    "register.read",
+    "remediation.read",
+    "remediation.act",
+    "connectors.read",
+  ],
+  domain_analyst: [
+    "command.posture",
+    "command.posture.technical",
+    "command.trust",
+    "command.queue",
+    "command.closure",
+    "command.closure.verify",
+    "ops.overview",
+    "domains.read",
+    "domains.technical",
+    "findings.read",
+    "findings.technical",
+    "ingestion.read",
+    "scenarios.read",
+    "register.read",
+    "remediation.read",
+    "remediation.act",
+    "connectors.read",
   ],
   program_office: [
     "command.headline",
@@ -218,22 +305,13 @@ export const ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "reports.read",
     "reports.generate",
     "decisions.read",
-    "decisions.act",
-    "scenarios.read",
-  ],
-  domain_analyst: [
-    "command.posture",
-    "command.posture.technical",
-    "command.trust",
-    "ops.overview",
-    "domains.read",
-    "domains.technical",
-    "findings.read",
-    "findings.technical",
-    "ingestion.read",
+    "policy.read",
   ],
   auditor: [
     "command.headline",
+    "command.posture",
+    "command.posture.technical",
+    "command.loss",
     "command.changed",
     "command.pack",
     "ops.overview",
@@ -241,75 +319,100 @@ export const ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "compliance.read",
     "reports.read",
     "decisions.read",
+    "register.read",
+    "policy.read",
   ],
-  business_owner: [
-    "command.headline",
-    "command.loss",
-    "command.whatif",
-    "ops.overview",
-    "decisions.read",
-    "domains.read",
-  ],
+  admin: ["admin.users", "admin.roles", "audit.read"],
+};
+
+/** Grant accept-risk permissions only (not general Decide / queue.act). */
+function withAccept(role: DwanRole, perms: Permission[]): Permission[] {
+  const out = new Set(perms);
+  if (canAcceptRisk(role)) {
+    out.add("command.closure.register");
+    out.add("command.queue.accept");
+  }
+  return [...out];
+}
+
+export const ROLE_PERMISSIONS: Record<RoleCode, Permission[]> = {
+  board_member: DWAN_PERMISSIONS.board_member,
+  cxo: withAccept("cxo", DWAN_PERMISSIONS.cxo),
+  ciso: DWAN_PERMISSIONS.ciso,
+  risk_lead: withAccept("risk_lead", DWAN_PERMISSIONS.risk_lead),
+  domain_analyst: DWAN_PERMISSIONS.domain_analyst,
+  program_office: DWAN_PERMISSIONS.program_office,
+  auditor: DWAN_PERMISSIONS.auditor,
+  admin: DWAN_PERMISSIONS.admin,
+  risk_manager: withAccept("risk_lead", DWAN_PERMISSIONS.risk_lead),
+  security_analyst: DWAN_PERMISSIONS.domain_analyst,
+  soc_analyst: DWAN_PERMISSIONS.domain_analyst,
+  org_admin: DWAN_PERMISSIONS.admin,
+  super_admin: [...new Set([...DWAN_PERMISSIONS.ciso, ...DWAN_PERMISSIONS.admin])],
+  platform_admin: [...new Set([...DWAN_PERMISSIONS.ciso, ...DWAN_PERMISSIONS.admin])],
+  compliance_manager: DWAN_PERMISSIONS.program_office,
+  business_owner: withAccept("cxo", DWAN_PERMISSIONS.cxo),
 };
 
 export const ROLE_LABEL: Record<RoleCode, string> = {
-  ciso: "CISO",
-  cxo: "CxO",
   board_member: "Board Member",
-  security_analyst: "Security Analyst",
-  soc_analyst: "SOC Analyst",
+  cxo: "CxO",
+  ciso: "CISO",
+  risk_lead: "Risk Lead",
+  domain_analyst: "Analyst",
+  program_office: "Program Office",
+  auditor: "Auditor",
+  admin: "Admin",
   risk_manager: "Risk Lead",
+  security_analyst: "Analyst",
+  soc_analyst: "SOC Analyst",
   org_admin: "Admin",
   super_admin: "Super Admin",
   platform_admin: "Platform Admin",
   compliance_manager: "Compliance",
-  program_office: "Program Office",
-  domain_analyst: "Domain Analyst",
-  auditor: "Auditor",
   business_owner: "Business Owner",
 };
 
 export const CAPABILITY: Record<RoleCode, string> = {
   board_member:
-    "You can view risk posture, trends, financial exposure and the compliance summary. Approvals and technical evidence are outside this role.",
-  cxo: "You can approve, accept risk with an expiry, and run what-if funding against expected loss. Feed-level evidence stays with the security team.",
-  ciso: "You can see full operational and technical detail, incidents, vulnerabilities, controls, and you can assign owners or propose policy changes.",
-  risk_manager:
-    "You can manage the acceptance register, act on the decision queue, run what-if, and view the audit trail.",
-  security_analyst:
-    "You can verify findings, inspect feed confidence, and open technical evidence. Financial approvals are outside this role.",
-  soc_analyst:
-    "You can work detection coverage, the decision queue, and verification scans. Board financials and approvals are outside this role.",
-  org_admin:
-    "You manage users and roles for this organization. Cyber decisions and vulnerability detail are outside this role.",
-  super_admin: "You have full platform access, including user administration and every command view.",
-  platform_admin: "You have full platform access, including user administration and every command view.",
-  compliance_manager:
-    "You can review framework posture, the board pack, and what changed since the last meeting.",
-  program_office:
-    "You can prepare the board pack and regulatory reports. Technical verification stays with the security team.",
+    "You can view risk posture, trends, financial exposure and the board pack. You approve scoring policy and appetite proposals. Technical feeds and what-if are outside this role.",
+  cxo: "You can approve decisions, accept risk with an expiry, and run what-if funding against expected loss.",
+  ciso: "You can see technical evidence, assign owners, propose scoring policy and appetite, and verify closures. Board locks approved versions.",
+  risk_lead:
+    "You can accept risk with an expiry, manage the acceptance register, run verification scans and the audit trail. General Decide stays with CxO/CISO.",
   domain_analyst:
-    "You can drill into domain scores, coverage, and findings. Executive approvals are outside this role.",
-  auditor:
-    "You can read the audit trail, compliance evidence, and the board pack. You cannot change decisions.",
-  business_owner:
-    "You can see business-impact exposure and funding what-if for your enterprise view.",
+    "You can verify findings, inspect feed confidence and open technical evidence. Money and approvals are outside this role.",
+  program_office: "You prepare the board pack and compliance reports. Technical verification stays with security.",
+  auditor: "You can read the audit trail, compliance evidence and packs. You cannot change decisions.",
+  admin: "You manage users and roles for this organization. Cyber decisions are outside this role.",
+  risk_manager:
+    "You manage the acceptance register, verification scans and the audit trail.",
+  security_analyst:
+    "You can verify findings, inspect feed confidence and open technical evidence. Money is masked.",
+  soc_analyst: "You can verify findings and inspect feed confidence. Money is masked.",
+  org_admin: "You manage users and roles for this organization.",
+  super_admin: "Full platform access including administration.",
+  platform_admin: "Full platform access including administration.",
+  compliance_manager: "You review framework posture and the board pack.",
+  business_owner: "You can see business-impact exposure and funding what-if.",
 };
 
 export const LANDING: Record<RoleCode, ViewId> = {
   board_member: "headline",
   cxo: "queue",
   ciso: "posture",
+  risk_lead: "closure",
+  domain_analyst: "trust",
+  program_office: "pack",
+  auditor: "changed",
+  admin: "headline",
   risk_manager: "closure",
   security_analyst: "trust",
-  soc_analyst: "queue",
+  soc_analyst: "trust",
   org_admin: "headline",
   super_admin: "headline",
   platform_admin: "headline",
   compliance_manager: "headline",
-  program_office: "pack",
-  domain_analyst: "posture",
-  auditor: "changed",
   business_owner: "headline",
 };
 
@@ -318,13 +421,15 @@ export function isRoleCode(value: string): value is RoleCode {
 }
 
 export function hasPermission(role: string, permission: Permission): boolean {
-  if (!isRoleCode(role)) return false;
-  return ROLE_PERMISSIONS[role].includes(permission);
+  const canon = canonicalRole(role);
+  // Prefer canonical DWAN matrix so legacy aliases stay consistent
+  const list = ROLE_PERMISSIONS[canon] ?? ROLE_PERMISSIONS[role as RoleCode];
+  return !!list?.includes(permission);
 }
 
 export function permissionsFor(role: string): Permission[] {
-  if (!isRoleCode(role)) return [];
-  return [...ROLE_PERMISSIONS[role]];
+  const canon = canonicalRole(role);
+  return [...(ROLE_PERMISSIONS[canon] ?? [])];
 }
 
 export function viewsFor(role: string): ViewId[] {
@@ -335,30 +440,41 @@ export function viewsFor(role: string): ViewId[] {
 
 export function landingFor(role: string): ViewId {
   const views = viewsFor(role);
-  if (isRoleCode(role) && views.includes(LANDING[role])) return LANDING[role];
+  const canon = canonicalRole(role);
+  if (views.includes(LANDING[canon])) return LANDING[canon];
   return views[0] ?? "headline";
 }
 
 export function homeFor(role: string): string {
   if (hasPermission(role, "admin.users") && viewsFor(role).length === 0) return "/admin";
   const landing = landingFor(role);
-  if (!hasPermission(role, VIEW_PERMISSION[landing])) return "/admin";
+  if (!hasPermission(role, VIEW_PERMISSION[landing])) {
+    if (hasPermission(role, "admin.users")) return "/admin";
+    if (hasPermission(role, "compliance.read")) return "/compliance";
+    if (hasPermission(role, "audit.read")) return "/audit";
+    return "/";
+  }
   return `/c/${landing}`;
 }
 
 export function capabilityFor(role: string): string {
-  if (!isRoleCode(role)) return "This role has no command-center permissions.";
-  return CAPABILITY[role];
+  const canon = canonicalRole(role);
+  return CAPABILITY[canon] ?? "This role has no command-center permissions.";
 }
 
-/** Map an HTTP path to the permission required to call it. Null means the route enforces itself. */
+export function maxAcceptanceDays(severity: string): number {
+  return severity === "critical" || severity === "Critical" ? 90 : 365;
+}
+
 export function requiredPermission(method: string, path: string): Permission | "self" | null {
   const url = path.split("?")[0] ?? path;
   if (url === "/health" || url.startsWith("/api/ecc/organizations") || url === "/api/ecc/me") {
     return null;
   }
-  if (url.startsWith("/api/ecc/command") || url.startsWith("/api/ecc/admin")) return "self";
-  if (url.startsWith("/api/ecc/findings")) return "findings.read";
+  if (url.startsWith("/api/ecc/command") || url.startsWith("/api/ecc/admin") || url.startsWith("/api/ecc/dwan")) {
+    return "self";
+  }
+  if (url.startsWith("/api/ecc/findings") || url.startsWith("/api/ecc/register")) return "findings.read";
   if (url.startsWith("/api/ecc/risk-domains")) return "domains.read";
   if (url.startsWith("/api/ecc/decisions")) {
     return method === "GET" ? "decisions.read" : "decisions.act";
@@ -367,6 +483,17 @@ export function requiredPermission(method: string, path: string): Permission | "
     return "compliance.read";
   }
   if (url.startsWith("/api/ecc/audit")) return "audit.read";
+  if (url.startsWith("/api/ecc/policy") || url.startsWith("/api/ecc/appetite")) {
+    if (method === "GET") return "policy.read";
+    // Approve / lock endpoints require approve_policy; drafts use propose.
+    if (/\/(approve|lock)\b/i.test(url) || /[?&]action=approve\b/i.test(path)) {
+      return "policy.approve";
+    }
+    return "policy.propose";
+  }
+  if (url.startsWith("/api/ecc/remediation")) {
+    return method === "GET" ? "remediation.read" : "remediation.act";
+  }
   if (url.startsWith("/api/ecc/reports")) {
     return method === "GET" ? "reports.read" : "reports.generate";
   }
@@ -380,7 +507,7 @@ export function requiredPermission(method: string, path: string): Permission | "
   if (url.startsWith("/api/ecc/scenarios") || url.startsWith("/api/ecc/portfolio")) {
     return method === "GET" ? "scenarios.read" : "scenarios.act";
   }
-  if (url.startsWith("/api/ecc/actions")) return "findings.technical";
+  if (url.startsWith("/api/ecc/actions")) return "remediation.act";
   if (
     url === "/api/ecc/overview" ||
     url.startsWith("/api/ecc/trends") ||
@@ -398,9 +525,10 @@ export function requiredPermission(method: string, path: string): Permission | "
   return null;
 }
 
-const FINANCIAL_KEY = /(aed|financial|exposure|^loss$|loss[A-Z]|expectedLoss)/i;
+const FINANCIAL_KEY = /(aed|financial|exposure|^loss$|loss[A-Z]|expectedLoss|ale|p90|p95)/i;
 
 export function redactFinancial<T>(role: string, value: T): T {
+  // command.loss mirrors view_financials
   if (hasPermission(role, "command.loss")) return value;
   return stripFinancial(value) as T;
 }

@@ -152,8 +152,8 @@ export async function registerCommandRoutes(app: FastifyInstance) {
     const body = z
       .object({
         reason: z.string().min(1).max(500),
-        approver: z.enum(["CEO", "CFO", "COO"]),
-        days: z.union([z.literal(30), z.literal(90), z.literal(180)]),
+        approver: z.enum(["CEO", "CFO", "COO", "Risk Lead"]),
+        days: z.union([z.literal(30), z.literal(90), z.literal(180), z.literal(365)]),
       })
       .safeParse(req.body ?? {});
     if (!body.success) {

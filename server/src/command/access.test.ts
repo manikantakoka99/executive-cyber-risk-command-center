@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it, beforeEach } from "node:test";
 import { presentEvidence, presentWorkspace } from "./present.js";
-import { hasPermission, homeFor, viewsFor } from "./rbac.js";
+import { canAcceptRisk, hasPermission, homeFor, viewsFor } from "./rbac.js";
 import {
+  acceptQueue,
   approveQueue,
   getState,
   initialState,
@@ -22,7 +23,7 @@ describe("command RBAC", () => {
     assert.equal(homeFor("cxo"), "/c/queue");
     assert.equal(homeFor("ciso"), "/c/posture");
     assert.equal(homeFor("security_analyst"), "/c/trust");
-    assert.equal(homeFor("soc_analyst"), "/c/queue");
+    assert.equal(homeFor("soc_analyst"), "/c/trust");
     assert.equal(homeFor("org_admin"), "/admin");
     assert.equal(hasPermission("org_admin", "command.loss"), false);
     assert.equal(hasPermission("board_member", "command.queue.act"), false);
@@ -30,6 +31,40 @@ describe("command RBAC", () => {
     assert.equal(hasPermission("cxo", "findings.technical"), false);
     assert.equal(hasPermission("cxo", "command.loss"), true);
     assert.equal(hasPermission("security_analyst", "command.loss"), false);
+    assert.equal(canAcceptRisk("cxo"), true);
+    assert.equal(canAcceptRisk("risk_lead"), true);
+    assert.equal(canAcceptRisk("ciso"), false);
+    assert.equal(canAcceptRisk("board_member"), false);
+    assert.equal(hasPermission("ciso", "policy.approve"), false);
+    assert.equal(hasPermission("ciso", "policy.propose"), true);
+    assert.equal(hasPermission("board_member", "policy.approve"), true);
+    assert.equal(hasPermission("risk_lead", "command.queue.act"), false);
+    assert.equal(hasPermission("risk_lead", "command.queue.accept"), true);
+  });
+
+  it("lets CxO and Risk Lead accept risk, and refuses CISO and Board", () => {
+    const deniedCiso = acceptQueue(ORG, "ciso", "CISO", "q1", {
+      reason: "Vendor migration pending until Q1",
+      approver: "CEO",
+      days: 30,
+    });
+    assert.equal(deniedCiso.ok, false);
+    if (!deniedCiso.ok) assert.equal(deniedCiso.status, 403);
+
+    const deniedBoard = acceptQueue(ORG, "board_member", "Board", "q1", {
+      reason: "Vendor migration pending until Q1",
+      approver: "CEO",
+      days: 30,
+    });
+    assert.equal(deniedBoard.ok, false);
+
+    const accepted = acceptQueue(ORG, "risk_lead", "Risk Lead", "q1", {
+      reason: "Vendor migration pending until Q1",
+      approver: "Risk Lead",
+      days: 30,
+    });
+    assert.equal(accepted.ok, true);
+    assert.equal(presentWorkspace("risk_lead", getState(ORG)).queue?.canAccept, true);
   });
 
   it("strips financials and technical feeds from the board payload except loss and posture summary", () => {

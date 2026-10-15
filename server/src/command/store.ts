@@ -6,7 +6,7 @@ import {
   describeScenario,
   type GapKey,
 } from "./model.js";
-import { hasPermission, isRoleCode, type RoleCode } from "./rbac.js";
+import { canAcceptRisk, hasPermission, isRoleCode, type RoleCode } from "./rbac.js";
 
 export type QueueState = "open" | "approved" | "accepted" | "deferred";
 
@@ -236,15 +236,21 @@ export function acceptQueue(
   id: string,
   input: { reason: string; approver: string; days: number },
 ): ActionResult {
-  const denied = forbid(role, "command.queue.act");
+  if (!canAcceptRisk(role)) {
+    return { ok: false, status: 403, message: "This role cannot accept risk." };
+  }
+  const denied = forbid(role, "command.queue.accept");
   if (denied) return denied;
   const reason = input.reason.trim();
-  if (!reason) return { ok: false, status: 400, message: "A reason is required to accept a risk." };
-  if (![30, 90, 180].includes(input.days)) {
-    return { ok: false, status: 400, message: "Expiry must be 30, 90, or 180 days." };
+  if (!reason || reason.split(/\s+/).filter(Boolean).length < 2) {
+    return { ok: false, status: 400, message: "A multi-word reason is required to accept a risk." };
   }
-  if (!["CFO", "COO", "CEO"].includes(input.approver)) {
-    return { ok: false, status: 400, message: "Approver must be CEO, CFO, or COO." };
+  if (![30, 90, 180, 365].includes(input.days)) {
+    return { ok: false, status: 400, message: "Expiry must be 30, 90, 180, or 365 days." };
+  }
+  // Approver label is recorded for the pack; capability is enforced on the acting role.
+  if (!["CFO", "COO", "CEO", "Risk Lead"].includes(input.approver)) {
+    return { ok: false, status: 400, message: "Approver must be CEO, CFO, COO, or Risk Lead." };
   }
   const state = getState(orgId);
   const item = findQueue(state, id);
