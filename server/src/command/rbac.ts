@@ -91,9 +91,9 @@ export const VIEW_LABEL: Record<ViewId, string> = {
   headline: "Headline",
   posture: "Posture",
   trust: "Trust",
-  queue: "Queue",
+  queue: "Decisions",
   whatif: "What-if",
-  closure: "Closure",
+  closure: "Remediation & closure",
   changed: "Changed",
   pack: "Pack",
 };

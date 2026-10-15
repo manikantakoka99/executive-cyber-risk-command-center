@@ -3,7 +3,7 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
 const BASE = process.env.PREVIEW_URL || "http://127.0.0.1:5173";
-const OUT = "/opt/cursor/artifacts/quiet_command";
+const OUT = process.env.ARTIFACT_DIR || "/opt/cursor/artifacts/sandstone";
 const ORG = "2accc7de-f693-4b19-8fe8-6db501be05e2";
 
 const ROLES = [
@@ -45,7 +45,7 @@ async function main() {
       ({ orgId, userId }) => {
         localStorage.setItem("ecc.orgId", orgId);
         localStorage.setItem("ecc.userId", userId);
-        localStorage.setItem("ecc.theme", "dark");
+        localStorage.setItem("ecc.theme", "light");
       },
       { orgId: ORG, userId: role.userId },
     );

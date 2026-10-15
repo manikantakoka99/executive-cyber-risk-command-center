@@ -17,7 +17,7 @@ const ThemeCtx = createContext<{
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<ThemeName>(() => {
     const stored = localStorage.getItem("ecc.theme");
-    return stored === "light" ? "light" : "dark";
+    return stored === "dark" ? "dark" : "light";
   });
 
   useEffect(() => {

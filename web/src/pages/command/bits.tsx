@@ -190,36 +190,6 @@ export function RiskGauge({
   );
 }
 
-/** Horizontal 0–100 score with appetite tick (replaces tiny ring on Headline). */
-export function AppetiteScoreBar({
-  score,
-  appetite,
-  band,
-}: {
-  score: number;
-  appetite: number;
-  band: Band;
-}) {
-  const tone = bandTone(band);
-  return (
-    <div
-      className="appetite-score-bar"
-      role="img"
-      aria-label={`Score ${score.toFixed(1)} of 100, appetite ${appetite}, ${band}`}
-    >
-      <div className="asb-track">
-        <i className={`asb-fill tone-${tone}`} style={{ width: `${Math.min(100, score)}%` }} />
-        <b className="asb-tick" style={{ left: `${Math.min(100, appetite)}%` }} title={`Appetite ${appetite}`} />
-      </div>
-      <div className="asb-meta">
-        <span>0</span>
-        <span className="asb-appetite-label">Appetite {appetite}</span>
-        <span>100</span>
-      </div>
-    </div>
-  );
-}
-
 export function Heatmap({
   rows,
   onOpen,

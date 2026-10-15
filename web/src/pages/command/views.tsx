@@ -13,7 +13,6 @@ import type {
 } from "../../data/commandTypes";
 import {
   Answer,
-  AppetiteScoreBar,
   Chip,
   Heatmap,
   KpiCard,
@@ -24,8 +23,6 @@ import {
   fmt1,
   fmt2,
 } from "./bits";
-
-const ENTERPRISE_APPETITE = 50;
 
 export function HeadlineView({
   data,
@@ -42,7 +39,7 @@ export function HeadlineView({
       : 0;
   const sparkValues = data.trend.map((row) => row.score);
   const appetiteState =
-    data.arithmetic > ENTERPRISE_APPETITE ? "Outside appetite" : "Within appetite";
+    data.outsideAppetite > 0 ? "Domains outside appetite" : "Within appetite";
 
   return (
     <div className="view-board">
@@ -54,24 +51,21 @@ export function HeadlineView({
           <div className="hero-score-line">
             <span className="hero-kpi mono">{fmt1(data.arithmetic)}</span>
             <span className={`word tone-${bandTone(data.band)}`}>{data.band}</span>
-            <Chip tone={data.arithmetic > ENTERPRISE_APPETITE ? "crit" : "low"}>{appetiteState}</Chip>
-            <span className="hero-spark">
-              <Spark
-                values={sparkValues}
-                tone={trendDelta > 0.2 ? "up" : trendDelta < -0.2 ? "down" : "flat"}
-                label="Six-month score trend"
-              />
-              <span className={`delta tone-${trendDelta === 0 ? "flat" : trendDelta < 0 ? "good" : "bad"}`}>
-                {trendDelta > 0 ? "+" : ""}
-                {trendDelta.toFixed(1)}
+            <Chip tone={data.outsideAppetite > 0 ? "crit" : "low"}>{appetiteState}</Chip>
+            {sparkValues.length > 1 ? (
+              <span className="hero-spark">
+                <Spark
+                  values={sparkValues}
+                  tone={trendDelta > 0.2 ? "up" : trendDelta < -0.2 ? "down" : "flat"}
+                  label="Score trend"
+                />
+                <span className={`delta tone-${trendDelta === 0 ? "flat" : trendDelta < 0 ? "good" : "bad"}`}>
+                  {trendDelta > 0 ? "+" : ""}
+                  {trendDelta.toFixed(1)}
+                </span>
               </span>
-            </span>
+            ) : null}
           </div>
-          <AppetiteScoreBar
-            score={data.arithmetic}
-            appetite={ENTERPRISE_APPETITE}
-            band={data.band}
-          />
           {data.floorNote && (
             <div className="why">
               <b>Floor rule applied.</b> {data.floorNote.replace(/^Floor rule applied\.\s*/, "")}
