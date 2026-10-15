@@ -66,8 +66,7 @@ function id(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function seed(orgId: string): OrgPolicyState {
-  const now = new Date().toISOString();
+function seed(_orgId: string): OrgPolicyState {
   const approved: PolicyVersion = {
     policyId: id("pol"),
     version: 1,
