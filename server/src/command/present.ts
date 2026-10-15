@@ -350,6 +350,7 @@ export function presentWorkspace(
   const outside = outsideCount();
   const expiring = state.accept.filter((item) => daysUntil(item.expires) <= 30).length;
   const policyVersion = activePolicyLabel(orgId);
+  const openDecisions = state.queue.filter((item) => item.state === "open").length;
 
   return {
     asOf: "2026-09-05T00:00:00.000Z",
@@ -362,9 +363,9 @@ export function presentWorkspace(
     landing: landingFor(role),
     views: views.map((id) => ({ id, label: VIEW_LABEL[id] })),
     home: homeFor(role),
-    openDecisions: state.queue.filter((item) => item.state === "open").length,
+    openDecisions,
     headline: allow("command.headline")
-      ? presentHeadline(state, loss, expiring, outside, policyVersion)
+      ? presentHeadline(state, loss, expiring, outside, policyVersion, openDecisions)
       : null,
     posture: allow("command.posture") ? presentPosture(technical, outside) : null,
     trust: allow("command.trust") ? presentTrust() : null,
@@ -378,11 +379,12 @@ export function presentWorkspace(
 }
 
 function presentHeadline(
-  state: CommandState,
+  _state: CommandState,
   loss: boolean,
   expiring: number,
   outside: number,
   policyVersion: string,
+  openDecisions: number,
 ): HeadlineView {
   const card = BASELINE;
   const critical = card.rows.filter((row) => row.band === "Critical").map((row) => row.domain.name);
@@ -410,14 +412,14 @@ function presentHeadline(
     outsideAppetite: outside,
     domainCount: DOMAINS.length,
     expiringAcceptances: expiring,
-    // Open decisions awaiting executive action (queue), not accepted-risk register size.
-    acceptanceCount: state.queue.filter((item) => item.state === "open").length,
+    // Same open-queue count as workspace.openDecisions (not accept-register size).
+    acceptanceCount: openDecisions,
     loss: loss
       ? {
           ale: ENTERPRISE_LOSS.ale,
           p90: ENTERPRISE_LOSS.p90,
           p95: ENTERPRISE_LOSS.p95,
-          note: `In most years no major event occurs; the range is driven by rare, large events. A bad year (1 in 10) is about AED ${format2(ENTERPRISE_LOSS.p90)}M and 1 in 20 about AED ${format2(ENTERPRISE_LOSS.p95)}M. Sum of three simulated scenarios, draw by draw.`,
+          note: `In most years no major event occurs; the range is driven by rare, large events. A bad year (1 in 10) is about AED ${format1(ENTERPRISE_LOSS.p90)}M and 1 in 20 about AED ${format1(ENTERPRISE_LOSS.p95)}M. Sum of three simulated scenarios, draw by draw.`,
           drivers: Object.values(LOSS).map((item) => ({ name: item.name, ale: item.ale })),
         }
       : null,
@@ -772,7 +774,7 @@ function presentPack(role: string, state: CommandState, orgName: string): PackVi
         ? [
             {
               heading: "Money",
-              text: `Modelled annualised loss exposure is AED ${format2(ENTERPRISE_LOSS.ale)}M expected, and about AED ${format2(ENTERPRISE_LOSS.p90)}M in a bad year (1 in 10). The largest driver is ${LOSS.ran!.name.toLowerCase()} at AED ${format2(LOSS.ran!.ale)}M expected.`,
+              text: `Modelled annualised loss exposure is AED ${format1(ENTERPRISE_LOSS.ale)}M expected, and about AED ${format1(ENTERPRISE_LOSS.p90)}M in a bad year (1 in 10). The largest driver is ${LOSS.ran!.name.toLowerCase()} at AED ${format1(LOSS.ran!.ale)}M expected.`,
               items: [{ text: "Loss model", source: sourceLabel("loss_models") }],
             },
           ]

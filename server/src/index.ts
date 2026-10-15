@@ -21,6 +21,7 @@ import {
   permissionsFor,
   redactFinding,
   redactFinancial,
+  redactOperationsTechnical,
   requiredPermission,
   viewsFor,
 } from "./command/rbac.js";
@@ -204,7 +205,8 @@ app.addHook("onSend", async (req, reply, payload) => {
 app.get("/api/ecc/overview", async (req, reply) => {
   const data = await getOverview(req.tenant.orgId);
   if (!data) return reply.code(404).send({ error: { code: "not_found", message: "Org not found" } });
-  return redactFinancial(req.tenant.role, data as unknown as Record<string, unknown>);
+  const financial = redactFinancial(req.tenant.role, data as unknown as Record<string, unknown>);
+  return redactOperationsTechnical(req.tenant.role, financial);
 });
 
 app.get("/api/ecc/risk-domains", async (req) => ({

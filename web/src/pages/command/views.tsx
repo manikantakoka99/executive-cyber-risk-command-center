@@ -26,10 +26,13 @@ import {
 
 export function HeadlineView({
   data,
+  openDecisions,
   compliance,
   onOpen,
 }: {
   data: HeadlineView;
+  /** Canonical open-decision count from workspace (same source as queue badge). */
+  openDecisions: number;
   compliance: CommandWorkspace["complianceLive"];
   onOpen: (id: string) => void;
 }) {
@@ -40,6 +43,8 @@ export function HeadlineView({
   const sparkValues = data.trend.map((row) => row.score);
   const appetiteState =
     data.outsideAppetite > 0 ? "Domains outside appetite" : "Within appetite";
+  // Workspace openDecisions is the single source (queue open count); card must not use accept-register size.
+  const decisionsOpen = openDecisions;
 
   return (
     <div className="view-board">
@@ -86,7 +91,7 @@ export function HeadlineView({
           <KpiCard
             label="Expected annual loss"
             value={data.loss.ale}
-            decimals={2}
+            decimals={1}
             prefix="AED "
             suffix="M"
             tone="high"
@@ -95,7 +100,7 @@ export function HeadlineView({
         ) : null}
         <KpiCard
           label="Open decisions"
-          value={data.acceptanceCount ?? 0}
+          value={decisionsOpen}
           tone="info"
           note="Awaiting executive action"
         />
@@ -115,7 +120,7 @@ export function HeadlineView({
           <p className="lbl">Annualised loss exposure (modelled)</p>
           <div className="loss-figure mono" aria-label={`${formatAedMillions(data.loss.ale)} expected per year`}>
             <span className="loss-currency">AED</span>
-            <span className="loss-number">{data.loss.ale.toFixed(2)}</span>
+            <span className="loss-number">{data.loss.ale.toFixed(1)}</span>
             <span className="loss-unit">M</span>
             <span className="loss-aside">expected per year</span>
           </div>

@@ -69,6 +69,7 @@ export function OverviewPage({
   const topCritical = data.domains.filter(
     (d) => d.severity === "critical" || d.severity === "high",
   ).length;
+  const hideTechnical = actorRole === "cxo";
 
   return (
     <div className="page">
@@ -148,7 +149,9 @@ export function OverviewPage({
           >
             {data.decisionsAwaitingCritical > 0
               ? `${data.decisionsAwaitingCritical} marked Critical`
-              : `${topCritical} high/critical domains · ${data.criticalFindingsOpen} critical findings`}
+              : hideTechnical
+                ? `${topCritical} high/critical domains`
+                : `${topCritical} high/critical domains · ${data.criticalFindingsOpen} critical findings`}
           </div>
         </div>
       </div>
@@ -162,14 +165,21 @@ export function OverviewPage({
             </span>
           </div>
           <div className="card">
-            {data.executiveActionQueue.map((s) => (
-              <article key={s.scenarioId} className="decision-item decision-item-emphasis">
+            {data.executiveActionQueue.map((s, idx) => (
+              <article
+                key={s.scenarioId ?? `exec-q-${idx}`}
+                className="decision-item decision-item-emphasis"
+              >
                 <div className="di-top">
                   <div>
                     <div className="di-title">
-                      <Link className="text-link" to={`/scenarios/${s.scenarioId}`}>
-                        {s.title}
-                      </Link>
+                      {hideTechnical || !s.scenarioId ? (
+                        s.title
+                      ) : (
+                        <Link className="text-link" to={`/scenarios/${s.scenarioId}`}>
+                          {s.title}
+                        </Link>
+                      )}
                     </div>
                     <div className="di-domain">
                       Treatment: {s.recommendedTreatment ?? "—"} · Residual{" "}
@@ -190,9 +200,15 @@ export function OverviewPage({
                 </div>
                 <p className="di-domain">{s.recommendedAction}</p>
                 <div className="di-actions">
-                  <Link className="di-btn defer" to={`/scenarios/${s.scenarioId}`}>
-                    Decide on scenario
-                  </Link>
+                  {s.scenarioId ? (
+                    <Link className="di-btn defer" to={`/scenarios/${s.scenarioId}`}>
+                      Decide on scenario
+                    </Link>
+                  ) : (
+                    <Link className="di-btn defer" to="/decisions">
+                      Decide
+                    </Link>
+                  )}
                 </div>
               </article>
             ))}
@@ -200,7 +216,7 @@ export function OverviewPage({
         </>
       )}
 
-      {data.riskScenarios && (
+      {data.riskScenarios && !hideTechnical && (
         <>
           <div className="section-title">
             Enterprise Risk Scenarios{" "}
@@ -369,7 +385,7 @@ export function OverviewPage({
                 <Link className="di-btn defer" to={`/decisions/${d.decisionId}`}>
                   Full history
                 </Link>
-                {d.findingId && (
+                {!hideTechnical && d.findingId && (
                   <Link className="di-btn defer" to={`/findings/${d.findingId}`}>
                     View finding
                   </Link>
@@ -385,24 +401,36 @@ export function OverviewPage({
         <span className="count">{data.domainsMonitored} domains monitored</span>
       </div>
       <div className="domain-wrap">
-        {data.domains.map((d) => (
-          <Link
-            key={d.riskDomainId}
-            to={`/risk-domains/${d.riskDomainId}`}
-            className={`domain-card ${severityClass(d.severity)}`}
-          >
-            <div className="dc-top">
-              <div className="dc-name">{d.shortLabel}</div>
-              <div className={`dc-status ${severityBadge(d.severity)}`}>
-                {d.severity === "low" ? "Good" : capitalize(d.severity)}
+        {data.domains.map((d) => {
+          const cardClass = `domain-card ${severityClass(d.severity)}`;
+          const inner = (
+            <>
+              <div className="dc-top">
+                <div className="dc-name">{d.shortLabel}</div>
+                <div className={`dc-status ${severityBadge(d.severity)}`}>
+                  {d.severity === "low" ? "Good" : capitalize(d.severity)}
+                </div>
               </div>
+              <div className="dc-score" style={{ color: scoreColor(d.severity) }}>
+                {Math.round(d.score)}
+              </div>
+              <div className="dc-detail">{d.headlineDetail ?? "—"}</div>
+            </>
+          );
+          return hideTechnical ? (
+            <div key={d.riskDomainId} className={cardClass}>
+              {inner}
             </div>
-            <div className="dc-score" style={{ color: scoreColor(d.severity) }}>
-              {Math.round(d.score)}
-            </div>
-            <div className="dc-detail">{d.headlineDetail ?? "—"}</div>
-          </Link>
-        ))}
+          ) : (
+            <Link
+              key={d.riskDomainId}
+              to={`/risk-domains/${d.riskDomainId}`}
+              className={cardClass}
+            >
+              {inner}
+            </Link>
+          );
+        })}
       </div>
 
       <div className="grid2">

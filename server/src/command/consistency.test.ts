@@ -62,7 +62,7 @@ describe("cross-screen canonical consistency (Vinga PDF/HTML)", () => {
 
   it("loss figures match ENT at display precision", () => {
     assert.equal(ENTERPRISE_LOSS.ale, CANONICAL.ale);
-    assert.equal(format2(ENTERPRISE_LOSS.ale), CANONICAL.aleDisplay);
+    assert.equal(format1(ENTERPRISE_LOSS.ale), CANONICAL.aleDisplay);
     assert.equal(format2(ENTERPRISE_LOSS.p90), "10.07");
     assert.equal(format2(ENTERPRISE_LOSS.p95), "14.94");
   });
@@ -78,11 +78,12 @@ describe("cross-screen canonical consistency (Vinga PDF/HTML)", () => {
     assert.equal(ws.headline!.confidencePct, CANONICAL.confidencePct);
     assert.equal(ws.headline!.outsideAppetite, CANONICAL.outsideAppetite);
     assert.equal(ws.openDecisions, CANONICAL.openDecisions);
+    assert.equal(ws.headline!.acceptanceCount, CANONICAL.openDecisions);
     assert.equal(ws.trust!.fresh, CANONICAL.feedsFresh);
     assert.equal(ws.trust!.total, CANONICAL.feedsTotal);
     assert.equal(ws.trust!.confidencePct, CANONICAL.confidencePct);
     assert.equal(ws.trust!.weightedCoveragePct, CANONICAL.weightedCoveragePct);
-    assert.equal(format2(ws.headline!.loss!.ale), CANONICAL.aleDisplay);
+    assert.equal(format1(ws.headline!.loss!.ale), CANONICAL.aleDisplay);
     assert.equal(ws.headline!.loss!.p90, CANONICAL.p90);
     assert.equal(ws.pack!.heading.includes("High"), true);
     assert.ok(ws.pack!.blocks.some((b) => b.text?.includes(CANONICAL.headlineScore)));
@@ -95,14 +96,15 @@ describe("cross-screen canonical consistency (Vinga PDF/HTML)", () => {
     );
   });
 
-  it("financial roles receive canonical ALE 2.89 / P90 / P95; non-financial roles get no AED", () => {
+  it("financial roles receive canonical ALE 2.9 / P90 / P95; non-financial roles get no AED", () => {
     for (const role of FINANCIAL_ROLES) {
       assert.equal(hasPermission(role, "command.loss"), true, role);
       const ws = redactFinancial(role, presentWorkspace(role, initialState(), "Al Dhabi Holdings"));
       if (ws.headline) {
-        assert.equal(format2(ws.headline.loss!.ale), CANONICAL.aleDisplay, role);
+        assert.equal(format1(ws.headline.loss!.ale), CANONICAL.aleDisplay, role);
         assert.equal(ws.headline.loss!.p90, CANONICAL.p90, role);
         assert.equal(ws.headline.loss!.p95, CANONICAL.p95, role);
+        assert.equal(ws.headline.acceptanceCount, CANONICAL.openDecisions, role);
       }
       if (ws.pack) {
         const money = ws.pack.blocks.find((b) => b.heading === "Money");

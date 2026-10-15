@@ -1,14 +1,14 @@
-/** One money formatter for the whole app: AED x.xxM at/above 1M, AED xxx.xK below. */
+/** One money formatter for the whole app: AED x.xM at/above 1M, AED xxxK below (no decimals). */
 export function formatAed(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
   const abs = Math.abs(n);
   if (abs >= 1_000_000) {
     const m = n / 1_000_000;
-    return `AED ${m.toFixed(2)}M`;
+    return `AED ${m.toFixed(1)}M`;
   }
   if (abs >= 1_000) {
-    const k = n / 1_000;
-    return `AED ${k.toFixed(1)}K`;
+    const k = Math.round(n / 1_000);
+    return `AED ${k}K`;
   }
   return `AED ${n.toLocaleString("en-AE", { maximumFractionDigits: 0 })}`;
 }
@@ -16,7 +16,7 @@ export function formatAed(n: number | null | undefined): string {
 /** Format AED millions figure already stored as millions (command loss model). */
 export function formatAedMillions(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
-  return `AED ${n.toFixed(2)}M`;
+  return `AED ${n.toFixed(1)}M`;
 }
 
 export function formatPct(n: number | null | undefined): string {

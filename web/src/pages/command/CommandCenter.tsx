@@ -151,7 +151,12 @@ export function CommandCenter() {
         ))}
       </div>
       {view === "headline" && workspace.headline && (
-        <HeadlineView data={workspace.headline} compliance={workspace.complianceLive} onOpen={(id) => void openEvidence(id)} />
+        <HeadlineView
+          data={workspace.headline}
+          openDecisions={workspace.openDecisions}
+          compliance={workspace.complianceLive}
+          onOpen={(id) => void openEvidence(id)}
+        />
       )}
       {view === "posture" && workspace.posture && (
         <PostureView data={workspace.posture} onOpen={(id) => void openEvidence(id)} />

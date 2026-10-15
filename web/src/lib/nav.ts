@@ -45,8 +45,8 @@ const ROLE_NAV: Record<string, { max?: number; prefer: string[]; strict?: boolea
     strict: true,
   },
   cxo: {
-    max: 5,
-    prefer: ["/c/headline", "/c/queue", "/c/whatif", "/c/pack", "/c/changed"],
+    max: 6,
+    prefer: ["/c/headline", "/operations", "/c/queue", "/c/whatif", "/c/pack", "/c/changed"],
     strict: true,
   },
   ciso: {

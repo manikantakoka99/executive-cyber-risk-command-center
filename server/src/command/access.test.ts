@@ -60,7 +60,7 @@ describe("command RBAC", () => {
     assert.equal(hasPermission("ciso", "findings.technical"), true);
     assert.equal(hasPermission("cxo", "findings.read"), false);
     assert.equal(hasPermission("cxo", "findings.technical"), false);
-    assert.equal(hasPermission("cxo", "ops.overview"), false);
+    assert.equal(hasPermission("cxo", "ops.overview"), true);
     assert.equal(hasPermission("cxo", "command.loss"), true);
     assert.equal(hasPermission("domain_analyst", "command.loss"), false);
     assert.equal(canAcceptRisk("cxo"), true);
@@ -80,7 +80,7 @@ describe("command RBAC", () => {
   it("denies CxO findings/technical evidence and allows auditor findings + connectors", () => {
     assert.equal(hasPermission("cxo", "findings.read"), false);
     assert.equal(hasPermission("cxo", "findings.technical"), false);
-    assert.equal(hasPermission("cxo", "ops.overview"), false);
+    assert.equal(hasPermission("cxo", "ops.overview"), true);
     assert.equal(hasPermission("cxo", "domains.technical"), false);
     assert.equal(hasPermission("auditor", "findings.read"), true);
     assert.equal(hasPermission("auditor", "connectors.read"), true);

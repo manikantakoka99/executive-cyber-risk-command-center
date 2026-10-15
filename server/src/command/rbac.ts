@@ -168,7 +168,7 @@ const DWAN_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "policy.read",
     "policy.approve",
   ],
-  // CxO: money + decisions only (Quiet Command / Pep) — no ops overview, findings, or connectors.
+  // CxO: money + decisions + ops overview (decide actions). No findings/connectors/technical evidence.
   cxo: [
     "command.headline",
     "command.loss",
@@ -181,6 +181,7 @@ const DWAN_PERMISSIONS: Record<RoleCode, Permission[]> = {
     "command.pack",
     "command.pack.review",
     "command.pack.approve",
+    "ops.overview",
     "decisions.read",
     "decisions.act",
     "compliance.read",
@@ -522,4 +523,55 @@ export function redactFinding<T extends Record<string, unknown>>(role: string, f
     if (copy.affectedAsset) copy.affectedAsset = "Restricted";
   }
   return copy as T;
+}
+
+/**
+ * CxO may use /operations and decide endpoints, but must not receive findings,
+ * connector payloads, or raw signal/scenario technical identifiers.
+ */
+export function canViewOperationsTechnical(role: string): boolean {
+  return (
+    hasPermission(role, "findings.read") ||
+    hasPermission(role, "findings.technical") ||
+    hasPermission(role, "connectors.read") ||
+    hasPermission(role, "domains.technical")
+  );
+}
+
+export function redactOperationsTechnical<T>(role: string, value: T): T {
+  if (canViewOperationsTechnical(role)) return value;
+  return stripOperationsTechnical(value) as T;
+}
+
+const TECH_ID_KEY =
+  /^(findingId|signalId|connectorId|rawEventId|rawPayload|evidenceReference|correlationKey)$/i;
+const TECH_SECTION_KEY = /^(criticalFindingsOpen|connectors|ingestion|signals)$/i;
+
+function stripOperationsTechnical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripOperationsTechnical);
+  if (!value || typeof value !== "object") return value;
+  const copy: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    // Keep decisionId / scenarioId so Decide actions still work; strip findings/connectors/signals.
+    if (TECH_ID_KEY.test(key) || TECH_SECTION_KEY.test(key)) continue;
+    if (key === "activity" && Array.isArray(child)) {
+      copy[key] = child
+        .filter((row) => {
+          const t = String((row as { activityType?: string })?.activityType ?? "");
+          return !/finding|connector|signal|ingestion/i.test(t);
+        })
+        .map(stripOperationsTechnical);
+      continue;
+    }
+    if (key === "explanation" && typeof child === "string") {
+      // Drop long technical explanations; keep executive titles/actions.
+      continue;
+    }
+    if (key === "riskScenarios") {
+      // CxO keeps executive queue + decide; omit technical scenario inventory.
+      continue;
+    }
+    copy[key] = stripOperationsTechnical(child);
+  }
+  return copy;
 }
