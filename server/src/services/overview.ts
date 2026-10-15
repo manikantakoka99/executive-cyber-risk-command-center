@@ -1,4 +1,5 @@
 import { filterPresentationNoise, overlayOverview } from "../command/demoOverlay.js";
+import { formatImpactSummary, reformatAedInText } from "../lib/money.js";
 import { priorityTierFromScore } from "../risk/bands.js";
 import { query } from "../db.js";
 
@@ -123,12 +124,14 @@ export async function getOverview(orgId: string) {
     escalated_at: Date;
     short_label: string | null;
     financial_exposure_aed: string | null;
+    downtime_cost_per_hour_aed: string | null;
     affected_business_unit: string | null;
     compliance_scope_impact: string | null;
   }>(
     `SELECT ed.decision_id, ed.finding_id, ed.title, ed.priority, ed.risk_summary, ed.impact_summary,
             ed.recommended_action, ed.status, ed.escalated_at, rd.short_label,
-            b.financial_exposure_aed, b.affected_business_unit, b.compliance_scope_impact
+            b.financial_exposure_aed, b.downtime_cost_per_hour_aed,
+            b.affected_business_unit, b.compliance_scope_impact
      FROM executive_decisions ed
      LEFT JOIN risk_findings rf ON rf.finding_id = ed.finding_id
      LEFT JOIN risk_domains rd ON rd.risk_domain_id = rf.risk_domain_id
@@ -321,23 +324,33 @@ export async function getOverview(orgId: string) {
         snapshotAt: d.snapshot_at.toISOString(),
       }))
       .sort((a, b) => b.score - a.score),
-    pendingDecisions: pending.rows.map((d) => ({
-      decisionId: d.decision_id,
-      findingId: d.finding_id,
-      title: d.title,
-      priority: d.priority,
-      riskSummary: d.risk_summary,
-      impactSummary: d.impact_summary,
-      recommendedAction: d.recommended_action,
-      status: d.status,
-      escalatedAt: d.escalated_at.toISOString(),
-      domainLabel: d.short_label,
-      financialExposureAed: d.financial_exposure_aed
+    pendingDecisions: pending.rows.map((d) => {
+      const financialExposureAed = d.financial_exposure_aed
         ? Number(d.financial_exposure_aed)
-        : null,
-      affectedBusinessUnit: d.affected_business_unit,
-      complianceScopeImpact: d.compliance_scope_impact,
-    })),
+        : null;
+      const downtimeCostPerHourAed = d.downtime_cost_per_hour_aed
+        ? Number(d.downtime_cost_per_hour_aed)
+        : null;
+      return {
+        decisionId: d.decision_id,
+        findingId: d.finding_id,
+        title: d.title,
+        priority: d.priority,
+        riskSummary: reformatAedInText(d.risk_summary),
+        impactSummary: formatImpactSummary({
+          text: d.impact_summary,
+          financialExposureAed,
+          downtimeCostPerHourAed,
+        }),
+        recommendedAction: d.recommended_action,
+        status: d.status,
+        escalatedAt: d.escalated_at.toISOString(),
+        domainLabel: d.short_label,
+        financialExposureAed,
+        affectedBusinessUnit: d.affected_business_unit,
+        complianceScopeImpact: d.compliance_scope_impact,
+      };
+    }),
     compliance: complianceRows,
     riskTrend: trend.rows.map((t) => ({
       snapshotAt: t.snapshot_at.toISOString(),

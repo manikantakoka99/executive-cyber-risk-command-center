@@ -7,6 +7,7 @@ import {
   overlayPortfolio,
   overlayTrends,
 } from "../command/demoOverlay.js";
+import { formatAed, formatImpactSummary, reformatAedInText } from "../lib/money.js";
 import {
   BAND_THRESHOLDS,
   bandOf,
@@ -449,7 +450,10 @@ export async function getDecisionCenter(orgId: string) {
             ed.risk_summary, ed.impact_summary, ed.recommended_action, ed.treatment_type::text,
             ed.escalated_at, ed.decided_at, ed.rationale,
             s.tolerance_state::text, ra.residual_risk::text,
-            sbi.financial_exposure_aed::text, sbi.financial_known,
+            sbi.financial_exposure_aed::text AS scenario_financial_exposure_aed,
+            sbi.financial_known,
+            bia.financial_exposure_aed::text AS impact_financial_exposure_aed,
+            bia.downtime_cost_per_hour_aed::text AS impact_downtime_aed,
             tp.target_date,
             CASE WHEN u.first_name IS NOT NULL
               THEN trim(u.first_name || ' ' || COALESCE(u.last_name,'')) END AS owner_name
@@ -457,6 +461,7 @@ export async function getDecisionCenter(orgId: string) {
      LEFT JOIN risk_scenarios s ON s.scenario_id = ed.scenario_id AND s.org_id = ed.org_id
      LEFT JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      LEFT JOIN scenario_business_impacts sbi ON sbi.scenario_impact_id = s.current_impact_id
+     LEFT JOIN business_impact_assessments bia ON bia.impact_id = ed.impact_id
      LEFT JOIN treatment_plans tp ON tp.treatment_plan_id = ed.treatment_plan_id
      LEFT JOIN users u ON u.user_id = COALESCE(ed.decision_owner_user_id, tp.owner_user_id)
      WHERE ed.org_id = $1
@@ -470,26 +475,39 @@ export async function getDecisionCenter(orgId: string) {
     [orgId],
   );
 
-  const map = (r: Record<string, unknown>) => ({
-    decisionId: r.decision_id,
-    scenarioId: r.scenario_id,
-    title: r.title,
-    status: r.status,
-    priority: r.priority,
-    what: r.title,
-    why: r.risk_summary,
-    businessImpact: r.impact_summary,
-    residualRisk: r.residual_risk != null ? Number(r.residual_risk) : null,
-    toleranceState: r.tolerance_state,
-    recommendedTreatment: r.treatment_type ?? r.recommended_action,
-    owner: r.owner_name,
-    dueDate: r.target_date ? String(r.target_date).slice(0, 10) : null,
-    financialExposureAed:
-      r.financial_known && r.financial_exposure_aed != null
-        ? Number(r.financial_exposure_aed)
-        : null,
-    escalatedAt: r.escalated_at,
-  });
+  const map = (r: Record<string, unknown>) => {
+    const impactExposure =
+      r.impact_financial_exposure_aed != null
+        ? Number(r.impact_financial_exposure_aed)
+        : null;
+    const downtime =
+      r.impact_downtime_aed != null ? Number(r.impact_downtime_aed) : null;
+    const scenarioExposure =
+      r.financial_known && r.scenario_financial_exposure_aed != null
+        ? Number(r.scenario_financial_exposure_aed)
+        : null;
+    return {
+      decisionId: r.decision_id,
+      scenarioId: r.scenario_id,
+      title: r.title,
+      status: r.status,
+      priority: r.priority,
+      what: r.title,
+      why: reformatAedInText(String(r.risk_summary ?? "")),
+      businessImpact: formatImpactSummary({
+        text: r.impact_summary != null ? String(r.impact_summary) : null,
+        financialExposureAed: impactExposure ?? scenarioExposure,
+        downtimeCostPerHourAed: downtime,
+      }),
+      residualRisk: r.residual_risk != null ? Number(r.residual_risk) : null,
+      toleranceState: r.tolerance_state,
+      recommendedTreatment: r.treatment_type ?? r.recommended_action,
+      owner: r.owner_name,
+      dueDate: r.target_date ? String(r.target_date).slice(0, 10) : null,
+      financialExposureAed: impactExposure ?? scenarioExposure,
+      escalatedAt: r.escalated_at,
+    };
+  };
 
   const all = rows.map(map);
   const center = {
@@ -1200,7 +1218,11 @@ function renderReportMarkdown(p: any): string {
     `## 2. Enterprise Risk Posture`,
     `- Active scenarios: ${p.enterpriseRiskPosture.portfolio.activeScenarios}`,
     `- Outside tolerance: ${p.enterpriseRiskPosture.portfolio.outsideTolerance}`,
-    `- Known financial exposure (AED): ${p.businessImpact.knownFinancialExposureAed ?? "unknown"}`,
+    `- Known financial exposure: ${
+      p.businessImpact.knownFinancialExposureAed != null
+        ? formatAed(p.businessImpact.knownFinancialExposureAed)
+        : "unknown"
+    }`,
     `- Unknown financial exposure scenarios: ${p.businessImpact.unknownFinancialExposureCount}`,
     `- Note: ${p.enterpriseRiskPosture.note}`,
     ``,
@@ -1213,7 +1235,11 @@ function renderReportMarkdown(p: any): string {
       : ["- None"]),
     ``,
     `## 4. Business Impact`,
-    `- Known exposure AED: ${p.businessImpact.knownFinancialExposureAed ?? "unknown"}`,
+    `- Known exposure: ${
+      p.businessImpact.knownFinancialExposureAed != null
+        ? formatAed(p.businessImpact.knownFinancialExposureAed)
+        : "unknown"
+    }`,
     `- Unknown financial count: ${p.businessImpact.unknownFinancialExposureCount}`,
     ``,
     `## 5. Risk Trend`,

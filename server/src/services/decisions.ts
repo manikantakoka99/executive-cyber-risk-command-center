@@ -1,4 +1,5 @@
 import { query } from "../db.js";
+import { formatImpactSummary, reformatAedInText } from "../lib/money.js";
 import type { TenantContext } from "../middleware/tenant.js";
 
 const ACTION_STATUS: Record<
@@ -27,7 +28,8 @@ export async function listDecisions(orgId: string, status?: string) {
   }
   const { rows } = await query(
     `SELECT ed.*, rd.short_label AS domain_label,
-            b.financial_exposure_aed, b.affected_business_unit, b.compliance_scope_impact
+            b.financial_exposure_aed, b.downtime_cost_per_hour_aed,
+            b.affected_business_unit, b.compliance_scope_impact
      FROM executive_decisions ed
      LEFT JOIN risk_findings rf ON rf.finding_id = ed.finding_id
      LEFT JOIN risk_domains rd ON rd.risk_domain_id = rf.risk_domain_id
@@ -93,23 +95,31 @@ export async function getDecision(orgId: string, decisionId: string) {
 }
 
 function mapDecision(r: Record<string, unknown>) {
+  const financialExposureAed = r.financial_exposure_aed
+    ? Number(r.financial_exposure_aed)
+    : null;
+  const downtimeCostPerHourAed = r.downtime_cost_per_hour_aed
+    ? Number(r.downtime_cost_per_hour_aed)
+    : null;
   return {
     decisionId: r.decision_id,
     title: r.title,
     priority: r.priority,
-    riskSummary: r.risk_summary,
-    impactSummary: r.impact_summary,
+    riskSummary: reformatAedInText(String(r.risk_summary ?? "")),
+    impactSummary: formatImpactSummary({
+      text: r.impact_summary != null ? String(r.impact_summary) : null,
+      financialExposureAed,
+      downtimeCostPerHourAed,
+    }),
     recommendedAction: r.recommended_action,
     status: r.status,
     escalatedAt: (r.escalated_at as Date).toISOString(),
     decidedAt: r.decided_at ? (r.decided_at as Date).toISOString() : null,
-    decisionNotes: r.decision_notes,
+    decisionNotes: r.decision_notes != null ? reformatAedInText(String(r.decision_notes)) : null,
     domainLabel: r.domain_label ?? null,
     findingId: r.finding_id,
     impactId: r.impact_id,
-    financialExposureAed: r.financial_exposure_aed
-      ? Number(r.financial_exposure_aed)
-      : null,
+    financialExposureAed,
     affectedBusinessUnit: r.affected_business_unit ?? null,
     complianceScopeImpact: r.compliance_scope_impact ?? null,
   };

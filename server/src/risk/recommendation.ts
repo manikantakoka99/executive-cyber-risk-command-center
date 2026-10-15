@@ -1,4 +1,5 @@
 import { query } from "../db.js";
+import { formatAed } from "../lib/money.js";
 import { BAND_THRESHOLDS, bandOf } from "./bands.js";
 import { getScenarioImpact } from "./scenarioImpact.js";
 
@@ -116,8 +117,8 @@ export async function generateRecommendation(orgId: string, scenarioId: string) 
   const rationale = [
     `Scenario "${scen[0].title}".`,
     `Residual risk ${residual}/100; tolerance ${scen[0].tolerance_state}.`,
-    impact?.financialKnown
-      ? `Financial exposure AED ${impact.financialExposureAed}.`
+    impact?.financialKnown && impact.financialExposureAed != null
+      ? `Financial exposure ${formatAed(impact.financialExposureAed)}.`
       : "Financial exposure unknown.",
     `Recommended treatment: ${treatment}.`,
     `Reasons: ${reasonCodes.join(", ") || "WITHIN_NORMAL_BAND"}.`,

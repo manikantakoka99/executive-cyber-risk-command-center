@@ -11,7 +11,8 @@
     "demo:reset": "tsx scripts/ecc_demo.ts reset",
     "demo:seed": "tsx scripts/ecc_demo.ts seed",
     "demo:verify": "tsx scripts/ecc_demo.ts verify",
-    "demo:purge-fixtures": "tsx scripts/purge_demo_fixtures.ts"
+    "demo:purge-fixtures": "tsx scripts/purge_demo_fixtures.ts",
+    "demo:format-aed": "tsx scripts/format_impact_summaries.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",

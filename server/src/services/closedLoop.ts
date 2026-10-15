@@ -1,4 +1,5 @@
 import { query, pool } from "../db.js";
+import { formatAed, formatImpactSummary, reformatAedInText } from "../lib/money.js";
 import type { TenantContext } from "../middleware/tenant.js";
 import { recalculateScenario } from "../risk/assessment.js";
 import {
@@ -292,10 +293,11 @@ export async function createScenarioDecision(
       scen[0].title,
       scen[0].priority ?? rec?.recommendedPriority ?? "medium",
       scen[0].explanation?.slice(0, 500) ?? scen[0].title,
-      impact?.explanation ??
-        (impact?.financialKnown
-          ? `Financial exposure AED ${impact.financialExposureAed}`
-          : "Financial exposure unknown"),
+      impact?.explanation
+        ? reformatAedInText(impact.explanation)
+        : impact?.financialKnown && impact.financialExposureAed != null
+          ? `Financial exposure ${formatAed(impact.financialExposureAed)}`
+          : "Financial exposure unknown",
       rec?.recommendedAction ?? "Review scenario",
       outcome.status,
       tenant.userId,
@@ -398,8 +400,10 @@ function mapScenarioDecision(r: Record<string, unknown>) {
     priority: r.priority,
     treatmentType: r.treatment_type,
     rationale: r.rationale ?? r.decision_notes,
-    riskSummary: r.risk_summary,
-    impactSummary: r.impact_summary,
+    riskSummary: reformatAedInText(String(r.risk_summary ?? "")),
+    impactSummary: formatImpactSummary({
+      text: r.impact_summary != null ? String(r.impact_summary) : null,
+    }),
     recommendedAction: r.recommended_action,
     decidedAt: r.decided_at,
     ownerName:

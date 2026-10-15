@@ -238,6 +238,53 @@ def assign_user_roles(cur, user_rows: list[dict[str, Any]]) -> int:
     return n
 
 
+def format_aed(n: float | int | Decimal | None) -> str | None:
+    """Match server/src/lib/money.ts: AED x.xM ≥1M, AED xxxK ≥1K."""
+    if n is None:
+        return None
+    amount = float(n)
+    if amount != amount:  # NaN
+        return None
+    abs_n = abs(amount)
+    if abs_n >= 1_000_000:
+        return f"AED {amount / 1_000_000:.1f}M"
+    if abs_n >= 1_000:
+        return f"AED {round(amount / 1_000)}K"
+    return f"AED {round(amount)}"
+
+
+def format_impact_summaries(cur) -> int:
+    """Rewrite executive_decisions.impact_summary from linked numeric exposures."""
+    cur.execute(
+        """
+        SELECT ed.decision_id,
+               b.financial_exposure_aed,
+               b.downtime_cost_per_hour_aed
+        FROM executive_decisions ed
+        JOIN business_impact_assessments b ON b.impact_id = ed.impact_id
+        WHERE b.financial_exposure_aed IS NOT NULL
+           OR b.downtime_cost_per_hour_aed IS NOT NULL
+        """
+    )
+    updated = 0
+    for row in cur.fetchall():
+        parts: list[str] = []
+        exp = format_aed(row[1])
+        down = format_aed(row[2])
+        if exp:
+            parts.append(f"{exp} exposure")
+        if down:
+            parts.append(f"downtime ~{down}/hr")
+        if not parts:
+            continue
+        cur.execute(
+            "UPDATE executive_decisions SET impact_summary = %s WHERE decision_id = %s",
+            (", ".join(parts), row[0]),
+        )
+        updated += cur.rowcount
+    return updated
+
+
 def backfill_assets_from_findings(cur) -> int:
     cur.execute(
         """
@@ -327,6 +374,9 @@ def main() -> int:
 
             summary["assets_backfill"] = backfill_assets_from_findings(cur)
             print(f"  assets_backfill: {summary['assets_backfill']}")
+
+            summary["impact_summary_format"] = format_impact_summaries(cur)
+            print(f"  impact_summary_format: {summary['impact_summary_format']}")
 
             # Phase 2: sample workbook has 12 domains — restore controlled unmapped domain
             cur.execute(

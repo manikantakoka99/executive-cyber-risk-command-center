@@ -20,6 +20,8 @@ services:
       - ./db/dwan_schema.sql:/docker-entrypoint-initdb.d/01_dwan_schema.sql:ro
       - ./db/docker-init/02_app_compat.sql:/docker-entrypoint-initdb.d/02_app_compat.sql:ro
       - ./db/docker-init/03_seed_tenants.sql:/docker-entrypoint-initdb.d/03_seed_tenants.sql:ro
+      # Formats AED chip text after workbook import when present; no-op on bare tenant seed.
+      - ./db/docker-init/04_format_aed_impact_summaries.sql:/docker-entrypoint-initdb.d/04_format_aed_impact_summaries.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ecc -d cyber_command_center"]
       interval: 3s

@@ -1,4 +1,5 @@
 import { query } from "../db.js";
+import { formatAed, formatImpactSummary, reformatAedInText } from "../lib/money.js";
 
 const OPEN = ["open", "acknowledged", "in_remediation"];
 
@@ -64,7 +65,7 @@ export async function getDomain(orgId: string, domainId: string) {
   const decisions = await query(
     `SELECT ed.decision_id, ed.title, ed.priority, ed.status, ed.recommended_action,
             ed.risk_summary, ed.impact_summary, ed.escalated_at,
-            b.financial_exposure_aed, b.compliance_scope_impact
+            b.financial_exposure_aed, b.downtime_cost_per_hour_aed, b.compliance_scope_impact
      FROM executive_decisions ed
      JOIN risk_findings f ON f.finding_id = ed.finding_id
      LEFT JOIN business_impact_assessments b ON b.impact_id = ed.impact_id
@@ -126,20 +127,30 @@ export async function getDomain(orgId: string, domainId: string) {
       complianceScopeImpact: f.compliance_scope_impact,
     })),
     financialExposureAed: exposureSum,
-    decisions: decisions.rows.map((d) => ({
-      decisionId: d.decision_id,
-      title: d.title,
-      priority: d.priority,
-      status: d.status,
-      recommendedAction: d.recommended_action,
-      riskSummary: d.risk_summary,
-      impactSummary: d.impact_summary,
-      escalatedAt: d.escalated_at.toISOString(),
-      financialExposureAed: d.financial_exposure_aed
+    decisions: decisions.rows.map((d) => {
+      const financialExposureAed = d.financial_exposure_aed
         ? Number(d.financial_exposure_aed)
-        : null,
-      complianceScopeImpact: d.compliance_scope_impact,
-    })),
+        : null;
+      const downtimeCostPerHourAed = d.downtime_cost_per_hour_aed
+        ? Number(d.downtime_cost_per_hour_aed)
+        : null;
+      return {
+        decisionId: d.decision_id,
+        title: d.title,
+        priority: d.priority,
+        status: d.status,
+        recommendedAction: d.recommended_action,
+        riskSummary: reformatAedInText(String(d.risk_summary ?? "")),
+        impactSummary: formatImpactSummary({
+          text: d.impact_summary != null ? String(d.impact_summary) : null,
+          financialExposureAed,
+          downtimeCostPerHourAed,
+        }),
+        escalatedAt: d.escalated_at.toISOString(),
+        financialExposureAed,
+        complianceScopeImpact: d.compliance_scope_impact,
+      };
+    }),
     activity: activity.rows.map((a) => ({
       activityId: a.activity_id,
       activityType: a.activity_type,
@@ -325,7 +336,7 @@ export async function generateReport(
     `- Cyber risk score: **${overview.enterpriseRisk?.score ?? "n/a"}** (${overview.enterpriseRisk?.severity ?? "n/a"})`,
     `- Delta vs prior snapshot: ${overview.enterpriseRisk?.deltaVsPrior ?? "n/a"}`,
     `- Driver: ${overview.enterpriseRisk?.driverSummary ?? "—"}`,
-    `- Business impact exposure: **AED ${overview.businessImpactExposureAed.toLocaleString("en-AE")}**`,
+    `- Business impact exposure: **${formatAed(overview.businessImpactExposureAed)}**`,
     `- Compliance posture: **${overview.compliancePosturePct ?? "n/a"}%**`,
     `- Decisions awaiting CxO: **${overview.decisionsAwaitingCxo}**`,
     `- Open critical findings: **${overview.criticalFindingsOpen}**`,

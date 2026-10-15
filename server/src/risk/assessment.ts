@@ -1,4 +1,5 @@
 import { query } from "../db.js";
+import { formatAed } from "../lib/money.js";
 import { loadActivePolicy, loadToleranceMax } from "./policy.js";
 import {
   buildExplanation,
@@ -170,7 +171,7 @@ export async function recalculateScenario(orgId: string, scenarioId: string) {
       label: "Financial",
       raw: hasFinancial ? financialRaw : 0,
       note: hasFinancial
-        ? `Linked AED exposure present (max ${Math.max(...financialVals)})`
+        ? `Linked AED exposure present (max ${formatAed(Math.max(...financialVals))})`
         : "Financial exposure unknown — not invented",
     },
     {
