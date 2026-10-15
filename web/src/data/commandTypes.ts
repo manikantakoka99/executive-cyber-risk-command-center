@@ -127,6 +127,8 @@ export interface QueueView {
   title: string;
   lede: string;
   canAct: boolean;
+  /** CxO + Risk Lead (server canAcceptRisk); independent of Decide/canAct */
+  canAccept?: boolean;
   items: {
     id: string;
     domainId: string;

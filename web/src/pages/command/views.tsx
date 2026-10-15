@@ -519,8 +519,16 @@ export function QueueView({
         />
         <article className="card kpi">
           <p className="lbl">Authority</p>
-          <p className="big">{data.canAct ? "Act" : "View"}</p>
-          <p className="note">{data.canAct ? "Approvals enabled for this role" : "Read-only for this persona"}</p>
+          <p className="big">{data.canAct || data.canAccept ? "Act" : "View"}</p>
+          <p className="note">
+            {data.canAct && data.canAccept
+              ? "Approve and accept risk"
+              : data.canAct
+                ? "Approvals enabled for this role"
+                : data.canAccept
+                  ? "Accept risk enabled (Decide stays with CxO/CISO)"
+                  : "Read-only for this persona"}
+          </p>
         </article>
       </div>
       {data.items.length === 0 && (
@@ -589,7 +597,7 @@ export function QueueView({
                   <button
                     className="btn sm"
                     type="button"
-                    disabled={!data.canAct}
+                    disabled={!(data.canAccept ?? data.canAct)}
                     onClick={() => onAcceptFor(item.id)}
                   >
                     Accept risk
@@ -653,6 +661,7 @@ function AcceptForm({
           <option>CFO</option>
           <option>COO</option>
           <option>CEO</option>
+          <option>Risk Lead</option>
         </select>
       </label>
       <label>
@@ -661,6 +670,7 @@ function AcceptForm({
           <option value={30}>30 days</option>
           <option value={90}>90 days (default)</option>
           <option value={180}>180 days</option>
+          <option value={365}>365 days (non-Critical max)</option>
         </select>
       </label>
       <div className="acts">
