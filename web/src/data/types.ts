@@ -59,7 +59,7 @@ export interface OverviewResponse {
     }>;
   };
   executiveActionQueue?: Array<{
-    scenarioId: string;
+    scenarioId: string | null;
     title: string;
     priority: string | null;
     toleranceState: string;
@@ -101,6 +101,8 @@ export interface PendingDecision {
   financialExposureAed?: number | null;
   affectedBusinessUnit?: string | null;
   complianceScopeImpact?: string | null;
+  /** Canonical placeholder — not a stored executive_decisions row. */
+  synthetic?: boolean;
 }
 
 export interface ComplianceRow {

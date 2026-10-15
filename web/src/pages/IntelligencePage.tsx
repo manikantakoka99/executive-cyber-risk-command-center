@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../lib/api";
-import { formatAed, relativeTime, severityClass } from "../lib/format";
+import { EmptyState } from "../components/EmptyState";
+import { useAppState } from "../context/AppState";
+import { ApiError, api } from "../lib/api";
+import { forbiddenReason, formatAed, relativeTime, severityClass } from "../lib/format";
 
 export function IntelligencePage() {
+  const { me } = useAppState();
   const [portfolio, setPortfolio] = useState<any>(null);
   const [briefing, setBriefing] = useState<any>(null);
   const [trends, setTrends] = useState<any>(null);
@@ -14,6 +17,7 @@ export function IntelligencePage() {
   const [connectors, setConnectors] = useState<any>(null);
   const [changes, setChanges] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reportMsg, setReportMsg] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -54,8 +58,12 @@ export function IntelligencePage() {
         setConnectors(cat);
         setChanges(mc.changes ?? []);
         setError(null);
-      } catch (e: any) {
-        if (!cancelled) setError(e.message);
+        setForbidden(false);
+      } catch (e: unknown) {
+        if (cancelled) return;
+        const denied = e instanceof ApiError && e.status === 403;
+        setForbidden(denied);
+        setError(e instanceof Error ? e.message : "Intelligence unavailable");
       }
     })();
     return () => {
@@ -80,6 +88,16 @@ export function IntelligencePage() {
     }
   };
 
+  if (forbidden && !portfolio) {
+    return (
+      <EmptyState
+        code="403"
+        title="Outside this role"
+        reason={forbiddenReason(me?.role)}
+        home={me?.home ?? "/"}
+      />
+    );
+  }
   if (error && !portfolio) {
     return (
       <div className="page">

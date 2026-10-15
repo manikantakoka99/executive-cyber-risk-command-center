@@ -351,7 +351,9 @@ export function OverviewPage({
               </ol>
 
               <div className="di-actions">
-                {canApprove ? (
+                {d.synthetic ? (
+                  <span className="role-hint">Awaiting executive action</span>
+                ) : canApprove ? (
                   <button
                     type="button"
                     className="di-btn approve"
@@ -369,7 +371,7 @@ export function OverviewPage({
                     approve requires CxO.
                   </span>
                 )}
-                {canRequestInfo && (
+                {canRequestInfo && !d.synthetic && (
                   <button
                     type="button"
                     className="di-btn defer"
@@ -382,9 +384,11 @@ export function OverviewPage({
                       : "Request More Information"}
                   </button>
                 )}
-                <Link className="di-btn defer" to={`/decisions/${d.decisionId}`}>
-                  Full history
-                </Link>
+                {!d.synthetic && (
+                  <Link className="di-btn defer" to={`/decisions/${d.decisionId}`}>
+                    Full history
+                  </Link>
+                )}
                 {!hideTechnical && d.findingId && (
                   <Link className="di-btn defer" to={`/findings/${d.findingId}`}>
                     View finding

@@ -97,6 +97,12 @@ export function decisionStatusBadge(status: string): string {
   }
 }
 
+/** Styled 403 copy. Always a role display name, never the raw role id. */
+export function forbiddenReason(role: string | null | undefined): string {
+  const label = role ? roleLabel(role) : "This persona";
+  return `${label} cannot open this workspace.`;
+}
+
 export function roleLabel(role: string): string {
   switch (role) {
     case "cxo":

@@ -1,4 +1,5 @@
 import { filterPresentationNoise, overlayOverview } from "../command/demoOverlay.js";
+import { sqlExcludeTestScenario, sqlExcludeTestText } from "../command/testFixtures.js";
 import { formatImpactSummary, reformatAedInText } from "../lib/money.js";
 import { priorityTierFromScore } from "../risk/bands.js";
 import { query } from "../db.js";
@@ -168,6 +169,7 @@ export async function getOverview(orgId: string) {
      FROM command_center_activity a
      LEFT JOIN risk_domains d ON d.risk_domain_id = a.risk_domain_id
      WHERE a.org_id = $1
+       AND ${sqlExcludeTestText("a.summary")}
      ORDER BY a.occurred_at DESC
      LIMIT 12`,
     [orgId],
@@ -210,7 +212,7 @@ export async function getOverview(orgId: string) {
      LEFT JOIN users u ON u.user_id = tp.owner_user_id
      WHERE s.org_id = $1
        AND s.status NOT IN ('closed')
-       AND COALESCE(s.scenario_type, '') <> 'isolated_test'
+       AND ${sqlExcludeTestScenario("s")}
      ORDER BY COALESCE(s.priority_score, 0) DESC, s.last_seen_at DESC NULLS LAST
      LIMIT 8`,
     [orgId],
@@ -247,7 +249,7 @@ export async function getOverview(orgId: string) {
      LEFT JOIN users u ON u.user_id = tp.owner_user_id
      WHERE s.org_id = $1
        AND s.status NOT IN ('closed','accepted','mitigated')
-       AND COALESCE(s.scenario_type, '') <> 'isolated_test'
+       AND ${sqlExcludeTestScenario("s")}
        AND (
          s.decision_required = true
          OR s.tolerance_state = 'outside'
@@ -272,7 +274,7 @@ export async function getOverview(orgId: string) {
      FROM risk_scenarios
      WHERE org_id = $1
        AND status NOT IN ('closed')
-       AND COALESCE(scenario_type, '') <> 'isolated_test'`,
+       AND ${sqlExcludeTestScenario("risk_scenarios")}`,
     [orgId],
   );
 

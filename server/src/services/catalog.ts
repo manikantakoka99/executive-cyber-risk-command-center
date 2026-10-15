@@ -1,4 +1,5 @@
 import { query } from "../db.js";
+import { sqlExcludeTestFinding, sqlExcludeTestText } from "../command/testFixtures.js";
 import { formatAed, formatImpactSummary, reformatAedInText } from "../lib/money.js";
 
 const OPEN = ["open", "acknowledged", "in_remediation"];
@@ -55,6 +56,7 @@ export async function getDomain(orgId: string, domainId: string) {
      FROM risk_findings f
      LEFT JOIN business_impact_assessments b ON b.finding_id = f.finding_id
      WHERE f.org_id = $1 AND f.risk_domain_id = $2
+       AND ${sqlExcludeTestFinding("f")}
      ORDER BY CASE f.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
               f.detected_at DESC`,
     [orgId, domainId],
@@ -81,6 +83,7 @@ export async function getDomain(orgId: string, domainId: string) {
     `SELECT activity_id, activity_type, summary, occurred_at
      FROM command_center_activity
      WHERE org_id = $1 AND risk_domain_id = $2
+       AND ${sqlExcludeTestText("summary")}
      ORDER BY occurred_at DESC
      LIMIT 8`,
     [orgId, domainId],
@@ -168,6 +171,7 @@ export async function listFindings(orgId: string) {
      JOIN risk_domains d ON d.risk_domain_id = f.risk_domain_id
      LEFT JOIN business_impact_assessments b ON b.finding_id = f.finding_id
      WHERE f.org_id = $1
+       AND ${sqlExcludeTestFinding("f")}
      ORDER BY CASE f.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
               f.detected_at DESC`,
     [orgId],
@@ -279,6 +283,7 @@ export async function getActivity(orgId: string, limit = 50) {
      FROM command_center_activity a
      LEFT JOIN risk_domains d ON d.risk_domain_id = a.risk_domain_id
      WHERE a.org_id = $1
+       AND ${sqlExcludeTestText("a.summary")}
      ORDER BY a.occurred_at DESC
      LIMIT $2`,
     [orgId, limit],

@@ -9,6 +9,11 @@ import {
 } from "../command/demoOverlay.js";
 import { formatAed, formatImpactSummary, reformatAedInText } from "../lib/money.js";
 import {
+  isSeededTestText,
+  scenarioSetFromRisks,
+  sqlExcludeTestScenario,
+} from "../command/testFixtures.js";
+import {
   BAND_THRESHOLDS,
   bandOf,
   priorityTierFromScore,
@@ -30,7 +35,7 @@ export type PortfolioFilters = {
 /** Enterprise portfolio — never averages domain scores. */
 export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}) {
   const params: unknown[] = [orgId];
-  const activeWhere = ["s.org_id = $1"];
+  const activeWhere = ["s.org_id = $1", sqlExcludeTestScenario("s")];
 
   if (filters.businessUnit) {
     params.push(filters.businessUnit);
@@ -153,7 +158,7 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
      WHERE ${activeWhere.join(" AND ")}
        AND s.status NOT IN ('closed')
      ORDER BY COALESCE(s.priority_score, 0) DESC, COALESCE(ra.residual_risk, 0) DESC
-     LIMIT 15`,
+     LIMIT 100`,
     params,
   );
 
@@ -197,6 +202,7 @@ export async function getPortfolio(orgId: string, filters: PortfolioFilters = {}
     asOf: new Date().toISOString(),
     methodology: "Portfolio aggregates Risk Scenarios only — does not average domain scores.",
     filters,
+    scenarioSet: scenarioSetFromRisks(topRisks),
     totals: {
       activeScenarios: Number(s?.active ?? 0),
       byPriority: scenarioByPriority,
@@ -279,8 +285,10 @@ export async function getTrends(orgId: string, window = "30d") {
        COUNT(*) FILTER (
          WHERE status = 'accepted' AND updated_at >= now() - ($2::text || ' days')::interval
        )::text AS accepted_count,
-       COUNT(*) FILTER (WHERE tolerance_state = 'outside' AND status NOT IN ('closed'))::text AS outside_now
-     FROM risk_scenarios WHERE org_id = $1`,
+       COUNT(*) FILTER (WHERE s.tolerance_state = 'outside' AND s.status NOT IN ('closed'))::text AS outside_now
+     FROM risk_scenarios s
+     WHERE s.org_id = $1
+       AND ${sqlExcludeTestScenario("s")}`,
     [orgId, String(days)],
   );
 
@@ -343,10 +351,12 @@ export async function getHotspots(orgId: string) {
     `SELECT COUNT(*)::text AS n FROM risk_scenarios s
      JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      WHERE s.org_id = $1 AND s.status NOT IN ('closed')
+       AND ${sqlExcludeTestScenario("s")}
        AND (${highResidual})`,
     [orgId],
   );
-  const denom = Math.max(1, Number(highTotal[0]?.n ?? 0));
+  const rawDenom = Number(highTotal[0]?.n ?? 0);
+  const denom = Math.max(1, rawDenom);
 
   const { rows: byBu } = await query<{
     business_unit_id: string | null;
@@ -358,6 +368,7 @@ export async function getHotspots(orgId: string) {
      LEFT JOIN business_units bu ON bu.business_unit_id = s.business_unit_id AND bu.org_id = s.org_id
      JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      WHERE s.org_id = $1 AND s.status NOT IN ('closed')
+       AND ${sqlExcludeTestScenario("s")}
        AND (${highResidual})
      GROUP BY 1, 2 ORDER BY COUNT(*) DESC LIMIT 8`,
     [orgId],
@@ -376,6 +387,7 @@ export async function getHotspots(orgId: string) {
      LEFT JOIN business_processes bp
        ON bp.business_process_id = s.business_process_id AND bp.org_id = s.org_id
      WHERE s.org_id = $1 AND s.status NOT IN ('closed')
+       AND ${sqlExcludeTestScenario("s")}
      GROUP BY 1, 2
      HAVING COUNT(*) > 0
      ORDER BY COUNT(*) FILTER (WHERE s.tolerance_state = 'outside') DESC, COUNT(*) DESC
@@ -394,6 +406,7 @@ export async function getHotspots(orgId: string) {
      JOIN risk_scenarios s ON s.scenario_id = rd.scenario_id AND s.org_id = rd.org_id
      LEFT JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      WHERE rd.org_id = $1 AND s.status NOT IN ('closed')
+       AND ${sqlExcludeTestScenario("s")}
        AND ra.residual_risk >= ${BAND_THRESHOLDS.highMin}
      GROUP BY 1, 2 ORDER BY COUNT(*) DESC LIMIT 8`,
     [orgId],
@@ -404,7 +417,7 @@ export async function getHotspots(orgId: string) {
     const pct = Math.round((Number(byBu[0].n) / denom) * 100);
     const name = byBu[0].name ?? "unassigned business unit";
     statements.push(
-      `${pct}% of high residual risk scenarios are concentrated in ${name} (denominator: ${denom} high/critical scenarios).`,
+      `${pct}% of high residual risk scenarios are concentrated in ${name} (denominator: ${rawDenom} high/critical scenarios).`,
     );
   }
   for (const bp of byBp.filter(
@@ -420,7 +433,7 @@ export async function getHotspots(orgId: string) {
 
   return {
     asOf: new Date().toISOString(),
-    denominatorHighCritical: denom,
+    denominatorHighCritical: rawDenom,
     statements,
     byBusinessUnit: byBu.map((r) => ({
       businessUnitId: r.business_unit_id,
@@ -618,7 +631,9 @@ export async function getControlPosture(orgId: string) {
   const { rows } = await query<{ effectiveness: string; n: string }>(
     `SELECT COALESCE(sc.effectiveness::text, 'unknown') AS effectiveness, COUNT(*)::text AS n
      FROM scenario_controls sc
+     JOIN risk_scenarios s ON s.scenario_id = sc.scenario_id AND s.org_id = sc.org_id
      WHERE sc.org_id = $1
+       AND ${sqlExcludeTestScenario("s")}
      GROUP BY 1`,
     [orgId],
   );
@@ -633,6 +648,7 @@ export async function getControlPosture(orgId: string) {
      WHERE sc.org_id = $1
        AND ra.residual_risk >= ${BAND_THRESHOLDS.highMin}
        AND s.status NOT IN ('closed')
+       AND ${sqlExcludeTestScenario("s")}
      ORDER BY COALESCE(ra.residual_risk, 0) DESC
      LIMIT 40`,
     [orgId],
@@ -711,6 +727,7 @@ export async function getBusinessProcessView(orgId: string, processId: string) {
      JOIN scenario_controls sc ON sc.scenario_id = s.scenario_id AND sc.org_id = s.org_id
      JOIN controls c ON c.control_id = sc.control_id
      WHERE s.org_id=$1 AND s.business_process_id=$2
+       AND ${sqlExcludeTestScenario("s")}
        AND sc.effectiveness IN ('ineffective','partially_effective','unknown')`,
     [orgId, processId],
   );
@@ -743,7 +760,8 @@ export async function detectMaterialChanges(orgId: string) {
      LEFT JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
      WHERE s.org_id=$1 AND s.tolerance_state='outside'
        AND s.status NOT IN ('closed','accepted')
-       AND s.updated_at >= now() - interval '7 days'`,
+       AND s.updated_at >= now() - interval '7 days'
+       AND ${sqlExcludeTestScenario("s")}`,
     [orgId],
   );
   for (const s of outside) {
@@ -759,9 +777,10 @@ export async function detectMaterialChanges(orgId: string) {
   }
 
   const { rows: criticalNew } = await query<{ scenario_id: string; title: string }>(
-    `SELECT scenario_id, title FROM risk_scenarios
-     WHERE org_id=$1 AND priority='critical'
-       AND first_seen_at >= now() - interval '7 days'`,
+    `SELECT scenario_id, title FROM risk_scenarios s
+     WHERE s.org_id=$1 AND s.priority='critical'
+       AND s.first_seen_at >= now() - interval '7 days'
+       AND ${sqlExcludeTestScenario("s")}`,
     [orgId],
   );
   for (const s of criticalNew) {
@@ -812,7 +831,8 @@ export async function detectMaterialChanges(orgId: string) {
     `SELECT s.scenario_id, s.title, ra.residual_risk::text
      FROM risk_scenarios s
      LEFT JOIN risk_assessments ra ON ra.risk_assessment_id = s.current_assessment_id
-     WHERE s.org_id=$1 AND s.velocity='increasing' AND s.status NOT IN ('closed')`,
+     WHERE s.org_id=$1 AND s.velocity='increasing' AND s.status NOT IN ('closed')
+       AND ${sqlExcludeTestScenario("s")}`,
     [orgId],
   );
   for (const s of increasing) {
@@ -839,6 +859,7 @@ export async function detectMaterialChanges(orgId: string) {
     [orgId],
   );
   for (const c of ineffective.slice(0, 20)) {
+    if (isSeededTestText(c.name)) continue;
     const id = await upsertMaterialChange(orgId, {
       reasonCode: "CONTROL_INEFFECTIVE",
       severity: "high",
@@ -897,16 +918,18 @@ export async function listMaterialChanges(orgId: string, limit = 50) {
      ORDER BY detected_at DESC LIMIT $2`,
     [orgId, limit],
   );
-  return rows.map((r) => ({
-    materialChangeId: r.material_change_id,
-    reasonCode: r.reason_code,
-    severity: r.severity,
-    entityType: r.entity_type,
-    entityId: r.entity_id,
-    summary: r.summary,
-    details: r.details,
-    detectedAt: r.detected_at,
-  }));
+  return rows
+    .map((r) => ({
+      materialChangeId: r.material_change_id,
+      reasonCode: r.reason_code,
+      severity: r.severity,
+      entityType: r.entity_type,
+      entityId: r.entity_id,
+      summary: r.summary,
+      details: r.details,
+      detectedAt: r.detected_at,
+    }))
+    .filter((r) => !isSeededTestText(String(r.summary ?? "")));
 }
 
 export async function getExecutiveBriefing(orgId: string) {
@@ -920,7 +943,11 @@ export async function getExecutiveBriefing(orgId: string) {
       detectMaterialChanges(orgId),
     ]);
 
-  const outside = portfolio.totals.outsideTolerance;
+  const outside =
+    portfolio.scenarioSet?.outsideTolerance ??
+    (portfolio.topRisks as Array<{ toleranceState?: string }>).filter(
+      (r) => r.toleranceState === "outside",
+    ).length;
   const increasing = portfolio.totals.increasing;
   const awaiting = decisions.awaitingAction.length;
   const residualBand =

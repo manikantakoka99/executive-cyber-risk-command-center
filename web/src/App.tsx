@@ -4,7 +4,7 @@ import { Shell } from "./components/Shell";
 import { AppProvider, useAppState } from "./context/AppState";
 import { ThemeProvider } from "./context/Theme";
 import { api } from "./lib/api";
-import { roleLabel } from "./lib/format";
+import { forbiddenReason } from "./lib/format";
 import type { OverviewResponse } from "./data/types";
 import { AdminPage } from "./pages/AdminPage";
 import { CommandCenter } from "./pages/command/CommandCenter";
@@ -46,7 +46,7 @@ function Permit({
       <EmptyState
         code="403"
         title="Outside this role"
-        reason={`${me?.title ?? (me?.role ? roleLabel(me.role) : "This persona")} cannot open this workspace.`}
+        reason={forbiddenReason(me?.role)}
         home={me?.home ?? "/"}
       />
     );
