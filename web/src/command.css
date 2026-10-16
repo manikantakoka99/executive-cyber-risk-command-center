@@ -447,7 +447,10 @@
   gap: 6px;
   border-radius: var(--radius);
   padding: 4px 8px;
-  font: 600 12px/1.2 var(--font);
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: max(12px, var(--font-size-min));
+  line-height: 1.2;
   letter-spacing: 0.02em;
 }
 .chip::before {
@@ -909,7 +912,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 }
 
 .delta {
-  font: 650 12px/1.2 var(--mono);
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: max(12px, var(--font-size-min));
+  line-height: 1.2;
   min-height: 12px;
   padding: 4px 8px;
   border-radius: var(--radius-pill);
@@ -1073,3 +1079,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   letter-spacing: 0.06em !important;
 }
 .card { border-radius: 8px; padding: 24px; }
+
+/* Chips, badges, and delta pills stay at or above the type token. */
+.chip,
+.delta,
+.badge,
+.dc-status,
+.role-chip,
+.section-title .count {
+  font-size: max(12px, var(--font-size-min));
+}

@@ -14,21 +14,23 @@ sudo dnf install -y git nodejs npm docker docker-compose-plugin
 # or: sudo dnf install -y git nodejs npm podman podman-compose
 sudo systemctl enable --now docker   # skip if using rootless podman
 
-# 1) Clone this branch
+# 1) Clone the PR branch (until it is merged)
 git clone https://github.com/manikantakoka99/executive-cyber-risk-command-center.git
 cd executive-cyber-risk-command-center
-git checkout cursor/ecc-command-rbac-a090
+git checkout cursor/hide-seeded-feeds-94b5
 cp .env.example .env
 
 # 2) Postgres only (service name is `db` in docker-compose.yml)
-#    First boot applies db/dwan_schema.sql + docker-init seed (Al Dhabi + Falcon).
+#    An empty volume applies schema.sql, migrations 001–008, the sample workbook,
+#    AED formatting, then the tenant seed. The first boot builds ecc-postgres:16.
+docker compose down -v
 docker compose up -d db
 docker compose exec -T db pg_isready -U ecc -d cyber_command_center
 
-# 3) API (:4000) — install, optional demo seed, then watch mode
+# 3) API (:4000) — install, demo seed, then watch mode
 cd server
 npm install
-npm run demo:seed          # rich Al Dhabi demo scenarios (idempotent-ish)
+npm run demo:seed          # four Al Dhabi demo scenarios
 npm run dev                # http://127.0.0.1:4000/health
 
 # 4) Web (:5173) — new terminal; Vite proxies /api → :4000
@@ -43,11 +45,15 @@ npm run dev                # http://127.0.0.1:5173
 | API | http://127.0.0.1:4000/health |
 | Postgres | `postgresql://ecc:ecc_dev_password@localhost:5433/cyber_command_center` |
 
-Docker init mounts (empty volume only):
+Docker init on an empty volume runs `db/docker-init/apply_app_schema.sh`:
 
-1. `db/dwan_schema.sql` — consolidated DWAN schema + RLS  
-2. `db/docker-init/02_app_compat.sql` — API compatibility views (`v_user_primary_role`, roles)  
-3. `db/docker-init/03_seed_tenants.sql` — Al Dhabi + Falcon personas  
+1. `db/schema.sql` — MVP tables, including `business_impact_assessments.financial_exposure_aed`
+2. `db/migrations/001`–`008` — `business_units.code` (001) and scenario AED columns (004)
+3. `reference/CyberCommandCenter_Sample_Data.xlsx` — findings, impacts, decisions, reports
+4. `db/docker-init/04_format_aed_impact_summaries.sql` — compact AED chip text
+5. `db/docker-init/03_seed_tenants.sql` — Al Dhabi + Falcon personas in `user_roles`
+
+`npm run demo:seed` then creates the four Al Dhabi demo scenarios. `db/dwan_schema.sql` stays in the repo and is not applied by compose.
 
 **Fresh DB only:** Postgres init scripts run when the volume is empty. To re-seed from scratch:
 
@@ -139,6 +145,11 @@ Risk acceptance is allowed for **CxO** and **Risk Lead** (`role_capabilities.acc
 
 ## Tests
 
+The clean-install check is required. It destroys the compose volume, boots an empty database, seeds the demo, starts the API, and exits non-zero unless the CISO headline is 50.8, there are 4 open decisions, and `activeScenarios` equals both scenario lists. GitHub Actions runs it on every pull request (`.github/workflows/clean-install.yml`).
+
 ```bash
+./scripts/verify-clean-install.sh
 cd server && npm test
+# Schema-only probe against an already running Postgres:
+./scripts/verify-empty-db-init.sh
 ```

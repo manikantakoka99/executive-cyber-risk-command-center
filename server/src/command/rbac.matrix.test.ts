@@ -54,20 +54,17 @@ describe("RBAC matrix (schema eight roles)", () => {
 describe("authorization before validation on mutating endpoints", () => {
   async function app() {
     const { tenantMiddleware } = await import("../middleware/tenant.js");
-    const { hasPermission: hp, requiredPermission: rp } = await import("./rbac.js");
+    const { isAccessDenied } = await import("./rbac.js");
     const server = Fastify({ logger: false });
     server.addHook("preHandler", async (req, reply) => {
       if (!req.url.startsWith("/api/ecc")) return;
       if (req.url.startsWith("/api/ecc/organizations")) return;
       await tenantMiddleware(req, reply);
       if (reply.sent) return;
-      const permission = rp(req.method, req.url);
-      if (!permission || permission === "self") return;
-      if (!hp(req.tenant.role, permission)) {
-        return reply.code(403).send({
-          error: { code: "forbidden", message: `Role ${req.tenant.role} cannot access this resource.` },
-        });
-      }
+      if (!isAccessDenied(req.tenant.role, req.method, req.url)) return;
+      return reply.code(403).send({
+        error: { code: "forbidden", message: `Role ${req.tenant.role} cannot access this resource.` },
+      });
     });
     await registerCommandRoutes(server);
     await server.ready();

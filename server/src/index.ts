@@ -17,12 +17,12 @@ import {
   capabilityFor,
   hasPermission,
   homeFor,
+  isAccessDenied,
   landingFor,
   permissionsFor,
   redactFinding,
   redactFinancial,
   redactOperationsTechnical,
-  requiredPermission,
   viewsFor,
 } from "./command/rbac.js";
 import { getConnectorHealth } from "./command/workspaceExtras.js";
@@ -176,16 +176,13 @@ app.get("/api/ecc/me", async (req) => ({
 
 app.addHook("preHandler", async (req, reply) => {
   if (reply.sent || !req.url.startsWith("/api/ecc") || !req.tenant) return;
-  const permission = requiredPermission(req.method, req.url);
-  if (!permission || permission === "self") return;
-  if (!hasPermission(req.tenant.role, permission)) {
-    return reply.code(403).send({
-      error: {
-        code: "forbidden",
-        message: `Role ${req.tenant.role} cannot access this resource.`,
-      },
-    });
-  }
+  if (!isAccessDenied(req.tenant.role, req.method, req.url)) return;
+  return reply.code(403).send({
+    error: {
+      code: "forbidden",
+      message: `Role ${req.tenant.role} cannot access this resource.`,
+    },
+  });
 });
 
 /** Central financial strip — every /api/ecc JSON response for non-financial roles. */

@@ -208,6 +208,7 @@ describe("cross-screen canonical consistency (Vinga PDF/HTML)", () => {
     assert.equal(trends.insufficientHistory, false);
     assert.ok((trends.residualTrend?.length ?? 0) >= 2);
     assert.equal(trends.scenarioVelocity.newScenarios, 5);
-    assert.equal(trends.scenarioVelocity.outsideToleranceNow, CANONICAL.outsideAppetite);
+    // Scenario outside-tolerance is not replaced with the domain appetite count.
+    assert.equal(trends.scenarioVelocity.outsideToleranceNow, 12);
   });
 });

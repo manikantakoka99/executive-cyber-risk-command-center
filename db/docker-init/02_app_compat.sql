@@ -1,5 +1,7 @@
 -- Compatibility layer so the ECC Node API can query a DWAN-initialized database.
--- Roles match the schema's 8 user_role_name values exactly.
+-- Not used by docker compose init: that path applies db/schema.sql and migrations
+-- 001–008, which drop users.role. This view still reads users.role, so do not run
+-- it after 001. Roles match the schema's 8 user_role_name values exactly.
 
 CREATE TABLE IF NOT EXISTS roles (
   role_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),

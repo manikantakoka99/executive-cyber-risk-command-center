@@ -12,6 +12,7 @@ import {
 } from "./closedLoop.js";
 import { DEMO_AS_OF, demoUuid, HERO_SCENARIO_TITLE } from "./demoConstants.js";
 import { isPresentationNoiseTitle } from "../command/demoOverlay.js";
+import { sqlExcludeTestScenario } from "../command/testFixtures.js";
 import { priorityTierFromScore, sqlPriorityFromResidual } from "../risk/bands.js";
 
 export { HERO_SCENARIO_TITLE };
@@ -30,7 +31,7 @@ export async function listScenarios(
   } = {},
 ) {
   const params: unknown[] = [orgId];
-  const where = ["s.org_id = $1"];
+  const where = ["s.org_id = $1", sqlExcludeTestScenario("s")];
   if (filters.status) {
     params.push(filters.status);
     where.push(`s.status::text = $${params.length}`);

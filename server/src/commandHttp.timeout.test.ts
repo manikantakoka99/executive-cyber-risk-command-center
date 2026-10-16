@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import { after, before, describe, it } from "node:test";
 import Fastify, { type FastifyInstance } from "fastify";
-import { hasPermission, requiredPermission } from "./command/rbac.js";
+import { isAccessDenied } from "./command/rbac.js";
 import { registerCommandRoutes } from "./command/routes.js";
 import { runWithRequestTenant } from "./db.js";
 import { installRequestValidation } from "./middleware/requestValidation.js";
@@ -88,16 +88,13 @@ async function buildServer(): Promise<FastifyInstance> {
   });
   app.addHook("preHandler", async (req, reply) => {
     if (reply.sent || !req.url.startsWith("/api/ecc") || !req.tenant) return;
-    const permission = requiredPermission(req.method, req.url);
-    if (!permission || permission === "self") return;
-    if (!hasPermission(req.tenant.role, permission)) {
-      return reply.code(403).send({
-        error: {
-          code: "forbidden",
-          message: `Role ${req.tenant.role} cannot access this resource.`,
-        },
-      });
-    }
+    if (!isAccessDenied(req.tenant.role, req.method, req.url)) return;
+    return reply.code(403).send({
+      error: {
+        code: "forbidden",
+        message: `Role ${req.tenant.role} cannot access this resource.`,
+      },
+    });
   });
   await registerCommandRoutes(app);
   return app;

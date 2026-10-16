@@ -5,6 +5,35 @@
 import { CANONICAL } from "./canonical.js";
 import { BASELINE, ENTERPRISE_LOSS, MONTHS, monthScorecards } from "./model.js";
 import { DEMO_ORG_ID } from "./personas.js";
+import {
+  isSeededTestText,
+  scenarioSetFromRisks,
+  type ScenarioSetCounts,
+} from "./testFixtures.js";
+
+/** Agreed open-decision queue (same four titles on Operations and Intelligence). */
+const CANONICAL_DECISIONS = [
+  {
+    title: "Emergency patch window for payment-gateway CVEs",
+    priority: "critical" as const,
+    action: "Approve an emergency patch window for payment-gateway CVEs.",
+  },
+  {
+    title: "Extend network detection across critical segments",
+    priority: "critical" as const,
+    action: "Extend network detection across critical segments.",
+  },
+  {
+    title: "Fund OT/ICS monitoring gap closure",
+    priority: "high" as const,
+    action: "Fund OT/ICS monitoring gap closure.",
+  },
+  {
+    title: "Accept residual identity risk with 90-day review",
+    priority: "high" as const,
+    action: "Accept residual identity risk with a 90-day review.",
+  },
+];
 
 export function isDemoOrg(orgId: string): boolean {
   return orgId === DEMO_ORG_ID;
@@ -58,6 +87,8 @@ export function overlayOverview<T extends Record<string, unknown>>(
     decisionsAwaitingCritical: CANONICAL.criticalDomains,
     domainsMonitored: CANONICAL.domainCount,
     riskAppetite: 50,
+    pendingDecisions: alignPendingDecisions(rowsOf(data, "pendingDecisions")),
+    executiveActionQueue: alignExecutiveQueue(rowsOf(data, "executiveActionQueue")),
   };
 }
 
@@ -65,15 +96,19 @@ export function overlayOverview<T extends Record<string, unknown>>(
 export function overlayPortfolio(orgId: string, portfolio: any) {
   if (!isDemoOrg(orgId) || !portfolio?.totals) return portfolio;
   const loss = canonicalLossAbsolute();
-  const topRisks = filterPresentationNoise(portfolio.topRisks ?? []);
+  const topRisks = filterPresentationNoise<Record<string, unknown> & { title?: string; name?: string }>(
+    portfolio.topRisks ?? [],
+  );
+  const scenarioSet: ScenarioSetCounts = scenarioSetFromRisks(topRisks);
   return {
     ...portfolio,
+    scenarioSet,
     methodology:
       "Enterprise portfolio posture uses the 12 risk-domain bands and canonical annual loss; scenario list is filtered and is not averaged into the headline.",
     totals: {
       ...portfolio.totals,
-      // Visible demo scenarios (test fixtures stripped) — aligns with /scenarios cards.
-      activeScenarios: Math.max(topRisks.length, 5),
+      // Visible demo scenarios (test fixtures stripped) — same length as the scenario cards.
+      activeScenarios: topRisks.length,
       byPriority: {
         critical: CANONICAL.domainSpread.Critical,
         high: CANONICAL.domainSpread.High,
@@ -95,20 +130,16 @@ export function overlayPortfolio(orgId: string, portfolio: any) {
 export function overlayDecisionCenter(orgId: string, center: any) {
   if (!isDemoOrg(orgId) || !center) return center;
   const n = CANONICAL.openDecisions;
-  const existing = Array.isArray(center.awaitingAction) ? center.awaitingAction : [];
-  // Pad with command-queue placeholders so Intelligence decision count matches Headline.
-  const placeholders = [
-    "Emergency patch window for payment-gateway CVEs",
-    "Extend network detection across critical segments",
-    "Fund OT/ICS monitoring gap closure",
-    "Accept residual identity risk with 90-day review",
-  ].map((title, i) => ({
+  const existing = (Array.isArray(center.awaitingAction) ? center.awaitingAction : []).filter(
+    (row: { title?: string }) => !isSeededTestText(row?.title),
+  );
+  const placeholders = CANONICAL_DECISIONS.map((item, i) => ({
     decisionId: `canonical-q${i + 1}`,
     scenarioId: null,
-    title,
+    title: item.title,
     status: "awaiting_decision",
-    priority: i < 2 ? "critical" : "high",
-    what: title,
+    priority: item.priority,
+    what: item.title,
     why: "Canonical demo decision aligned to the command queue",
     businessImpact: null,
     residualRisk: null,
@@ -162,28 +193,86 @@ export function overlayTrends(orgId: string, trends: any) {
           avgResidual: r.avgResidual,
         }))
       : trends.inherentVsResidual,
-    // Keep velocity counts on the same canonical source as portfolio KPIs.
+    // New-scenario velocity stays on the canonical demo figure.
+    // Outside-tolerance stays on the caller’s scenario set (not domain appetite).
     scenarioVelocity: {
       newScenarios: 5,
       resolvedScenarios: Number(trends.scenarioVelocity?.resolvedScenarios ?? 0),
       acceptedRisks: Number(trends.scenarioVelocity?.acceptedRisks ?? 0),
-      outsideToleranceNow: CANONICAL.outsideAppetite,
+      outsideToleranceNow: Number(trends.scenarioVelocity?.outsideToleranceNow ?? 0),
     },
     source: useModel ? "command_model" : trends.source ?? "database",
   };
 }
 
-const NOISE_TITLE =
-  /^(P4 isolated|P4-base-|P4-al-|P4-fal-|p3-corr-|Isolated scenario |Generic Security Events \d+)/i;
-
 export function isPresentationNoiseTitle(title: string | null | undefined): boolean {
-  if (!title) return false;
-  return (
-    NOISE_TITLE.test(title) ||
-    /Unnamed process/i.test(title) ||
-    /\btest host\b/i.test(title) ||
-    /\bisolated_test\b/i.test(title)
+  return isSeededTestText(title);
+}
+
+function rowsOf(data: Record<string, unknown>, key: string): Array<Record<string, unknown>> {
+  const value = data[key];
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (row): row is Record<string, unknown> => !!row && typeof row === "object" && !Array.isArray(row),
   );
+}
+
+function alignPendingDecisions(existing: Array<Record<string, unknown>>) {
+  const n = CANONICAL.openDecisions;
+  const kept = existing.filter((row) => !isSeededTestText(String(row?.title ?? ""))).slice(0, n);
+  if (kept.length >= n) return kept;
+  const seen = new Set(kept.map((row) => String(row.title ?? "")));
+  const padded = [...kept];
+  for (let i = 0; i < CANONICAL_DECISIONS.length && padded.length < n; i++) {
+    const item = CANONICAL_DECISIONS[i]!;
+    if (seen.has(item.title)) continue;
+    padded.push({
+      decisionId: `canonical-q${i + 1}`,
+      findingId: null,
+      title: item.title,
+      priority: item.priority,
+      riskSummary: item.title,
+      impactSummary: "Canonical open decision aligned to the command queue.",
+      recommendedAction: item.action,
+      status: "awaiting_decision",
+      escalatedAt: new Date().toISOString(),
+      domainLabel: "Executive",
+      financialExposureAed: null,
+      affectedBusinessUnit: null,
+      complianceScopeImpact: null,
+      synthetic: true,
+    });
+  }
+  return padded;
+}
+
+function alignExecutiveQueue(existing: Array<Record<string, unknown>>) {
+  const n = CANONICAL.openDecisions;
+  const kept = existing.filter((row) => !isSeededTestText(String(row?.title ?? ""))).slice(0, n);
+  if (kept.length >= n) return kept;
+  const seen = new Set(kept.map((row) => String(row.title ?? "")));
+  const padded = [...kept];
+  for (let i = 0; i < CANONICAL_DECISIONS.length && padded.length < n; i++) {
+    const item = CANONICAL_DECISIONS[i]!;
+    if (seen.has(item.title)) continue;
+    padded.push({
+      scenarioId: null,
+      title: item.title,
+      priority: item.priority,
+      toleranceState: "outside",
+      velocity: "stable",
+      residualRisk: null,
+      recommendedTreatment: "mitigate",
+      recommendedAction: item.action,
+      financialExposureAed: null,
+      financialKnown: false,
+      actionOwner: "CxO",
+      dueDate: null,
+      agingDays: null,
+      decisionRequired: true,
+    });
+  }
+  return padded;
 }
 
 export function filterPresentationNoise<T extends { title?: string; name?: string }>(rows: T[]): T[] {

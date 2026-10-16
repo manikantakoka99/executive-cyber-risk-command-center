@@ -2,11 +2,9 @@
 -- YVI DWAN CYBER COMMAND CENTER — DATABASE MODEL (PostgreSQL 14+)
 -- ============================================================================
 -- NOTE (Phase 1 / v2 foundation):
---   This file remains the MVP bootstrap schema used by Docker init.
---   Enterprise foundation + connector framework applied by:
---     db/migrations/001_ecc_v2_foundation.sql
---     db/migrations/002_ecc_connector_signal_framework.sql
---   (mounted as docker-entrypoint-initdb.d/02_*.sql and 03_*.sql on fresh volumes).
+--   This file is the MVP bootstrap applied first on an empty Docker volume.
+--   db/docker-init/apply_app_schema.sh then applies migrations 001–008,
+--   imports the sample workbook, formats AED impact summaries, and seeds tenants.
 --   See docs/ecc-database-v2.md and docs/ecc-connector-framework.md.
 --   After init, users.role is migrated to RBAC and dropped; use v_user_primary_role.
 -- ============================================================================
