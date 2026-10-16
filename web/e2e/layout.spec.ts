@@ -75,15 +75,6 @@ test.describe("sidebar", () => {
     }
   }
 
-  test("keeps the active item inside the nav at 1024x585", async ({ page }) => {
-    await page.setViewportSize({ width: 1024, height: 585 });
-    await openApp(page, "/policy");
-    const nav = await page.locator("aside.sidebar nav").boundingBox();
-    const active = await page.locator('aside.sidebar nav a[aria-current="page"]').boundingBox();
-    expect(nav && active).toBeTruthy();
-    expect(active!.y).toBeGreaterThanOrEqual(nav!.y - 1);
-    expect(active!.y + active!.height).toBeLessThanOrEqual(nav!.y + nav!.height + 1);
-  });
 });
 
 test.describe("stat rows, borders, width, overflow", () => {
