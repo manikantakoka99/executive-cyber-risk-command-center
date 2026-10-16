@@ -19,16 +19,17 @@ async function signIn(page: Page, userId: string) {
 }
 
 async function openApp(page: Page, path = "/register") {
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 6; attempt++) {
     await page.goto(path, { waitUntil: "domcontentloaded" });
-    const limited = await page.getByText("Too Many Requests").isVisible().catch(() => false);
-    if (limited) {
-      await page.waitForTimeout(15_000);
-      continue;
-    }
-    break;
+    const shell = page.locator("aside.sidebar nav a").first();
+    const limited = page.getByText("Too Many Requests");
+    const which = await Promise.race([
+      shell.waitFor({ state: "visible", timeout: 20_000 }).then(() => "shell" as const),
+      limited.waitFor({ state: "visible", timeout: 20_000 }).then(() => "limited" as const),
+    ]).catch(() => "missing" as const);
+    if (which === "shell") return;
+    await page.waitForTimeout(20_000);
   }
-  await page.locator("aside.sidebar").waitFor();
   await page.locator("aside.sidebar nav a").first().waitFor();
 }
 
