@@ -75,6 +75,44 @@ test.describe("sidebar", () => {
     }
   }
 
+  for (const path of ["/policy", "/audit"]) {
+    for (const height of [600, 727, 800, 900]) {
+      for (const collapsed of [false, true]) {
+        test(`active link above fade at ${height}px ${path} ${collapsed ? "collapsed" : "open"}`, async ({ page }) => {
+          await page.setViewportSize({ width: 1280, height });
+          if (collapsed) {
+            await page.addInitScript(() => localStorage.setItem("ecc.sidebar", "collapsed"));
+          }
+          await openApp(page, path);
+          await page.locator('aside.sidebar nav a[aria-current="page"]').waitFor();
+          await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined))));
+          const metrics = await page.evaluate(() => {
+            const nav = document.querySelector("aside.sidebar nav");
+            const link = nav?.querySelector("a[aria-current='page']");
+            if (!(nav instanceof HTMLElement) || !(link instanceof HTMLElement)) return null;
+            const navRect = nav.getBoundingClientRect();
+            const linkRect = link.getBoundingClientRect();
+            return {
+              scrollY: window.scrollY,
+              docTop: document.documentElement.scrollTop,
+              linkTop: linkRect.top,
+              linkBottom: linkRect.bottom,
+              navTop: navRect.top,
+              navBottom: navRect.bottom,
+              fadeTop: navRect.bottom - 24,
+              scrollPaddingBottom: getComputedStyle(nav).scrollPaddingBottom,
+            };
+          });
+          expect(metrics).toBeTruthy();
+          expect(metrics!.scrollPaddingBottom).toBe("32px");
+          expect(metrics!.scrollY).toBe(0);
+          expect(metrics!.docTop).toBe(0);
+          expect(metrics!.linkTop).toBeGreaterThanOrEqual(metrics!.navTop - 1);
+          expect(metrics!.linkBottom).toBeLessThanOrEqual(metrics!.fadeTop + 1);
+        });
+      }
+    }
+  }
 });
 
 test.describe("stat rows, borders, width, overflow", () => {

@@ -64,6 +64,8 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  scroll-padding-bottom: 32px;
+  padding-bottom: 32px;
 }
 
 /* Pinned to the visible bottom of the scrolling nav; reveals the panel green. */
@@ -1030,6 +1032,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
     overflow-y: hidden;
     -webkit-mask-image: none;
     mask-image: none;
+    scroll-padding-bottom: 0;
+    padding-bottom: 0;
   }
   .nav-label, .sidebar-foot, .brand-tag { display: none; }
   .cc, .page, .workspace-bar { padding-inline: 16px; }
