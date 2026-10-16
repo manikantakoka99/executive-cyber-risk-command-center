@@ -136,9 +136,9 @@ test.describe("stat rows, borders, width, overflow", () => {
             const main = document.querySelector("main");
             if (!main) return false;
             const text = main.textContent ?? "";
-            if (/Loading|Too Many Requests|Could not load/.test(text)) return false;
+            if (/\bLoading\b|Too Many Requests|Could not load/.test(text)) return false;
             if (main.querySelector(".skeleton-stack")) return false;
-            return Boolean(main.querySelector(".card, h1.page-title, table"));
+            return text.trim().length > 40;
           });
           if (href === "/c/changed") await page.locator("main .kv-pair").first().waitFor();
           const report = await page.evaluate(() => {
