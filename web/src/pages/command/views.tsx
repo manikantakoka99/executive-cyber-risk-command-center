@@ -56,6 +56,8 @@ export function HeadlineView({
           <div className="hero-score-line">
             <span className="hero-kpi mono">{fmt1(data.arithmetic)}</span>
             <span className={`word tone-${bandTone(data.band)}`}>{data.band}</span>
+          </div>
+          <div className="hero-score-chips">
             {sparkValues.length > 1 ? (
               <span
                 className={`delta tone-${trendDelta === 0 ? "flat" : trendDelta < 0 ? "good" : "bad"}`}
