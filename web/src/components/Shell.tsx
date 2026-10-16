@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronsLeft,
@@ -16,11 +16,31 @@ import { initials, roleLabel } from "../lib/format";
 import { navForRole } from "../lib/nav";
 import { NAV_ICONS, Shield } from "./icons";
 
+/** Bring the active item into the nav scroller. Never touches window scroll. */
+function scrollActiveNavLink(navEl: HTMLElement, behavior: ScrollBehavior) {
+  const active = navEl.querySelector<HTMLElement>('a[aria-current="page"], a.active');
+  if (!active) return false;
+  const navRect = navEl.getBoundingClientRect();
+  const linkRect = active.getBoundingClientRect();
+  let delta = 0;
+  if (linkRect.top < navRect.top) delta = linkRect.top - navRect.top;
+  else if (linkRect.bottom > navRect.bottom) delta = linkRect.bottom - navRect.bottom;
+  if (delta !== 0) {
+    const top = navEl.scrollTop + delta;
+    if (behavior === "smooth") navEl.scrollTo({ top, behavior: "smooth" });
+    else navEl.scrollTop = top;
+  }
+  return true;
+}
+
 export function Shell({ children }: { children: ReactNode }) {
   const { organizations, orgId, setOrgId, users, userId, setUserId, me, signOut, error, retry } =
     useAppState();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
+  const navScrollRef = useRef<HTMLElement>(null);
+  const alignedPath = useRef<string | null>(null);
   const previousUser = useRef(userId);
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem("ecc.sidebar") === "collapsed",
@@ -67,6 +87,17 @@ export function Shell({ children }: { children: ReactNode }) {
     [me, perms],
   );
 
+  useLayoutEffect(() => {
+    const navEl = navScrollRef.current;
+    if (!navEl) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Instant on mount (including Strict Mode's second pass) and when the
+    // user prefers reduced motion. Smooth only after a real route change.
+    const routeChanged = alignedPath.current !== null && alignedPath.current !== location.pathname;
+    const behavior: ScrollBehavior = routeChanged && !reduce ? "smooth" : "auto";
+    if (scrollActiveNavLink(navEl, behavior)) alignedPath.current = location.pathname;
+  }, [location.pathname, nav, collapsed]);
+
   const paletteItems = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return nav;
@@ -94,7 +125,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
 
         {nav.length > 0 && (
-          <nav aria-label="Primary">
+          <nav aria-label="Primary" ref={navScrollRef}>
             {!collapsed && <p className="nav-label">Navigate</p>}
             {nav.map((item) => {
               const Icon = NAV_ICONS[item.to] ?? Search;
