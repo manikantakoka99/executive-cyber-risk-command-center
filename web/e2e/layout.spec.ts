@@ -94,7 +94,15 @@ test.describe("stat rows, borders, width, overflow", () => {
         expect(hrefs.length).toBeGreaterThan(0);
         for (const href of hrefs) {
           await openApp(page, href!);
-          await page.locator("main").waitFor();
+          await page.waitForFunction(() => {
+            const main = document.querySelector("main");
+            if (!main) return false;
+            const text = main.textContent ?? "";
+            if (/Loading|Too Many Requests|Could not load/.test(text)) return false;
+            if (main.querySelector(".skeleton-stack")) return false;
+            return Boolean(main.querySelector(".card, h1.page-title, table"));
+          });
+          if (href === "/c/changed") await page.locator("main .kv-pair").first().waitFor();
           const report = await page.evaluate(() => {
             const doc = document.documentElement;
             const scrollWidth = Math.max(doc.scrollWidth, document.body.scrollWidth);
