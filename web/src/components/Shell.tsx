@@ -22,9 +22,12 @@ function scrollActiveNavLink(navEl: HTMLElement, behavior: ScrollBehavior) {
   if (!active) return false;
   const navRect = navEl.getBoundingClientRect();
   const linkRect = active.getBoundingClientRect();
+  // scroll-padding-bottom keeps the link clear of the nav's bottom fade.
+  const padBottom = Number.parseFloat(getComputedStyle(navEl).scrollPaddingBottom) || 0;
+  const limitBottom = navRect.bottom - padBottom;
   let delta = 0;
   if (linkRect.top < navRect.top) delta = linkRect.top - navRect.top;
-  else if (linkRect.bottom > navRect.bottom) delta = linkRect.bottom - navRect.bottom;
+  else if (linkRect.bottom > limitBottom) delta = linkRect.bottom - limitBottom;
   if (delta !== 0) {
     const top = navEl.scrollTop + delta;
     if (behavior === "smooth") navEl.scrollTo({ top, behavior: "smooth" });
@@ -197,8 +200,15 @@ export function Shell({ children }: { children: ReactNode }) {
             <button className="icon-btn" type="button" onClick={toggle} aria-label="Toggle theme">
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
-            <button className="btn ghost sm" type="button" onClick={signOut}>
-              <LogOut size={14} /> Sign out
+            <button
+              className="btn ghost sm sign-out"
+              type="button"
+              onClick={signOut}
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut size={16} />
+              <span className="sign-out-label">Sign out</span>
             </button>
             <div className="avatar" aria-hidden title={me?.email}>
               {me ? initials(me.name) : "—"}

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Band } from "../../data/commandTypes";
 
 export function Chip({
@@ -23,7 +24,7 @@ export function Answer({
   lede,
 }: {
   question: string;
-  title: string;
+  title: ReactNode;
   lede: string;
 }) {
   return (

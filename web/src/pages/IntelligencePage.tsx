@@ -175,7 +175,7 @@ export function IntelligencePage() {
         </div>
         <div className="kpi">
           <div className="kpi-label">Known exposure</div>
-          <div className="kpi-value" style={{ fontSize: 16 }}>
+          <div className="kpi-value">
             {t.knownFinancialExposureAed != null
               ? formatAed(t.knownFinancialExposureAed)
               : "unknown"}
