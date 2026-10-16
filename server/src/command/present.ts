@@ -621,9 +621,11 @@ function presentWhatIf(role: string, state: CommandState, loss: boolean): WhatIf
       cmp("Enterprise expected loss (AED M a year)", format2(ENTERPRISE_LOSS.ale), format2(entA)),
     );
   }
+  const lossDirection = red < 0 ? "rises" : "falls";
+  const lossAmount = formatAedMillions(Math.abs(red));
   const title = changed
     ? loss
-      ? `Ransomware Readiness moves from ${format1(before.raw)} to ${format1(raw)}, and expected loss falls by ${formatAedMillions(red)} a year.`
+      ? `Ransomware Readiness moves from ${format1(before.raw)} to ${format1(raw)}, and expected loss ${lossDirection} by ${lossAmount} a year.`
       : `Ransomware Readiness moves from ${format1(before.raw)} to ${format1(raw)}.`
     : "Move a slider to see what a control investment would do.";
   return {

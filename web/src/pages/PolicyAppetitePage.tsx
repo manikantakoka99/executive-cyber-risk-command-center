@@ -187,7 +187,7 @@ export function PolicyAppetitePage() {
         <section className="card" style={{ marginTop: 16 }}>
           <h3>Propose scoring policy</h3>
           <p className="note">Creates a new draft version. Board approval locks it.</p>
-          <div className="form" style={{ display: "grid", gap: 12, maxWidth: 560 }}>
+          <div className="form">
             <label>
               Notes
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
@@ -263,7 +263,7 @@ export function PolicyAppetitePage() {
       {canPropose && (
         <section className="card" style={{ marginTop: 16 }}>
           <h3>Propose appetite change</h3>
-          <div className="form" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}>
+          <div className="form form-row">
             <label>
               Domain
               <select value={appetiteDomain} onChange={(e) => setAppetiteDomain(e.target.value)}>

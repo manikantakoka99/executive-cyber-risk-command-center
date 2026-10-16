@@ -36,7 +36,6 @@ function cardBlurb(s: any): string {
 export function ScenariosPage() {
   const [scenarios, setScenarios] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [heroId, setHeroId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -52,7 +51,6 @@ export function ScenariosPage() {
           return (b.residualRisk ?? 0) - (a.residualRisk ?? 0);
         });
       setScenarios(visible);
-      setHeroId(hero.heroScenarioId);
       setError(null);
     } catch (e: any) {
       setError(e.message);
@@ -106,9 +104,7 @@ export function ScenariosPage() {
           <Link
             key={s.scenarioId}
             to={`/scenarios/${s.scenarioId}`}
-            className={`domain-card scenario-card ${
-              s.scenarioId === heroId ? "hero-scenario-card" : ""
-            } ${severityClass(s.priority ?? "medium")}`}
+            className={`domain-card scenario-card ${severityClass(s.priority ?? "medium")}`}
           >
             <div className="domain-card-top">
               <span className={`badge ${severityClass(s.priority ?? "medium")}`}>
