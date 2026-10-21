@@ -4,35 +4,41 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { api, setAuthContext } from "../lib/api";
-import type { Organization, UserRef } from "../data/types";
+import { ApiError, api, type SessionUser } from "../lib/api";
 
-const DEFAULT_ORG = "2accc7de-f693-4b19-8fe8-6db501be05e2";
+export interface Membership {
+  orgId: string;
+  orgName: string;
+  role: string;
+  userId: string;
+}
+
+export interface Me {
+  userId: string;
+  name: string;
+  role: string;
+  title: string;
+  email: string;
+  orgId: string;
+  orgName: string;
+  permissions: string[];
+  views: string[];
+  landing: string;
+  capability: string;
+  home: string;
+  memberships: Membership[];
+}
 
 interface AppContextValue {
-  organizations: Organization[];
-  users: UserRef[];
   orgId: string;
   userId: string;
-  me: {
-    userId: string;
-    name: string;
-    role: string;
-    title: string;
-    email: string;
-    orgName: string;
-    permissions: string[];
-    views: string[];
-    landing: string;
-    capability: string;
-    home: string;
-  } | null;
-  setOrgId: (id: string) => void;
-  setUserId: (id: string) => void;
+  me: Me | null;
+  signIn: (email: string, password: string) => Promise<Me>;
+  applySession: (user: SessionUser) => void;
+  switchOrg: (orgId: string) => Promise<void>;
   signOut: () => void;
   ready: boolean;
   error: string | null;
@@ -41,135 +47,105 @@ interface AppContextValue {
 
 const Ctx = createContext<AppContextValue | null>(null);
 
+function meFrom(user: SessionUser, previous?: Me | null): Me {
+  const memberships = user.memberships ?? previous?.memberships ?? [
+    { orgId: user.orgId, orgName: user.orgName, role: user.role, userId: user.userId },
+  ];
+  return {
+    userId: user.userId,
+    name: user.name,
+    role: user.role,
+    title: user.title,
+    email: user.email,
+    orgId: user.orgId,
+    orgName: user.orgName,
+    permissions: user.permissions ?? previous?.permissions ?? [],
+    views: user.views ?? previous?.views ?? [],
+    landing: user.landing ?? previous?.landing ?? "headline",
+    capability: user.capability ?? previous?.capability ?? "",
+    home: user.home ?? previous?.home ?? "/",
+    memberships,
+  };
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [users, setUsers] = useState<UserRef[]>([]);
-  const [orgId, setOrgIdState] = useState(
-    () => localStorage.getItem("ecc.orgId") ?? DEFAULT_ORG,
-  );
-  const [userId, setUserIdState] = useState(
-    () => localStorage.getItem("ecc.userId") ?? "",
-  );
-  const [me, setMe] = useState<AppContextValue["me"]>(null);
+  const [me, setMe] = useState<Me | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [boot, setBoot] = useState(0);
-  const booted = useRef(false);
+
+  const applySession = useCallback((user: SessionUser) => {
+    setMe((current) => meFrom(user, current));
+    setError(null);
+    setReady(true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        if (!booted.current) setReady(false);
         setError(null);
-        const { organizations: orgs } = await api.organizations();
-        if (cancelled) return;
-        setOrganizations(orgs);
-        const selectedOrg =
-          orgs.find((o) => o.orgId === orgId)?.orgId ?? orgs[0]?.orgId;
-        if (!selectedOrg) throw new Error("No organizations in database");
-
-        const { users: orgUsers } = await api.users(selectedOrg);
-        if (cancelled) return;
-        setUsers(orgUsers);
-
-        if (selectedOrg !== orgId) {
-          localStorage.setItem("ecc.orgId", selectedOrg);
-          setOrgIdState(selectedOrg);
-        }
-
-        if (!userId) {
-          setMe(null);
-          setAuthContext(selectedOrg, "");
-          booted.current = true;
-          setReady(true);
-          return;
-        }
-
-        const preferred = orgUsers.find((u) => u.userId === userId);
-        if (!preferred) {
-          localStorage.removeItem("ecc.userId");
-          setUserIdState("");
-          setMe(null);
-          setAuthContext(selectedOrg, "");
-          booted.current = true;
-          setReady(true);
-          return;
-        }
-
-        setAuthContext(selectedOrg, preferred.userId);
         const { user } = await api.me();
         if (cancelled) return;
-        setMe({
-          userId: user.userId,
-          name: user.name,
-          role: user.role,
-          title: user.title,
-          email: user.email,
-          orgName: user.orgName,
-          permissions: user.permissions,
-          views: user.views,
-          landing: user.landing,
-          capability: user.capability,
-          home: user.home,
-        });
-        booted.current = true;
+        setMe(meFrom(user));
         setReady(true);
-      } catch (e: any) {
-        if (!cancelled) {
-          setError(e.message || "Failed to initialize session");
-          setReady(false);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+          setMe(null);
+          setReady(true);
+          return;
         }
+        setError(err instanceof Error ? err.message : "Failed to initialize session");
+        setReady(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-    // boot forces reload when org/user explicitly changed
-  }, [orgId, userId, boot]);
+  }, [boot]);
 
-  const setOrgId = useCallback((id: string) => {
-    localStorage.setItem("ecc.orgId", id);
-    localStorage.removeItem("ecc.userId");
-    setUserIdState("");
-    setOrgIdState(id);
-    setBoot((b) => b + 1);
+  const signIn = useCallback(async (email: string, password: string) => {
+    const { user } = await api.login(email, password);
+    const full = await api.me();
+    const next = meFrom({ ...full.user, ...user, permissions: full.user.permissions });
+    setMe(next);
+    setReady(true);
+    return next;
   }, []);
 
-  const setUserId = useCallback((id: string) => {
-    if (id) localStorage.setItem("ecc.userId", id);
-    else localStorage.removeItem("ecc.userId");
-    setUserIdState(id);
-    setBoot((b) => b + 1);
+  const switchOrg = useCallback(async (orgId: string) => {
+    await api.switchOrg(orgId);
+    const { user } = await api.me();
+    setMe(meFrom(user));
   }, []);
 
   const signOut = useCallback(() => {
-    localStorage.removeItem("ecc.userId");
-    setUserIdState("");
+    void api.logout().catch(() => undefined);
     setMe(null);
-    setBoot((b) => b + 1);
+    setReady(true);
   }, []);
 
   const retry = useCallback(() => {
     setError(null);
-    setBoot((b) => b + 1);
+    setReady(false);
+    setBoot((value) => value + 1);
   }, []);
 
   const value = useMemo(
     () => ({
-      organizations,
-      users,
-      orgId,
-      userId,
+      orgId: me?.orgId ?? "",
+      userId: me?.userId ?? "",
       me,
-      setOrgId,
-      setUserId,
+      signIn,
+      applySession,
+      switchOrg,
       signOut,
       ready,
       error,
       retry,
     }),
-    [organizations, users, orgId, userId, me, setOrgId, setUserId, signOut, ready, error, retry],
+    [me, signIn, applySession, switchOrg, signOut, ready, error, retry],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

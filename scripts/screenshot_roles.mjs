@@ -12,14 +12,14 @@ const ORG = "2accc7de-f693-4b19-8fe8-6db501be05e2";
 
 /** One persona per canonical DWAN role */
 const ROLES = [
-  { dwan: "board_member", label: "board", name: "Hessa Al Ketbi", email: "hessa.ketbi@aldhabi.demo", userId: "c1500001-a090-41a0-8ecc-000000000006" },
-  { dwan: "cxo", label: "cxo", name: "Omar Al Mansoori", email: "omar.mansoori@aldhabi.demo", userId: "c1500001-a090-41a0-8ecc-000000000002" },
-  { dwan: "ciso", label: "ciso", name: "Layla Al Hashimi", email: "layla.hashimi@aldhabi.demo", userId: "c1500001-a090-41a0-8ecc-000000000001" },
-  { dwan: "risk_lead", label: "risk_lead", name: "Rashid Al Maktoum", email: "rashid.maktoum@aldhabi.demo", userId: "c1500001-a090-41a0-8ecc-00000000000a" },
-  { dwan: "domain_analyst", label: "analyst", name: "Yusuf Rahman", email: "yusuf.rahman@aldhabi.demo", userId: "c1500001-a090-41a0-8ecc-000000000007" },
-  { dwan: "program_office", label: "program_office", name: "Sara Ibrahim", email: "sara.ibrahim@aldhabi.demo", userId: "c1500001-a090-41a0-8ecc-00000000000b" },
-  { dwan: "auditor", label: "auditor", name: "James Okoye", email: "james.okoye@aldhabi.demo", userId: "c1500001-a090-41a0-8ecc-00000000000c" },
-  { dwan: "admin", label: "admin", name: "Nadia Farouk", email: "nadia.farouk@aldhabi.demo", userId: "c1500001-a090-41a0-8ecc-000000000009" },
+  { dwan: "board_member", label: "board", name: "Hessa Al Ketbi", email: "hessa@board.com", userId: "c1500001-a090-41a0-8ecc-000000000006" },
+  { dwan: "cxo", label: "cxo", name: "Mariam Al Dhaheri", email: "mariam@cxo.com", userId: "c1500001-a090-41a0-8ecc-000000000005" },
+  { dwan: "ciso", label: "ciso", name: "Layla Al Hashimi", email: "layla@ciso.com", userId: "c1500001-a090-41a0-8ecc-000000000001" },
+  { dwan: "risk_lead", label: "risk_lead", name: "Rashid Al Maktoum", email: "rashid@risklead.com", userId: "c1500001-a090-41a0-8ecc-00000000000a" },
+  { dwan: "domain_analyst", label: "analyst", name: "Yusuf Rahman", email: "yusuf@domainanalyst.com", userId: "c1500001-a090-41a0-8ecc-000000000007" },
+  { dwan: "program_office", label: "program_office", name: "Sara Ibrahim", email: "sara@programoffice.com", userId: "c1500001-a090-41a0-8ecc-00000000000b" },
+  { dwan: "auditor", label: "auditor", name: "James Okoye", email: "james@auditor.com", userId: "c1500001-a090-41a0-8ecc-00000000000c" },
+  { dwan: "admin", label: "admin", name: "Nadia Farouk", email: "nadia@admin.com", userId: "c1500001-a090-41a0-8ecc-000000000009" },
 ];
 
 /** Checklist + 8 command tabs + supporting ops screens that exist as routes */

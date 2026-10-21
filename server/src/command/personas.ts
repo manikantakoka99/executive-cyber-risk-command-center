@@ -18,6 +18,46 @@ export interface Persona {
   title: string;
 }
 
+/**
+ * One demo login per schema role. The local part is the person's first name.
+ * These domains are real and public; outbound mail to them stays log-only.
+ * Danielle Johnson is the manager-demo scenario actor and is not a ninth login:
+ * the CxO account is Mariam.
+ */
+export const ROLE_LOGIN_DOMAIN: Record<RoleCode, string> = {
+  ciso: "ciso.com",
+  cxo: "cxo.com",
+  board_member: "board.com",
+  risk_lead: "risklead.com",
+  domain_analyst: "domainanalyst.com",
+  auditor: "auditor.com",
+  program_office: "programoffice.com",
+  admin: "admin.com",
+};
+
+const ROLE_LOGIN_USER: Record<RoleCode, string> = {
+  ciso: "c1500001-a090-41a0-8ecc-000000000001",
+  cxo: "c1500001-a090-41a0-8ecc-000000000005",
+  board_member: "c1500001-a090-41a0-8ecc-000000000006",
+  risk_lead: "c1500001-a090-41a0-8ecc-00000000000a",
+  domain_analyst: "c1500001-a090-41a0-8ecc-000000000007",
+  auditor: "c1500001-a090-41a0-8ecc-00000000000c",
+  program_office: "c1500001-a090-41a0-8ecc-00000000000b",
+  admin: "c1500001-a090-41a0-8ecc-000000000009",
+};
+
+export function roleLoginEmail(firstName: string, role: RoleCode): string {
+  return `${firstName.trim().toLowerCase()}@${ROLE_LOGIN_DOMAIN[role]}`;
+}
+
+export function roleLogins(): Persona[] {
+  return (Object.keys(ROLE_LOGIN_USER) as RoleCode[]).map((role) => {
+    const persona = PERSONAS.find((item) => item.userId === ROLE_LOGIN_USER[role]);
+    if (!persona) throw new Error(`Missing demo person for ${role}`);
+    return persona;
+  });
+}
+
 export const PERSONAS: Persona[] = [
   ...aldhabiPersonas(),
   ...tenantBPersonas(),
@@ -25,27 +65,27 @@ export const PERSONAS: Persona[] = [
 
 function aldhabiPersonas(): Persona[] {
   return [
-    persona(DEMO_ORG_ID, "01", "Layla", "Al Hashimi", "ciso", "CISO", "layla.hashimi", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "02", "Omar", "Al Mansoori", "cxo", "CEO", "omar.mansoori", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "03", "Fatima", "Al Nuaimi", "cxo", "CFO", "fatima.nuaimi", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "04", "Khalid", "Al Suwaidi", "cxo", "CIO", "khalid.suwaidi", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "05", "Mariam", "Al Dhaheri", "cxo", "COO", "mariam.dhaheri", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "06", "Hessa", "Al Ketbi", "board_member", "Board Member", "hessa.ketbi", "aldhabi.demo"),
+    persona(DEMO_ORG_ID, "01", "Layla", "Al Hashimi", "ciso", "CISO"),
+    persona(DEMO_ORG_ID, "02", "Omar", "Al Mansoori", "cxo", "CEO"),
+    persona(DEMO_ORG_ID, "03", "Fatima", "Al Nuaimi", "cxo", "CFO"),
+    persona(DEMO_ORG_ID, "04", "Khalid", "Al Suwaidi", "cxo", "CIO"),
+    persona(DEMO_ORG_ID, "05", "Mariam", "Al Dhaheri", "cxo", "COO"),
+    persona(DEMO_ORG_ID, "06", "Hessa", "Al Ketbi", "board_member", "Board Member"),
     // Schema role domain_analyst (job titles differ for demo clarity).
-    persona(DEMO_ORG_ID, "07", "Yusuf", "Rahman", "domain_analyst", "Security Analyst", "yusuf.rahman", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "08", "Aisha", "Khan", "domain_analyst", "SOC Analyst", "aisha.khan", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "09", "Nadia", "Farouk", "admin", "Admin", "nadia.farouk", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "0a", "Rashid", "Al Maktoum", "risk_lead", "Risk Lead", "rashid.maktoum", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "0b", "Sara", "Ibrahim", "program_office", "Compliance Manager", "sara.ibrahim", "aldhabi.demo"),
-    persona(DEMO_ORG_ID, "0c", "James", "Okoye", "auditor", "Auditor", "james.okoye", "aldhabi.demo"),
+    persona(DEMO_ORG_ID, "07", "Yusuf", "Rahman", "domain_analyst", "Security Analyst"),
+    persona(DEMO_ORG_ID, "08", "Aisha", "Khan", "domain_analyst", "SOC Analyst"),
+    persona(DEMO_ORG_ID, "09", "Nadia", "Farouk", "admin", "Admin"),
+    persona(DEMO_ORG_ID, "0a", "Rashid", "Al Maktoum", "risk_lead", "Risk Lead"),
+    persona(DEMO_ORG_ID, "0b", "Sara", "Ibrahim", "program_office", "Compliance Manager"),
+    persona(DEMO_ORG_ID, "0c", "James", "Okoye", "auditor", "Auditor"),
   ];
 }
 
 function tenantBPersonas(): Persona[] {
   return [
-    persona(TENANT_B_ORG_ID, "b1", "Nora", "Al Falasi", "ciso", "CISO", "nora.falasi", "falcon.demo"),
-    persona(TENANT_B_ORG_ID, "b2", "Tariq", "Hassan", "board_member", "Board Member", "tariq.hassan", "falcon.demo"),
-    persona(TENANT_B_ORG_ID, "b3", "Samira", "Qureshi", "cxo", "CEO", "samira.qureshi", "falcon.demo"),
+    persona(TENANT_B_ORG_ID, "b1", "Nora", "Al Falasi", "ciso", "CISO"),
+    persona(TENANT_B_ORG_ID, "b2", "Tariq", "Hassan", "board_member", "Board Member"),
+    persona(TENANT_B_ORG_ID, "b3", "Samira", "Qureshi", "cxo", "CEO"),
   ];
 }
 
@@ -56,15 +96,17 @@ function persona(
   lastName: string,
   role: RoleCode,
   title: string,
-  emailLocal: string,
-  domain: string,
 ): Persona {
+  const userId = `c1500001-a090-41a0-8ecc-0000000000${suffix}`;
+  const isRoleLogin = Object.values(ROLE_LOGIN_USER).includes(userId);
+  const local = isRoleLogin ? firstName.toLowerCase() : `${firstName}.${lastName}`.toLowerCase().replace(/\s+/g, "");
+  const domain = isRoleLogin ? ROLE_LOGIN_DOMAIN[role] : "example.com";
   return {
-    userId: `c1500001-a090-41a0-8ecc-0000000000${suffix}`,
+    userId,
     orgId,
     firstName,
     lastName,
-    email: `${emailLocal}@${domain}`,
+    email: `${local}@${domain}`,
     role,
     title,
   };

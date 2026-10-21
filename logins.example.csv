@@ -1,0 +1,11 @@
+# Copy to logins.csv (gitignored) and pass that path as ECC_DEMO_LOGINS_FILE.
+# One email,password line per demo login. Replace every placeholder locally.
+# These domains are public. The app does not send mail to them.
+layla@ciso.com,replace-with-a-local-password
+mariam@cxo.com,replace-with-a-local-password
+hessa@board.com,replace-with-a-local-password
+rashid@risklead.com,replace-with-a-local-password
+yusuf@domainanalyst.com,replace-with-a-local-password
+james@auditor.com,replace-with-a-local-password
+sara@programoffice.com,replace-with-a-local-password
+nadia@admin.com,replace-with-a-local-password

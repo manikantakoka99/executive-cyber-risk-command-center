@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { RoleButton } from "../components/RoleButton";
+import { decisionNotesField } from "./decisionNotesField";
 import { api } from "../lib/api";
 import { useAppState } from "../context/AppState";
 import {
@@ -94,8 +96,9 @@ export function DecisionDetailPage() {
   if (!data && !error) return <div className="page"><div className="skeleton" /></div>;
   if (error && !data) return <div className="page"><p className="banner-error">{error}</p></div>;
 
-  const canAct = me?.role === "cxo";
-  const canRequest = me?.role === "cxo" || me?.role === "program_office";
+  const canDecide = me?.role === "cxo";
+  const canRequestOrClose = me?.role === "cxo" || me?.role === "program_office";
+  const notesField = decisionNotesField(me?.role, data.decisionNotes);
   const terminal = ["approved", "declined", "closed"].includes(data.status);
   const approveBtn = (() => {
     const t = String(data.recommendedAction ?? "").trim();
@@ -154,59 +157,38 @@ export function DecisionDetailPage() {
 
         {!terminal && (
           <div className="action-panel">
-            <label htmlFor="decision-notes">Decision notes (audit trail)</label>
-            <textarea
-              id="decision-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Optional rationale recorded in decision_action_log"
-            />
+            {notesField.editable ? (
+              <>
+                <label htmlFor="decision-notes">Decision notes (audit trail)</label>
+                <textarea
+                  id="decision-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Optional rationale recorded in decision_action_log"
+                />
+              </>
+            ) : notesField.readOnlyText ? (
+              <div>
+                <div className="eyebrow">Decision notes (audit trail)</div>
+                <p className="note">{notesField.readOnlyText}</p>
+              </div>
+            ) : null}
             <div className="di-actions">
-              {canAct && (
-                <button
-                  type="button"
-                  className="di-btn approve"
-                  disabled={!!busy}
-                  onClick={() => act("approve")}
-                >
-                  {busy === "approve" ? "Saving…" : approveBtn}
-                </button>
-              )}
-              {canRequest && (
-                <button
-                  type="button"
-                  className="di-btn defer"
-                  disabled={!!busy}
-                  onClick={() => act("request-info")}
-                >
-                  {busy === "request-info" ? "Saving…" : "Request More Information"}
-                </button>
-              )}
-              {canAct && (
-                <button
-                  type="button"
-                  className="di-btn defer"
-                  disabled={!!busy}
-                  onClick={() => act("decline")}
-                >
-                  Decline
-                </button>
-              )}
-              {canRequest && (
-                <button
-                  type="button"
-                  className="di-btn defer"
-                  disabled={!!busy}
-                  onClick={() => act("close")}
-                >
-                  Close
-                </button>
-              )}
+              <RoleButton role={me?.role} allowed={canDecide} hint="Only CxO can approve or decline" className="di-btn approve" disabled={!!busy} onClick={() => act("approve")}>
+                {busy === "approve" ? "Saving…" : approveBtn}
+              </RoleButton>
+              <RoleButton role={me?.role} allowed={canRequestOrClose} hint="Only CxO or Program Office can request information" className="di-btn defer" disabled={!!busy} onClick={() => act("request-info")}>
+                {busy === "request-info" ? "Saving…" : "Request More Information"}
+              </RoleButton>
+              <RoleButton role={me?.role} allowed={canDecide} hint="Only CxO can approve or decline" className="di-btn defer" disabled={!!busy} onClick={() => act("decline")}>
+                Decline
+              </RoleButton>
+              <RoleButton role={me?.role} allowed={canRequestOrClose} hint="Only CxO or Program Office can close" className="di-btn defer" disabled={!!busy} onClick={() => act("close")}>
+                Close
+              </RoleButton>
             </div>
-            {!canAct && !canRequest && (
-              <p className="empty">Your role ({me?.role}) cannot mutate decisions.</p>
-            )}
+            {notesField.readOnlyNote && <p className="note">Read-only for this role.</p>}
           </div>
         )}
         {terminal && (

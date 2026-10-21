@@ -84,6 +84,7 @@ const UUID_PARAMS = (names: string[]): IdRule => ({
 
 /** Path params that are Postgres UUIDs. Static siblings (health, catalog, demo) are absent. */
 const ID_RULES: Record<string, IdRule> = {
+  "/api/ecc/organizations/:orgId/users": UUID_PARAMS(["orgId"]),
   "/api/ecc/findings/:id": UUID_PARAMS(["id"]),
   "/api/ecc/risk-domains/:id": UUID_PARAMS(["id"]),
   "/api/ecc/decisions/:id": UUID_PARAMS(["id"]),

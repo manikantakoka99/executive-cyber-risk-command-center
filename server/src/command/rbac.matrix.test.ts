@@ -58,7 +58,6 @@ describe("authorization before validation on mutating endpoints", () => {
     const server = Fastify({ logger: false });
     server.addHook("preHandler", async (req, reply) => {
       if (!req.url.startsWith("/api/ecc")) return;
-      if (req.url.startsWith("/api/ecc/organizations")) return;
       await tenantMiddleware(req, reply);
       if (reply.sent) return;
       if (!isAccessDenied(req.tenant.role, req.method, req.url)) return;

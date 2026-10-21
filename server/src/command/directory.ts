@@ -176,6 +176,10 @@ export async function assignRole(userId: string, orgId: string, role: RoleCode):
        ON CONFLICT (user_id, role_id) DO UPDATE SET is_primary = true`,
       [userId, roleRows[0].role_id, orgId],
     );
+    await query(
+      `UPDATE org_memberships SET role_code = $1 WHERE user_id = $2 AND org_id = $3`,
+      [role, userId, orgId],
+    );
   } catch {
     /* override still applies for this process */
   }
@@ -214,7 +218,10 @@ export async function seedCommandDirectory(): Promise<void> {
     await query(
       `INSERT INTO users (user_id, org_id, first_name, last_name, email)
        VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (email) DO NOTHING`,
+       ON CONFLICT (user_id) DO UPDATE
+         SET email = EXCLUDED.email,
+             first_name = EXCLUDED.first_name,
+             last_name = EXCLUDED.last_name`,
       [persona.userId, persona.orgId, persona.firstName, persona.lastName, persona.email],
     );
     await query(

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { RoleButton } from "../../components/RoleButton";
+import { useAppState } from "../../context/AppState";
 import type {
   ChangedView,
   ClosureView,
@@ -414,6 +416,7 @@ export function QueueView({
   onAccept: (id: string, body: { reason: string; approver: string; days: number }) => void;
   onEvidence: (id: string) => void;
 }) {
+  const { me } = useAppState();
   const open = data.items.filter((item) => item.state === "open").length;
   const canSeeLoss = data.canSeeLoss ?? data.items.some((item) => item.loss != null);
   const totalLoss = data.items.reduce((sum, item) => sum + (item.loss?.ale ?? 0), 0);
@@ -490,35 +493,44 @@ export function QueueView({
             </div>
             <div className="acts btn-group">
               {done ? (
-                <button className="btn outline sm" type="button" disabled={!data.canAct} onClick={() => onReopen(item.id)}>
+                <RoleButton
+                  role={me?.role}
+                  allowed={!!data.canAct}
+                  hint="Needs CxO or CISO"
+                  className="btn outline sm"
+                  onClick={() => onReopen(item.id)}
+                >
                   Reopen
-                </button>
+                </RoleButton>
               ) : (
                 <>
-                  <button
+                  <RoleButton
+                    role={me?.role}
+                    allowed={!!data.canAct}
+                    hint="Needs CxO or CISO"
                     className="btn primary sm"
-                    type="button"
-                    disabled={!data.canAct}
                     onClick={() => onApprove(item.id)}
                   >
                     Approve
-                  </button>
-                  <button
+                  </RoleButton>
+                  <RoleButton
+                    role={me?.role}
+                    allowed={!!(data.canAccept ?? data.canAct)}
+                    hint="Needs CxO or Risk Lead"
                     className="btn outline sm"
-                    type="button"
-                    disabled={!(data.canAccept ?? data.canAct)}
                     onClick={() => onAcceptFor(item.id)}
                   >
                     Accept risk
-                  </button>
-                  <button
+                  </RoleButton>
+                  <RoleButton
+                    role={me?.role}
+                    allowed={!!data.canAct}
+                    hint="Needs CxO or CISO"
                     className="btn outline sm"
-                    type="button"
-                    disabled={!data.canAct}
                     onClick={() => onDefer(item.id)}
                   >
                     Defer
-                  </button>
+                  </RoleButton>
                 </>
               )}
               <button className="btn ghost sm" type="button" onClick={() => onEvidence(item.domainId)}>
@@ -749,9 +761,7 @@ export function WhatIfView({
           )}
           {data.floorNote && <p className="note">{data.floorNote}</p>}
           <div className="acts whatif-save">
-            <button className="btn primary sm" type="button" disabled={!data.canSave} onClick={onSave}>
-              Save scenario
-            </button>
+            <SaveScenarioButton canSave={!!data.canSave} onSave={onSave} />
           </div>
           <p className="note">{data.modelNote}</p>
         </section>
@@ -832,9 +842,7 @@ export function ClosureView({
                 </div>
               </div>
               {fix.state !== "verified_closed" && (
-                <button className="btn sm" type="button" disabled={!data.canVerify} onClick={() => onVerify(fix.id)}>
-                  Run verification scan
-                </button>
+                <VerifyButton allowed={!!data.canVerify} onVerify={() => onVerify(fix.id)} />
               )}
             </div>
           ))}
@@ -857,12 +865,12 @@ export function ClosureView({
                 Approver {item.approver} · expires {item.expires}
               </p>
               <div className="acts">
-                <button className="btn sm" type="button" disabled={!data.canRegister} onClick={() => onRenew(item.id)}>
+                <RegisterButton allowed={!!data.canRegister} onClick={() => onRenew(item.id)}>
                   Renew 90 days
-                </button>
-                <button className="btn sm" type="button" disabled={!data.canRegister} onClick={() => onRevoke(item.id)}>
+                </RegisterButton>
+                <RegisterButton allowed={!!data.canRegister} onClick={() => onRevoke(item.id)}>
                   Revoke and reopen
-                </button>
+                </RegisterButton>
               </div>
             </div>
           ))}
@@ -928,9 +936,7 @@ export function PackView({
         <button className="btn primary sm" type="button" onClick={onPrint}>
           Export to PDF / print
         </button>
-        <button className="btn outline sm" type="button" disabled={!data.canReview} onClick={onReview}>
-          {data.reviewedBy ? `Reviewed · ${data.reviewedBy}` : "Mark reviewed"}
-        </button>
+        <ReviewButton allowed={!!data.canReview} reviewedBy={data.reviewedBy} onReview={onReview} />
       </div>
       <div className="pack-well">
         <article className="pack">
@@ -959,6 +965,77 @@ export function PackView({
         </article>
       </div>
     </div>
+  );
+}
+
+function SaveScenarioButton({ canSave, onSave }: { canSave: boolean; onSave: () => void }) {
+  const { me } = useAppState();
+  const may = !!me?.permissions.includes("command.whatif.save");
+  return (
+    <RoleButton
+      role={me?.role}
+      allowed={may && canSave}
+      hint={may ? "Change the scenario first" : "Needs CxO or CISO"}
+      className="btn primary sm"
+      onClick={onSave}
+    >
+      Save scenario
+    </RoleButton>
+  );
+}
+
+function VerifyButton({ allowed, onVerify }: { allowed: boolean; onVerify: () => void }) {
+  const { me } = useAppState();
+  return (
+    <RoleButton
+      role={me?.role}
+      allowed={allowed}
+      hint="Needs CISO, Risk Lead, or Domain Analyst"
+      className="btn sm"
+      onClick={onVerify}
+    >
+      Run verification scan
+    </RoleButton>
+  );
+}
+
+function RegisterButton({
+  allowed,
+  onClick,
+  children,
+}: {
+  allowed: boolean;
+  onClick: () => void;
+  children: string;
+}) {
+  const { me } = useAppState();
+  return (
+    <RoleButton role={me?.role} allowed={allowed} hint="Needs CxO or Risk Lead" className="btn sm" onClick={onClick}>
+      {children}
+    </RoleButton>
+  );
+}
+
+function ReviewButton({
+  allowed,
+  reviewedBy,
+  onReview,
+}: {
+  allowed: boolean;
+  reviewedBy?: string | null;
+  onReview: () => void;
+}) {
+  const { me } = useAppState();
+  return (
+    <RoleButton
+      role={me?.role}
+      allowed={allowed}
+      hint="Needs Board, CxO, CISO, Risk Lead, or Program Office"
+      className="btn outline sm"
+      onClick={onReview}
+    >
+      {reviewedBy ? `Reviewed · ${reviewedBy}` : "Mark reviewed"}
+    </RoleButton>
   );
 }
 

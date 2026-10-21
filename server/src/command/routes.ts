@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { getCompliance } from "../services/catalog.js";
-import { assignRole, listUsers } from "./directory.js";
+import { listAccess } from "../auth/service.js";
+import { assignRole } from "./directory.js";
 import { actorLabel } from "./personas.js";
 import {
   approveAppetite,
@@ -228,7 +229,7 @@ export async function registerCommandRoutes(app: FastifyInstance) {
 
   app.get("/api/ecc/admin/users", async (req, reply) => {
     if (!requirePermission(req, reply, "admin.users")) return;
-    return { users: await listUsers(req.tenant.orgId) };
+    return { users: await listAccess(req.tenant.orgId) };
   });
 
   app.patch("/api/ecc/admin/users/:id", async (req, reply) => {
@@ -240,7 +241,7 @@ export async function registerCommandRoutes(app: FastifyInstance) {
     }
     const ok = await assignRole(id, req.tenant.orgId, body.data.role);
     if (!ok) return reply.code(404).send({ error: { code: "not_found", message: "User not found in this organization." } });
-    return { ok: true, users: await listUsers(req.tenant.orgId) };
+    return { ok: true, users: await listAccess(req.tenant.orgId) };
   });
 
   // ---- Scoring policy & appetite (CISO proposes, Board/CxO approve + lock) ----

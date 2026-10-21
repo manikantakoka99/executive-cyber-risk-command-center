@@ -22,21 +22,21 @@ VALUES
 ON CONFLICT (org_id) DO NOTHING;
 
 INSERT INTO users (user_id, org_id, first_name, last_name, email) VALUES
-  ('c1500001-a090-41a0-8ecc-000000000001', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Layla', 'Al Hashimi', 'layla.hashimi@aldhabi.demo'),
-  ('c1500001-a090-41a0-8ecc-000000000002', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Omar', 'Al Mansoori', 'omar.mansoori@aldhabi.demo'),
-  ('c1500001-a090-41a0-8ecc-000000000003', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Fatima', 'Al Nuaimi', 'fatima.nuaimi@aldhabi.demo'),
-  ('c1500001-a090-41a0-8ecc-000000000004', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Khalid', 'Al Suwaidi', 'khalid.suwaidi@aldhabi.demo'),
-  ('c1500001-a090-41a0-8ecc-000000000005', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Mariam', 'Al Dhaheri', 'mariam.dhaheri@aldhabi.demo'),
-  ('c1500001-a090-41a0-8ecc-000000000006', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Hessa', 'Al Ketbi', 'hessa.ketbi@aldhabi.demo'),
-  ('c1500001-a090-41a0-8ecc-000000000007', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Yusuf', 'Rahman', 'yusuf.rahman@aldhabi.demo'),
-  ('c1500001-a090-41a0-8ecc-000000000008', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Aisha', 'Khan', 'aisha.khan@aldhabi.demo'),
-  ('c1500001-a090-41a0-8ecc-000000000009', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Nadia', 'Farouk', 'nadia.farouk@aldhabi.demo'),
-  ('c1500001-a090-41a0-8ecc-00000000000a', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Rashid', 'Al Maktoum', 'rashid.maktoum@aldhabi.demo'),
-  ('c1500001-a090-41a0-8ecc-00000000000b', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Sara', 'Ibrahim', 'sara.ibrahim@aldhabi.demo'),
-  ('c1500001-a090-41a0-8ecc-00000000000c', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'James', 'Okoye', 'james.okoye@aldhabi.demo'),
-  ('c1500001-a090-41a0-8ecc-0000000000b1', 'e5082391-0ae2-4ed1-93d6-c11650b39dbb', 'Nora', 'Al Falasi', 'nora.falasi@falcon.demo'),
-  ('c1500001-a090-41a0-8ecc-0000000000b2', 'e5082391-0ae2-4ed1-93d6-c11650b39dbb', 'Tariq', 'Hassan', 'tariq.hassan@falcon.demo'),
-  ('c1500001-a090-41a0-8ecc-0000000000b3', 'e5082391-0ae2-4ed1-93d6-c11650b39dbb', 'Samira', 'Qureshi', 'samira.qureshi@falcon.demo')
+  ('c1500001-a090-41a0-8ecc-000000000001', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Layla', 'Al Hashimi', 'layla@ciso.com'),
+  ('c1500001-a090-41a0-8ecc-000000000002', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Omar', 'Al Mansoori', 'omar.almansoori@example.com'),
+  ('c1500001-a090-41a0-8ecc-000000000003', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Fatima', 'Al Nuaimi', 'fatima.alnuaimi@example.com'),
+  ('c1500001-a090-41a0-8ecc-000000000004', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Khalid', 'Al Suwaidi', 'khalid.alsuwaidi@example.com'),
+  ('c1500001-a090-41a0-8ecc-000000000005', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Mariam', 'Al Dhaheri', 'mariam@cxo.com'),
+  ('c1500001-a090-41a0-8ecc-000000000006', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Hessa', 'Al Ketbi', 'hessa@board.com'),
+  ('c1500001-a090-41a0-8ecc-000000000007', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Yusuf', 'Rahman', 'yusuf@domainanalyst.com'),
+  ('c1500001-a090-41a0-8ecc-000000000008', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Aisha', 'Khan', 'aisha.khan@example.com'),
+  ('c1500001-a090-41a0-8ecc-000000000009', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Nadia', 'Farouk', 'nadia@admin.com'),
+  ('c1500001-a090-41a0-8ecc-00000000000a', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Rashid', 'Al Maktoum', 'rashid@risklead.com'),
+  ('c1500001-a090-41a0-8ecc-00000000000b', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'Sara', 'Ibrahim', 'sara@programoffice.com'),
+  ('c1500001-a090-41a0-8ecc-00000000000c', '2accc7de-f693-4b19-8fe8-6db501be05e2', 'James', 'Okoye', 'james@auditor.com'),
+  ('c1500001-a090-41a0-8ecc-0000000000b1', 'e5082391-0ae2-4ed1-93d6-c11650b39dbb', 'Nora', 'Al Falasi', 'nora.alfalasi@example.com'),
+  ('c1500001-a090-41a0-8ecc-0000000000b2', 'e5082391-0ae2-4ed1-93d6-c11650b39dbb', 'Tariq', 'Hassan', 'tariq.hassan@example.com'),
+  ('c1500001-a090-41a0-8ecc-0000000000b3', 'e5082391-0ae2-4ed1-93d6-c11650b39dbb', 'Samira', 'Qureshi', 'samira.qureshi@example.com')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO user_roles (user_id, role_id, org_id, is_primary)
