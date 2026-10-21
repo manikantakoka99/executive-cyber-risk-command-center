@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { RoleButton } from "../../components/RoleButton";
 import { useAppState } from "../../context/AppState";
 import type {
@@ -569,6 +569,18 @@ function AcceptForm({
   );
 }
 
+function colorLossAmount(title: string): ReactNode {
+  const match = title.match(/^(.*\bexpected loss (rises|falls) by )(AED\s+\S+)( a year\.)$/);
+  if (!match) return title;
+  return (
+    <>
+      {match[1]}
+      <span className={match[2] === "rises" ? "loss-rise" : "loss-fall"}>{match[3]}</span>
+      {match[4]}
+    </>
+  );
+}
+
 export function WhatIfView({
   data,
   onChange,
@@ -588,7 +600,7 @@ export function WhatIfView({
 
   return (
     <div className="view-cxo">
-      <Answer question={data.question} title={data.title} lede={data.lede} />
+      <Answer question={data.question} title={colorLossAmount(data.title)} lede={data.lede} />
       <div className="grid g2">
         <section className="card">
           <h3>Control gaps</h3>

@@ -22,9 +22,12 @@ function scrollActiveNavLink(navEl: HTMLElement, behavior: ScrollBehavior) {
   if (!active) return false;
   const navRect = navEl.getBoundingClientRect();
   const linkRect = active.getBoundingClientRect();
+  // scroll-padding-bottom keeps the link clear of the nav's bottom fade.
+  const padBottom = Number.parseFloat(getComputedStyle(navEl).scrollPaddingBottom) || 0;
+  const limitBottom = navRect.bottom - padBottom;
   let delta = 0;
   if (linkRect.top < navRect.top) delta = linkRect.top - navRect.top;
-  else if (linkRect.bottom > navRect.bottom) delta = linkRect.bottom - navRect.bottom;
+  else if (linkRect.bottom > limitBottom) delta = linkRect.bottom - limitBottom;
   if (delta !== 0) {
     const top = navEl.scrollTop + delta;
     if (behavior === "smooth") navEl.scrollTo({ top, behavior: "smooth" });
