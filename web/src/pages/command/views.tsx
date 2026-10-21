@@ -59,6 +59,18 @@ export function HeadlineView({
             <span className="hero-kpi mono">{fmt1(data.arithmetic)}</span>
             <span className={`word tone-${bandTone(data.band)}`}>{data.band}</span>
           </div>
+          {data.floored && data.floorDomainName ? (
+            <p className="floor-hold">
+              Held at {data.band} by{" "}
+              {data.floorDomainId ? (
+                <button type="button" className="text-link" onClick={() => onOpen(data.floorDomainId!)}>
+                  {data.floorDomainName.replaceAll(" and ", " & ")}
+                </button>
+              ) : (
+                data.floorDomainName.replaceAll(" and ", " & ")
+              )}
+            </p>
+          ) : null}
           <div className="hero-score-chips">
             {sparkValues.length > 1 ? (
               <span
@@ -71,15 +83,6 @@ export function HeadlineView({
             ) : null}
             <Chip tone={data.outsideAppetite > 0 ? "crit" : "low"}>{appetiteState}</Chip>
           </div>
-          {data.floorNote && data.floorDomainId && data.floorDomainName ? (
-            <div className="why">
-              Org held at {data.band} because{" "}
-              <button type="button" className="text-link" onClick={() => onOpen(data.floorDomainId!)}>
-                {data.floorDomainName}
-              </button>{" "}
-              is {data.band}.
-            </div>
-          ) : null}
           <p className="note">
             Policy {data.policyVersion}
             {data.confidencePct != null ? ` · Confidence ${data.confidencePct}%` : ""}

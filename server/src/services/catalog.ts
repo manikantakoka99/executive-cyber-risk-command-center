@@ -1,4 +1,4 @@
-import { query } from "../db.js";
+import { query, sessionOrgId } from "../db.js";
 import { sqlExcludeTestFinding, sqlExcludeTestText } from "../command/testFixtures.js";
 import { formatAed, formatImpactSummary, reformatAedInText } from "../lib/money.js";
 import {
@@ -6,6 +6,7 @@ import {
   NIST_CSF_LABEL,
   modelDomainEvidence,
   scoreNist,
+  type DomainEvidence,
   type NistScore,
 } from "../command/nistCsf.js";
 
@@ -249,10 +250,51 @@ function mapFinding(r: Record<string, unknown>) {
   };
 }
 
-async function ensureNistCompliance(orgId: string, score: NistScore) {
+/**
+ * Connector feeds for the session org only.
+ * current_setting is set from the session in query(), not from a request field.
+ * An org with no connectors keeps the command-model fixture.
+ */
+async function orgDomainEvidence(): Promise<Record<string, DomainEvidence>> {
+  const { rows } = await query<{ code: string; fresh: number; total: number; expired: boolean }>(
+    `SELECT d.code,
+            COUNT(c.connector_id)::int AS total,
+            COUNT(c.connector_id) FILTER (
+              WHERE c.status = 'active' AND c.last_sync_at IS NOT NULL
+            )::int AS fresh,
+            EXISTS (
+              SELECT 1
+              FROM security_signals s
+              WHERE s.org_id = current_setting('app.current_org_id', true)::uuid
+                AND s.risk_domain_id = d.risk_domain_id
+                AND s.event_type = 'evidence_expired'
+                AND s.lifecycle_status IS DISTINCT FROM 'resolved'
+            ) AS expired
+     FROM risk_domains d
+     JOIN connectors c
+       ON c.risk_domain_id = d.risk_domain_id
+      AND c.org_id = current_setting('app.current_org_id', true)::uuid
+     GROUP BY d.risk_domain_id, d.code`,
+  );
+  if (rows.length === 0) return modelDomainEvidence();
+  const evidence: Record<string, DomainEvidence> = {};
+  for (const row of rows) {
+    evidence[row.code] = {
+      fresh: Number(row.fresh),
+      total: Number(row.total),
+      evidenceExpired: Boolean(row.expired),
+    };
+  }
+  return evidence;
+}
+
+async function ensureNistCompliance(score: NistScore) {
+  if (!sessionOrgId()) return;
+  // Shared catalog (compliance_frameworks has no org_id). The snapshot below is org-scoped.
   const { rows: frameworks } = await query(
     `INSERT INTO compliance_frameworks (code, display_name, renewal_cycle_months)
-     VALUES ($1, $2, NULL)
+     SELECT $1, $2, NULL
+     WHERE current_setting('app.current_org_id', true) <> ''
      ON CONFLICT (code) DO UPDATE SET display_name = EXCLUDED.display_name
      RETURNING framework_id`,
     [NIST_CSF_CODE, NIST_CSF_LABEL],
@@ -262,10 +304,11 @@ async function ensureNistCompliance(orgId: string, score: NistScore) {
   const { rows: existing } = await query(
     `SELECT coverage_pct, controls_evidenced
      FROM org_compliance_status
-     WHERE org_id = $1 AND framework_id = $2
+     WHERE org_id = current_setting('app.current_org_id', true)::uuid
+       AND framework_id = $1
      ORDER BY snapshot_at DESC
      LIMIT 1`,
-    [orgId, frameworkId],
+    [frameworkId],
   );
   const current = existing[0];
   if (
@@ -278,15 +321,23 @@ async function ensureNistCompliance(orgId: string, score: NistScore) {
   await query(
     `INSERT INTO org_compliance_status
        (org_id, framework_id, coverage_pct, controls_total, controls_evidenced, snapshot_at)
-     VALUES ($1, $2, $3, $4, $5, now())`,
-    [orgId, frameworkId, score.coveragePct, score.total, score.evidenced],
+     VALUES (current_setting('app.current_org_id', true)::uuid, $1, $2, $3, $4, now())`,
+    [frameworkId, score.coveragePct, score.total, score.evidenced],
   );
 }
 
-export async function getCompliance(orgId: string) {
-  const nist = scoreNist(modelDomainEvidence());
+export async function getCompliance() {
+  if (!sessionOrgId()) {
+    return { posturePct: null, frameworks: [], nist: null };
+  }
+  let nist: NistScore;
   try {
-    await ensureNistCompliance(orgId, nist);
+    nist = scoreNist(await orgDomainEvidence());
+  } catch {
+    nist = scoreNist(modelDomainEvidence());
+  }
+  try {
+    await ensureNistCompliance(nist);
   } catch {
     // Databases created before nist_csf_2 was added to framework_code reject the lookup.
   }
@@ -297,9 +348,8 @@ export async function getCompliance(orgId: string) {
         c.next_renewal_date, c.snapshot_at
      FROM org_compliance_status c
      JOIN compliance_frameworks f ON f.framework_id = c.framework_id
-     WHERE c.org_id = $1
+     WHERE c.org_id = current_setting('app.current_org_id', true)::uuid
      ORDER BY c.framework_id, c.snapshot_at DESC`,
-    [orgId],
   );
   const items = rows.map((r) => ({
     statusId: r.status_id,

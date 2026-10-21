@@ -1,21 +1,29 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const ORG = "2accc7de-f693-4b19-8fe8-6db501be05e2";
 const PERSONAS = [
   { name: "ciso", id: "c1500001-a090-41a0-8ecc-000000000001" },
   { name: "cxo", id: "c1500001-a090-41a0-8ecc-000000000002" },
   { name: "board", id: "c1500001-a090-41a0-8ecc-000000000006" },
 ] as const;
 
+const LOGIN_EMAIL: Record<string, string> = {
+  "c1500001-a090-41a0-8ecc-000000000001": "layla@ciso.com",
+  "c1500001-a090-41a0-8ecc-000000000002": "mariam@cxo.com",
+  "c1500001-a090-41a0-8ecc-000000000005": "mariam@cxo.com",
+  "c1500001-a090-41a0-8ecc-000000000006": "hessa@board.com",
+  "c1500001-a090-41a0-8ecc-000000000007": "yusuf@domainanalyst.com",
+};
+const LOGIN_PASSWORD = "role-login-test-password";
+
 async function signIn(page: Page, userId: string) {
-  await page.addInitScript(
-    ({ org, user }) => {
-      localStorage.setItem("ecc.orgId", org);
-      localStorage.setItem("ecc.userId", user);
-      localStorage.setItem("ecc.sidebar", "open");
-    },
-    { org: ORG, user: userId },
-  );
+  const email = LOGIN_EMAIL[userId];
+  if (!email) throw new Error(`No role login for ${userId}`);
+  await page.context().clearCookies();
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.locator('input[type="email"]').fill(email);
+  await page.locator('input[type="password"]').fill(LOGIN_PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.locator("aside.sidebar nav a").first().waitFor();
 }
 
 async function openApp(page: Page, path = "/register") {

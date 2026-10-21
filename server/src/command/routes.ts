@@ -64,15 +64,15 @@ async function workspaceFor(req: FastifyRequest) {
     req.tenant.orgId,
   );
   if (hasPermission(req.tenant.role, "compliance.read")) {
-    workspace.complianceLive = await loadCompliance(req.tenant.orgId);
+    workspace.complianceLive = await loadCompliance();
   }
   // Belt-and-suspenders: never emit AED / loss figures without command.loss.
   return redactFinancial(req.tenant.role, workspace);
 }
 
-async function loadCompliance(orgId: string): Promise<ComplianceLive | null> {
+async function loadCompliance(): Promise<ComplianceLive | null> {
   try {
-    const data = await getCompliance(orgId);
+    const data = await getCompliance();
     return {
       posturePct: data.posturePct,
       frameworks: data.frameworks.map((row) => ({

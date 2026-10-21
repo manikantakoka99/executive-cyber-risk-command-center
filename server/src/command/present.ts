@@ -74,6 +74,11 @@ function sourceLabel(table: string): string {
   }
 }
 
+/** Pixel headline: "Held at Critical by Attack Surface & VAPT". */
+export function floorHoldLine(band: string, domainName: string): string {
+  return `Held at ${band} by ${domainName.replaceAll(" and ", " & ")}`;
+}
+
 export interface CommandWorkspace {
   asOf: string;
   snapshotLabel: string;
@@ -409,7 +414,7 @@ function presentHeadline(
     floored: card.floored,
     floorNote:
       card.floored && card.floorDomain
-        ? `Org held at ${card.headline} because ${card.floorDomain.domain.name} is ${card.floorDomain.band}`
+        ? floorHoldLine(card.headline, card.floorDomain.domain.name)
         : null,
     floorDomainId: card.floored ? card.floorDomain?.domain.id ?? null : null,
     floorDomainName: card.floored ? card.floorDomain?.domain.name ?? null : null,

@@ -1296,6 +1296,26 @@ select.role-select { min-height: 44px; padding: 0 10px; }
 .hero-score-line .hero-kpi,
 .hero-score-line .word { font-family: var(--font); font-size:48px; font-weight:600; line-height:1.1; letter-spacing:normal; }
 .hero-score-line .hero-kpi { font-variant-numeric: tabular-nums; }
+.hero-score-line .word.tone-crit { color: var(--crit); }
+.hero-score-line .word.tone-high { color: var(--high); }
+.floor-hold {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+.floor-hold .text-link {
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .hero-score-chips { display:flex; align-items:center; gap:8px; margin-top:8px; }
 .hero-score-chips > * { min-height:24px; display:inline-flex; align-items:center; }
 @media (max-width: 720px) { .hero-score-line .hero-kpi, .hero-score-line .word { font-size:36px; } }

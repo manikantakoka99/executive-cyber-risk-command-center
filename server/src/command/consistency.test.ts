@@ -73,7 +73,7 @@ describe("cross-screen canonical consistency (Vinga PDF/HTML)", () => {
     assert.equal(format1(ws.headline!.arithmetic), CANONICAL.headlineScore);
     assert.equal(ws.headline!.band, CANONICAL.headlineBand);
     assert.equal(ws.headline!.floored, true);
-    assert.match(ws.headline!.floorNote ?? "", /Org held at Critical because Attack Surface and VAPT is Critical/);
+    assert.equal(ws.headline!.floorNote, "Held at Critical by Attack Surface & VAPT");
     assert.equal(format1(ws.headline!.plain), CANONICAL.plainRawAverage);
     assert.equal(ws.headline!.confidencePct, CANONICAL.confidencePct);
     assert.equal(ws.headline!.outsideAppetite, CANONICAL.outsideAppetite);

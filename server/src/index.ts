@@ -342,7 +342,7 @@ app.post(
   decisionActionHandler("close"),
 );
 
-app.get("/api/ecc/compliance", async (req) => getCompliance(req.tenant.orgId));
+app.get("/api/ecc/compliance", async () => getCompliance());
 app.get("/api/ecc/activity", async (req) => ({
   activity: await getActivity(req.tenant.orgId),
 }));
