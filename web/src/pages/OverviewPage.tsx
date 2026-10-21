@@ -367,23 +367,33 @@ export function OverviewPage({
                       : approveLabel(d.recommendedAction)}
                   </button>
                 ) : (
-                  <RoleButton role={actorRole} allowed={false} hint="Needs CxO or CISO" className="di-btn approve">
+                  <RoleButton role={actorRole} allowed={false} hint="Needs CxO" className="di-btn approve">
                     {approveLabel(d.recommendedAction)}
                   </RoleButton>
                 )}
-                {canRequestInfo && !d.synthetic && (
-                  <button
-                    type="button"
-                    className="di-btn defer"
-                    disabled={!!busyId}
-                    aria-busy={busyId === `${d.decisionId}:request-info`}
-                    onClick={() => runAction(d, "request-info")}
-                  >
-                    {busyId === `${d.decisionId}:request-info`
-                      ? "Saving…"
-                      : "Request More Information"}
-                  </button>
-                )}
+                {!d.synthetic &&
+                  (canRequestInfo ? (
+                    <button
+                      type="button"
+                      className="di-btn defer"
+                      disabled={!!busyId}
+                      aria-busy={busyId === `${d.decisionId}:request-info`}
+                      onClick={() => runAction(d, "request-info")}
+                    >
+                      {busyId === `${d.decisionId}:request-info`
+                        ? "Saving…"
+                        : "Request More Information"}
+                    </button>
+                  ) : (
+                    <RoleButton
+                      role={actorRole}
+                      allowed={false}
+                      hint="Needs CxO or Program Office"
+                      className="di-btn defer"
+                    >
+                      Request More Information
+                    </RoleButton>
+                  ))}
                 {!d.synthetic && (
                   <Link className="di-btn defer" to={`/decisions/${d.decisionId}`}>
                     Full history

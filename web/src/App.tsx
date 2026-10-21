@@ -122,8 +122,8 @@ function OperationsRoute() {
         }
       }}
       exporting={exporting}
-      canApprove={me.permissions.includes("decisions.act")}
-      canRequestInfo={me.permissions.includes("decisions.act")}
+      canApprove={me.role === "cxo"}
+      canRequestInfo={me.role === "cxo" || me.role === "program_office"}
       actorRole={me.role}
       onOverviewChanged={async () => {
         await load();
