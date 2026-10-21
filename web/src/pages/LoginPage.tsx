@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { Shield } from "lucide-react";
 import { ApiError } from "../lib/api";
 import { useAppState } from "../context/AppState";
 
 export function LoginPage() {
   const { signIn } = useAppState();
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -23,7 +25,8 @@ export function LoginPage() {
     if (emailProblem || passwordProblem) return;
     setBusy(true);
     try {
-      await signIn(nextEmail, password);
+      const me = await signIn(nextEmail, password);
+      navigate(me.home, { replace: true });
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Wrong email or password.";
       setPasswordError(message || "Wrong email or password.");

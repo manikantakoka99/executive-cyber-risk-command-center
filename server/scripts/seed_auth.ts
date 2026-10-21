@@ -1,31 +1,78 @@
 /**
  * Local-only demo passwords.
  *
- * Reads ECC_DEMO_PASSWORD from the environment (see .env.example).
- * Writes bcrypt hashes into auth_accounts. Never prints the password.
+ * Prefer ECC_DEMO_LOGINS_FILE: a gitignored CSV of `email,password` lines,
+ * one per role login (see logins.example.csv). ECC_DEMO_PASSWORD is the
+ * fallback when that file is unset, and applies to every role login.
+ * The script hashes with bcrypt and never prints a password. A seeded login
+ * with no file entry fails. Placeholder passwords are refused.
  *
- *   ECC_DEMO_PASSWORD='replace-me' npm run auth:seed
+ *   ECC_DEMO_LOGINS_FILE=../logins.csv npm run auth:seed
  *
- * Layla Al Hashimi is also a CISO member of Falcon National Bank so the
- * org switcher can be exercised. Her Falcon access uses the same login.
+ * Layla (layla@ciso.com) is also a CISO member of Falcon National Bank.
+ * The role domains are public, so the app does not send mail to them.
  */
+import { readFileSync } from "node:fs";
 import { query, pool } from "../src/db.js";
-import { PERSONAS, TENANT_B_ORG_ID } from "../src/command/personas.js";
+import { roleLogins, TENANT_B_ORG_ID } from "../src/command/personas.js";
+import { passwordsForDemoLogins } from "../src/auth/demoLogins.js";
 import { hashPassword } from "../src/auth/passwords.js";
 import { ensureAuthSchema } from "../src/auth/schema.js";
 
-const PLACEHOLDERS = new Set(["", "replace-with-a-local-password", "changeme", "password"]);
-
 async function main() {
-  const password = process.env.ECC_DEMO_PASSWORD ?? "";
-  if (PLACEHOLDERS.has(password) || password.length < 10) {
-    console.error("Set ECC_DEMO_PASSWORD to a local password of at least 10 characters. Do not commit it.");
+  const file = process.env.ECC_DEMO_LOGINS_FILE?.trim() ?? "";
+  let fileText: string | null = null;
+  if (file) {
+    try {
+      fileText = readFileSync(file, "utf8");
+    } catch {
+      console.error(`Cannot read ECC_DEMO_LOGINS_FILE (${file}).`);
+      process.exit(1);
+    }
+  }
+  const logins = roleLogins();
+  let passwords: Map<string, string>;
+  try {
+    passwords = passwordsForDemoLogins({
+      emails: logins.map((login) => login.email),
+      fileText,
+      fallbackPassword: process.env.ECC_DEMO_PASSWORD ?? null,
+    });
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : err);
     process.exit(1);
   }
-  await ensureAuthSchema();
-  const passwordHash = await hashPassword(password);
 
-  for (const persona of PERSONAS) {
+  await ensureAuthSchema();
+  for (const persona of logins) {
+    const password = passwords.get(persona.email.toLowerCase());
+    if (!password) {
+      console.error(`No password entry for ${persona.email}.`);
+      process.exit(1);
+    }
+    const passwordHash = await hashPassword(password);
+    const updated = await query(
+      `UPDATE users SET email = $2, first_name = $3, last_name = $4 WHERE user_id = $1`,
+      [persona.userId, persona.email, persona.firstName, persona.lastName],
+    );
+    if (updated.rowCount === 0) {
+      await query(
+        `INSERT INTO users (user_id, org_id, first_name, last_name, email)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [persona.userId, persona.orgId, persona.firstName, persona.lastName, persona.email],
+      );
+    }
+    await query(
+      `INSERT INTO user_roles (user_id, role_id, org_id, is_primary)
+       SELECT $1, r.role_id, $2, true
+       FROM roles r
+       WHERE r.code = $3
+         AND NOT EXISTS (
+           SELECT 1 FROM user_roles ur WHERE ur.user_id = $1 AND ur.is_primary = true
+         )
+       ON CONFLICT (user_id, role_id) DO NOTHING`,
+      [persona.userId, persona.orgId, persona.role],
+    );
     const found = await query<{ account_id: string }>(
       `SELECT account_id FROM auth_accounts WHERE lower(email) = lower($1)`,
       [persona.email],
@@ -56,24 +103,28 @@ async function main() {
     );
   }
 
-  const layla = PERSONAS.find((p) => p.email === "layla.hashimi@aldhabi.demo");
-  if (layla) {
-    const { rows } = await query<{ account_id: string }>(
-      `SELECT account_id FROM auth_accounts WHERE lower(email) = lower($1)`,
-      [layla.email],
-    );
-    if (rows[0]) {
-      await query(
-        `INSERT INTO org_memberships (account_id, org_id, user_id, role_code, status)
-         VALUES ($1, $2, $3, 'ciso', 'active')
-         ON CONFLICT (account_id, org_id)
-         DO UPDATE SET role_code = 'ciso', status = 'active'`,
-        [rows[0].account_id, TENANT_B_ORG_ID, layla.userId],
-      );
-    }
+  const layla = logins.find((login) => login.email === "layla@ciso.com");
+  if (!layla) {
+    console.error("No password entry for layla@ciso.com.");
+    process.exit(1);
   }
+  const { rows } = await query<{ account_id: string }>(
+    `SELECT account_id FROM auth_accounts WHERE lower(email) = lower($1)`,
+    [layla.email],
+  );
+  if (!rows[0]) {
+    console.error("No password entry for layla@ciso.com.");
+    process.exit(1);
+  }
+  await query(
+    `INSERT INTO org_memberships (account_id, org_id, user_id, role_code, status)
+     VALUES ($1, $2, $3, 'ciso', 'active')
+     ON CONFLICT (account_id, org_id)
+     DO UPDATE SET role_code = 'ciso', status = 'active'`,
+    [rows[0].account_id, TENANT_B_ORG_ID, layla.userId],
+  );
 
-  console.log(`Hashed demo passwords for ${PERSONAS.length} personas. Layla can switch to Falcon National Bank.`);
+  console.log(`Hashed demo passwords for ${logins.length} role logins. Layla can switch to Falcon National Bank.`);
   await pool.end();
 }
 

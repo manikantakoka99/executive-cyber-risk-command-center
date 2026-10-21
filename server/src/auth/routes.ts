@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
-import { hasPermission, isRoleCode, ROLE_LABEL } from "../command/rbac.js";
+import { hasPermission, homeFor, isRoleCode, ROLE_LABEL } from "../command/rbac.js";
 import {
   clearEmailLoginFailures,
   loginBlocked,
@@ -148,6 +148,7 @@ function publicUser(principal: {
     title: principal.title ?? principal.role,
     name: `${principal.firstName}${principal.lastName ? ` ${principal.lastName}` : ""}`,
     email: principal.email,
+    home: homeFor(principal.role),
     memberships: principal.memberships,
   };
 }

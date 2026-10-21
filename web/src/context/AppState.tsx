@@ -36,7 +36,7 @@ interface AppContextValue {
   orgId: string;
   userId: string;
   me: Me | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<Me>;
   applySession: (user: SessionUser) => void;
   switchOrg: (orgId: string) => Promise<void>;
   signOut: () => void;
@@ -108,8 +108,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     const { user } = await api.login(email, password);
     const full = await api.me();
-    setMe(meFrom({ ...full.user, ...user, permissions: full.user.permissions }));
+    const next = meFrom({ ...full.user, ...user, permissions: full.user.permissions });
+    setMe(next);
     setReady(true);
+    return next;
   }, []);
 
   const switchOrg = useCallback(async (orgId: string) => {
