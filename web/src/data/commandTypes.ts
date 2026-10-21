@@ -34,7 +34,8 @@ export interface CommandWorkspace {
     frameworks: { name: string; code?: string; coveragePct: number | null }[];
     nist: {
       label: string;
-      coveragePct: number;
+      empty?: boolean;
+      coveragePct: number | null;
       evidenced: number;
       total: number;
       note: string;

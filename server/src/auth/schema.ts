@@ -3,7 +3,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { query } from "../db.js";
 
-const PENDING = ["009_ecc_auth.sql", "010_decision_log_org.sql", "011_org_id_not_null.sql", "012_audit_log_org_restrict.sql"];
+const PENDING = [
+  "009_ecc_auth.sql",
+  "010_decision_log_org.sql",
+  "011_org_id_not_null.sql",
+  "012_audit_log_org_restrict.sql",
+  "013_nist_csf_2.sql",
+];
 
 let pending: Promise<void> | null = null;
 
@@ -32,6 +38,11 @@ async function apply(): Promise<void> {
       return;
     }
     const sql = readFileSync(path.resolve(here, "../../../db/migrations", file), "utf8");
-    await query(sql);
+    const marker = "-- >>> ENUMS_COMMIT_POINT <<<";
+    const parts = sql.split(marker);
+    for (const part of parts) {
+      const statement = part.trim();
+      if (statement) await query(statement);
+    }
   }
 }

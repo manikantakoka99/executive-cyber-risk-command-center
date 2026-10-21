@@ -13,6 +13,7 @@ import {
   proposePolicy,
   withdrawPolicy,
 } from "./policyStore.js";
+import { loadSessionScorecard } from "./orgFloor.js";
 import { presentEvidence, presentWorkspace, type ComplianceLive } from "./present.js";
 import {
   canAcceptRisk,
@@ -57,11 +58,13 @@ function requirePermission(req: FastifyRequest, reply: FastifyReply, permission:
 
 async function workspaceFor(req: FastifyRequest) {
   const state = getState(req.tenant.orgId);
+  const scorecard = await loadSessionScorecard();
   const workspace = presentWorkspace(
     req.tenant.role,
     state,
     req.tenant.orgName,
     req.tenant.orgId,
+    scorecard,
   );
   if (hasPermission(req.tenant.role, "compliance.read")) {
     workspace.complianceLive = await loadCompliance();
@@ -70,21 +73,17 @@ async function workspaceFor(req: FastifyRequest) {
   return redactFinancial(req.tenant.role, workspace);
 }
 
-async function loadCompliance(): Promise<ComplianceLive | null> {
-  try {
-    const data = await getCompliance();
-    return {
-      posturePct: data.posturePct,
-      frameworks: data.frameworks.map((row) => ({
-        name: row.displayName,
-        code: row.code,
-        coveragePct: row.coveragePct,
-      })),
-      nist: data.nist,
-    };
-  } catch {
-    return null;
-  }
+async function loadCompliance(): Promise<ComplianceLive> {
+  const data = await getCompliance();
+  return {
+    posturePct: data.posturePct,
+    frameworks: data.frameworks.map((row) => ({
+      name: row.displayName,
+      code: row.code,
+      coveragePct: row.coveragePct,
+    })),
+    nist: data.nist,
+  };
 }
 
 function sendAction(reply: FastifyReply, result: ActionResult, workspace: unknown) {

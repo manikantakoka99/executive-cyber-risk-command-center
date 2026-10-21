@@ -365,3 +365,46 @@ test("NIST CSF 2.0 card follows compliance permission", async ({ page }) => {
   await expect(page.getByText("Outside this role")).toBeVisible();
   await expect(page.getByRole("button", { name: "NIST CSF 2.0" })).toHaveCount(0);
 });
+
+for (const width of [1280, 1440, 1920]) {
+  test(`NIST row matches its siblings at ${width}`, async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width, height: 900 });
+    await signIn(page, PERSONAS[0].id);
+    await openApp(page, "/compliance");
+    await page.locator(".comp-row", { hasText: "NIST CSF 2.0" }).waitFor();
+    const compliance = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll(".comp-row")] as HTMLElement[];
+      const nist = rows.find((row) => row.innerText.includes("NIST CSF 2.0"));
+      const other = rows.find((row) => !row.innerText.includes("NIST CSF 2.0"));
+      const button = nist?.querySelector("button.nist-label");
+      const style = button ? getComputedStyle(button) : null;
+      return {
+        nist: nist?.getBoundingClientRect().height ?? null,
+        other: other?.getBoundingClientRect().height ?? null,
+        background: style?.backgroundColor ?? "",
+        borderTop: style?.borderTopWidth ?? "",
+      };
+    });
+    expect(compliance.nist).toBeCloseTo(52.4, 0);
+    expect(compliance.other).toBeCloseTo(52.4, 0);
+    expect(Math.abs((compliance.nist ?? 0) - (compliance.other ?? 0))).toBeLessThanOrEqual(0.5);
+    expect(compliance.borderTop).toBe("0px");
+    expect(compliance.background === "rgba(0, 0, 0, 0)" || compliance.background === "transparent").toBe(true);
+
+    await openApp(page, "/c/headline");
+    await page.locator(".frameworks li", { hasText: "NIST CSF 2.0" }).waitFor();
+    const headline = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll(".frameworks li")] as HTMLElement[];
+      const nist = rows.find((row) => row.innerText.includes("NIST CSF 2.0"));
+      const other = rows.find((row) => !row.innerText.includes("NIST CSF 2.0"));
+      return {
+        nist: nist?.getBoundingClientRect().height ?? null,
+        other: other?.getBoundingClientRect().height ?? null,
+      };
+    });
+    expect(headline.nist).toBeCloseTo(21, 0);
+    expect(headline.other).toBeCloseTo(21, 0);
+    expect(Math.abs((headline.nist ?? 0) - (headline.other ?? 0))).toBeLessThanOrEqual(0.5);
+  });
+}

@@ -12,6 +12,7 @@ import {
   sampleWorkbookAdapter,
 } from "../ingestion/adapters/sampleWorkbook.js";
 import { correlateReadySignals } from "../risk/correlation.js";
+import { persistNistCompliance } from "./catalog.js";
 
 const SOURCE_LABEL = "CyberCommandCenter_Tool_To_Risk_Domain_Solution.xlsx";
 
@@ -207,6 +208,13 @@ export async function runSampleWorkbookIngestion(
        WHERE org_id=$1 AND run_id=$3`,
       [orgId, JSON.stringify(summary), runId],
     );
+
+    try {
+      await persistNistCompliance(orgId);
+    } catch (err) {
+      console.error("NIST status recompute failed after ingestion", err);
+      throw err;
+    }
 
     return {
       runId,

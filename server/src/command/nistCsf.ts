@@ -84,11 +84,37 @@ export interface NistFunctionScore {
 
 export interface NistScore {
   label: typeof NIST_CSF_LABEL;
+  empty?: false;
   coveragePct: number;
   evidenced: number;
   total: number;
   functions: NistFunctionScore[];
   note: string;
+}
+
+/** An org with no connector evidence. Never a borrowed score. */
+export interface NistEmpty {
+  label: typeof NIST_CSF_LABEL;
+  empty: true;
+  coveragePct: null;
+  evidenced: 0;
+  total: number;
+  functions: [];
+  note: "No evidence yet";
+}
+
+export type NistReading = NistScore | NistEmpty;
+
+export function emptyNist(): NistEmpty {
+  return {
+    label: NIST_CSF_LABEL,
+    empty: true,
+    coveragePct: null,
+    evidenced: 0,
+    total: NIST_CATEGORY_TOTAL,
+    functions: [],
+    note: "No evidence yet",
+  };
 }
 
 const FUNCTION_ORDER: NistFunctionName[] = [

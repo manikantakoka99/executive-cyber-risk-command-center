@@ -69,13 +69,10 @@ export function overlayOverview<T extends Record<string, unknown>>(
   if (!data) return null;
   if (!isDemoOrg(orgId)) return data;
   const loss = canonicalLossAbsolute();
-  const score = Number(CANONICAL.headlineScore);
   return {
     ...data,
     enterpriseRisk: {
       ...((data.enterpriseRisk as object) ?? {}),
-      score,
-      severity: CANONICAL.headlineBand.toLowerCase(),
       driverSummary: `${CANONICAL.criticalDomains} Critical domains drive the floor to ${CANONICAL.headlineBand}`,
       deltaVsPrior: 0.1,
     },

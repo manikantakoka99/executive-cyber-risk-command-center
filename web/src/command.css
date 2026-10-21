@@ -1316,6 +1316,42 @@ select.role-select { min-height: 44px; padding: 0 10px; }
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+button.nist-label {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: inline;
+}
+button.nist-label:hover,
+button.nist-label:focus,
+button.nist-label:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.nist-empty {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.nist-empty-mark {
+  color: var(--muted);
+}
+.nist-empty small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.2;
+}
 .hero-score-chips { display:flex; align-items:center; gap:8px; margin-top:8px; }
 .hero-score-chips > * { min-height:24px; display:inline-flex; align-items:center; }
 @media (max-width: 720px) { .hero-score-line .hero-kpi, .hero-score-line .word { font-size:36px; } }

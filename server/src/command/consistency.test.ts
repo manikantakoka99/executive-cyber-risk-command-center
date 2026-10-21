@@ -149,7 +149,7 @@ describe("cross-screen canonical consistency (Vinga PDF/HTML)", () => {
   it("Operations + Intelligence overlays match Headline canonical numbers", () => {
     const loss = canonicalLossAbsolute();
     const overview = overlayOverview(DEMO_ORG_ID, {
-      enterpriseRisk: { score: 43, severity: "medium" },
+      enterpriseRisk: { score: Number(CANONICAL.headlineScore), severity: CANONICAL.headlineBand.toLowerCase() },
       businessImpactExposureAed: 5_100_000,
       decisionsAwaitingCxo: 0,
       domainsMonitored: 9,

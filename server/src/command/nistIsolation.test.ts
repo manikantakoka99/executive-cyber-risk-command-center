@@ -4,15 +4,14 @@ import { app } from "../index.js";
 import { query } from "../db.js";
 import { ensureAuthSchema } from "../auth/schema.js";
 import { hashPassword } from "../auth/passwords.js";
-import { NIST_CATEGORIES, scoreNist, type DomainEvidence } from "./nistCsf.js";
+import { NIST_CATEGORIES, emptyNist, scoreNist, type DomainEvidence } from "./nistCsf.js";
 
-const AL = "2accc7de-f693-4b19-8fe8-6db501be05e2";
-const FAL = "e5082391-0ae2-4ed1-93d6-c11650b39dbb";
 const PASSWORD = "nist-isolation-password";
-const EMAIL_A = "nist-iso-a@ecc.test";
-const EMAIL_B = "nist-iso-b@ecc.test";
-const CONNECTOR = "nist-isolation";
-const SIGNAL = "nist-isolation-expired";
+const EMAIL_A = "nist-own-a@ecc.test";
+const EMAIL_B = "nist-own-b@ecc.test";
+const EMAIL_C = "nist-own-c@ecc.test";
+const CONNECTOR = "nist-isolation-own";
+const SIGNAL = "nist-isolation-own-expired";
 
 function cookieFrom(raw: string | string[] | undefined): string {
   const line = Array.isArray(raw) ? raw[0] : raw;
@@ -20,70 +19,62 @@ function cookieFrom(raw: string | string[] | undefined): string {
   return line.split(";")[0];
 }
 
-function nistPct(body: { nist?: { coveragePct?: number }; frameworks?: { code?: string; coveragePct?: number }[] }) {
+function nistPct(body: { nist?: { coveragePct?: number | null; empty?: boolean }; frameworks?: { code?: string; coveragePct?: number | null }[] }) {
   const row = body.frameworks?.find((framework) => framework.code === "nist_csf_2");
-  assert.equal(row?.coveragePct, body.nist?.coveragePct);
-  return body.nist?.coveragePct;
-}
-
-/** What this org's connectors and open evidence_expired signals score as. */
-async function expectedCoverage(orgId: string): Promise<number> {
-  const { rows } = await query<{ code: string; fresh: number; total: number; expired: boolean }>(
-    `SELECT d.code,
-            COUNT(c.connector_id)::int AS total,
-            COUNT(c.connector_id) FILTER (
-              WHERE c.status = 'active' AND c.last_sync_at IS NOT NULL
-            )::int AS fresh,
-            EXISTS (
-              SELECT 1 FROM security_signals s
-              WHERE s.org_id = $1
-                AND s.risk_domain_id = d.risk_domain_id
-                AND s.event_type = 'evidence_expired'
-                AND s.lifecycle_status IS DISTINCT FROM 'resolved'
-            ) AS expired
-     FROM risk_domains d
-     JOIN connectors c ON c.risk_domain_id = d.risk_domain_id AND c.org_id = $1
-     GROUP BY d.risk_domain_id, d.code`,
-    [orgId],
-  );
-  const evidence: Record<string, DomainEvidence> = {};
-  for (const row of rows) {
-    evidence[row.code] = {
-      fresh: Number(row.fresh),
-      total: Number(row.total),
-      evidenceExpired: Boolean(row.expired),
-    };
-  }
-  return scoreNist(evidence).coveragePct;
+  assert.equal(row?.coveragePct ?? null, body.nist?.coveragePct ?? null);
+  return body.nist?.coveragePct ?? null;
 }
 
 describe("NIST compliance is scoped to the session org", () => {
-  const ids: string[] = [];
+  const orgs: string[] = [];
   let cookieA = "";
   let cookieB = "";
+  let cookieC = "";
   let userB = "";
+  let expectedA = 0;
+  let expectedB = 0;
 
   before(async () => {
     await ensureAuthSchema();
+    await query(`DELETE FROM auth_accounts WHERE lower(email) IN (lower($1), lower($2), lower($3))`, [
+      EMAIL_A,
+      EMAIL_B,
+      EMAIL_C,
+    ]);
+    await query(`DELETE FROM organizations WHERE name LIKE 'NIST Isolation %'`);
+
     const { rows: roles } = await query<{ role_id: string }>(
       `SELECT role_id FROM roles WHERE code = 'ciso'`,
     );
     const ciso = roles[0]?.role_id;
     assert.ok(ciso, "ciso role");
     const passwordHash = await hashPassword(PASSWORD);
-    for (const [email, orgId] of [
-      [EMAIL_A, AL],
-      [EMAIL_B, FAL],
+    const codes = [...new Set(NIST_CATEGORIES.flatMap((category) => category.domains))];
+    const fresh: DomainEvidence = { fresh: 1, total: 1, evidenceExpired: false };
+    const expired: DomainEvidence = { fresh: 1, total: 1, evidenceExpired: true };
+    expectedA = scoreNist(Object.fromEntries(codes.map((code) => [code, fresh]))).coveragePct;
+    expectedB = scoreNist(Object.fromEntries(codes.map((code) => [code, expired]))).coveragePct;
+    assert.notEqual(expectedA, expectedB);
+
+    for (const [email, name] of [
+      [EMAIL_A, "NIST Isolation A"],
+      [EMAIL_B, "NIST Isolation B"],
+      [EMAIL_C, "NIST Isolation C"],
     ] as const) {
+      const org = await query<{ org_id: string }>(
+        `INSERT INTO organizations (name, industry) VALUES ($1, 'Test') RETURNING org_id`,
+        [name],
+      );
+      const orgId = org.rows[0]!.org_id;
+      orgs.push(orgId);
       const user = await query<{ user_id: string }>(
         `INSERT INTO users (org_id, first_name, last_name, email)
          VALUES ($1, 'Nist', $2, $3)
          RETURNING user_id`,
         [orgId, email, email],
       );
-      const userId = user.rows[0].user_id;
-      ids.push(userId);
-      if (orgId === FAL) userB = userId;
+      const userId = user.rows[0]!.user_id;
+      if (email === EMAIL_B) userB = userId;
       await query(
         `INSERT INTO user_roles (user_id, role_id, org_id, is_primary) VALUES ($1, $2, $3, true)`,
         [userId, ciso, orgId],
@@ -97,17 +88,23 @@ describe("NIST compliance is scoped to the session org", () => {
       await query(
         `INSERT INTO org_memberships (account_id, org_id, user_id, role_code, status)
          VALUES ($1, $2, $3, 'ciso', 'active')`,
-        [account.rows[0].account_id, orgId, userId],
+        [account.rows[0]!.account_id, orgId, userId],
       );
     }
 
-    const codes = [...new Set(NIST_CATEGORIES.flatMap((category) => category.domains))];
+    const [orgA, orgB] = orgs;
     for (const code of codes) {
       await query(
         `INSERT INTO connectors (org_id, risk_domain_id, name, connector_type, status, last_sync_at)
          SELECT $1, risk_domain_id, $2, 'api', 'active', now()
          FROM risk_domains WHERE code = $3`,
-        [AL, CONNECTOR, code],
+        [orgA, CONNECTOR, code],
+      );
+      await query(
+        `INSERT INTO connectors (org_id, risk_domain_id, name, connector_type, status, last_sync_at)
+         SELECT $1, risk_domain_id, $2, 'api', 'active', now()
+         FROM risk_domains WHERE code = $3`,
+        [orgB, CONNECTOR, code],
       );
     }
     await query(
@@ -115,82 +112,93 @@ describe("NIST compliance is scoped to the session org", () => {
        SELECT $1, risk_domain_id, 'evidence_expired', now(), $2, 'received'
        FROM risk_domains
        WHERE code::text = ANY($3::text[])`,
-      [FAL, SIGNAL, codes],
+      [orgB, SIGNAL, codes],
     );
 
-    const loginA = await app.inject({
-      method: "POST",
-      url: "/api/ecc/auth/login",
-      payload: { email: EMAIL_A, password: PASSWORD },
-    });
-    assert.equal(loginA.statusCode, 200);
-    cookieA = cookieFrom(loginA.headers["set-cookie"]);
-    const loginB = await app.inject({
-      method: "POST",
-      url: "/api/ecc/auth/login",
-      payload: { email: EMAIL_B, password: PASSWORD },
-    });
-    assert.equal(loginB.statusCode, 200);
-    cookieB = cookieFrom(loginB.headers["set-cookie"]);
+    for (const [email, slot] of [
+      [EMAIL_A, "A"],
+      [EMAIL_B, "B"],
+      [EMAIL_C, "C"],
+    ] as const) {
+      const login = await app.inject({
+        method: "POST",
+        url: "/api/ecc/auth/login",
+        payload: { email, password: PASSWORD },
+      });
+      assert.equal(login.statusCode, 200, email);
+      const cookie = cookieFrom(login.headers["set-cookie"]);
+      if (slot === "A") cookieA = cookie;
+      if (slot === "B") cookieB = cookie;
+      if (slot === "C") cookieC = cookie;
+    }
   });
 
   after(async () => {
-    await query(`DELETE FROM connectors WHERE name = $1`, [CONNECTOR]);
-    await query(`DELETE FROM security_signals WHERE title = $1`, [SIGNAL]);
-    await query(`DELETE FROM org_compliance_status WHERE org_id = ANY($1::uuid[]) AND framework_id IN (
-      SELECT framework_id FROM compliance_frameworks WHERE code = 'nist_csf_2'
-    )`, [[AL, FAL]]);
-    if (!ids.length) return;
-    await query(`DELETE FROM auth_accounts WHERE lower(email) IN (lower($1), lower($2))`, [EMAIL_A, EMAIL_B]);
-    await query(`DELETE FROM users WHERE user_id = ANY($1::uuid[])`, [ids]);
+    await query(`DELETE FROM auth_accounts WHERE lower(email) IN (lower($1), lower($2), lower($3))`, [
+      EMAIL_A,
+      EMAIL_B,
+      EMAIL_C,
+    ]);
+    if (orgs.length) {
+      await query(`DELETE FROM organizations WHERE org_id = ANY($1::uuid[])`, [orgs]);
+    }
   });
 
-  it("shows each session its own score and ignores a forged org header or param", async () => {
-    const expectedA = await expectedCoverage(AL);
-    const expectedB = await expectedCoverage(FAL);
-    assert.notEqual(expectedA, expectedB);
+  it("shows each private org its own score and does not write on read", async () => {
+    const before = await query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM org_compliance_status
+       WHERE org_id = ANY($1::uuid[])
+         AND framework_id IN (SELECT framework_id FROM compliance_frameworks WHERE code = 'nist_csf_2')`,
+      [orgs],
+    );
 
-    const ownA = await app.inject({
-      method: "GET",
-      url: "/api/ecc/compliance",
-      headers: { cookie: cookieA },
-    });
-    const ownB = await app.inject({
-      method: "GET",
-      url: "/api/ecc/compliance",
-      headers: { cookie: cookieB },
-    });
+    const ownA = await app.inject({ method: "GET", url: "/api/ecc/compliance", headers: { cookie: cookieA } });
+    const ownB = await app.inject({ method: "GET", url: "/api/ecc/compliance", headers: { cookie: cookieB } });
+    const ownC = await app.inject({ method: "GET", url: "/api/ecc/compliance", headers: { cookie: cookieC } });
     assert.equal(ownA.statusCode, 200);
     assert.equal(ownB.statusCode, 200);
-    const scoreA = nistPct(ownA.json());
-    const scoreB = nistPct(ownB.json());
-    assert.equal(scoreA, expectedA);
-    assert.equal(scoreB, expectedB);
-    assert.notEqual(scoreA, scoreB);
+    assert.equal(ownC.statusCode, 200);
+    assert.equal(nistPct(ownA.json()), expectedA);
+    assert.equal(nistPct(ownB.json()), expectedB);
+    const empty = ownC.json() as { nist?: { empty?: boolean; note?: string; coveragePct?: number | null } };
+    assert.equal(empty.nist?.empty, true);
+    assert.equal(empty.nist?.coveragePct, null);
+    assert.equal(empty.nist?.note, emptyNist().note);
+    assert.notEqual(nistPct(ownA.json()), nistPct(ownB.json()));
 
     const forged = await app.inject({
       method: "GET",
-      url: `/api/ecc/compliance?orgId=${FAL}&org_id=${FAL}`,
+      url: `/api/ecc/compliance?orgId=${orgs[1]}&org_id=${orgs[1]}`,
       headers: {
         cookie: cookieA,
-        "x-org-id": FAL,
+        "x-org-id": orgs[1],
         "x-user-id": userB,
       },
-      payload: { orgId: FAL, org_id: FAL },
+      payload: { orgId: orgs[1], org_id: orgs[1] },
     });
     assert.equal(forged.statusCode, 200);
-    assert.equal(nistPct(forged.json()), scoreA);
+    assert.equal(nistPct(forged.json()), expectedA);
 
-    const { rows } = await query<{ org_id: string; coverage_pct: string }>(
-      `SELECT DISTINCT ON (c.org_id) c.org_id, c.coverage_pct::text
-       FROM org_compliance_status c
-       JOIN compliance_frameworks f ON f.framework_id = c.framework_id
-       WHERE f.code = 'nist_csf_2' AND c.org_id = ANY($1::uuid[])
-       ORDER BY c.org_id, c.snapshot_at DESC`,
-      [[AL, FAL]],
+    const afterRead = await query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM org_compliance_status
+       WHERE org_id = ANY($1::uuid[])
+         AND framework_id IN (SELECT framework_id FROM compliance_frameworks WHERE code = 'nist_csf_2')`,
+      [orgs],
     );
-    const stored = new Map(rows.map((row) => [row.org_id, Number(row.coverage_pct)]));
-    assert.equal(stored.get(AL), scoreA);
-    assert.equal(stored.get(FAL), scoreB);
+    assert.equal(afterRead.rows[0]?.n, before.rows[0]?.n);
+
+    const written = await app.inject({
+      method: "POST",
+      url: "/api/ecc/compliance/recompute",
+      headers: { cookie: cookieA },
+    });
+    assert.equal(written.statusCode, 200);
+    const body = written.json() as { written: boolean; coveragePct: number | null };
+    assert.equal(body.coveragePct, expectedA);
+    const stored = await query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM org_compliance_status WHERE org_id = $1`,
+      [orgs[0]],
+    );
+    assert.equal(Number(stored.rows[0]?.n) > Number(before.rows[0]?.n), true);
   });
 });

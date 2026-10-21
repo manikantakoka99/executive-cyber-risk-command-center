@@ -261,7 +261,7 @@ export function CompliancePage() {
                 <div className="comp-top">
                   <div className="name">
                     {nist ? (
-                      <button type="button" className="text-link" onClick={() => setNistOpen((open) => !open)}>
+                      <button type="button" className="text-link nist-label" onClick={() => setNistOpen((open) => !open)}>
                         {c.displayName}
                       </button>
                     ) : (
@@ -274,12 +274,21 @@ export function CompliancePage() {
                         : ""}
                     </div>
                   </div>
-                  <div className="pct">{Math.round(c.coveragePct)}%</div>
+                  <div className="pct">
+                    {c.coveragePct == null ? (
+                      <span className="nist-empty">
+                        <span className="nist-empty-mark">—</span>
+                        <small>No evidence yet</small>
+                      </span>
+                    ) : (
+                      `${Math.round(c.coveragePct)}%`
+                    )}
+                  </div>
                 </div>
                 <div
                   className="comp-bar-bg"
                   role="meter"
-                  aria-valuenow={Math.round(c.coveragePct)}
+                  aria-valuenow={c.coveragePct == null ? 0 : Math.round(c.coveragePct)}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-label={`${c.displayName} coverage`}
@@ -287,7 +296,7 @@ export function CompliancePage() {
                   <div
                     className="comp-bar-fill"
                     style={{
-                      width: `${Math.min(100, c.coveragePct)}%`,
+                      width: `${c.coveragePct == null ? 0 : Math.min(100, c.coveragePct)}%`,
                       background:
                         c.coveragePct >= 85
                           ? "var(--good)"
@@ -297,7 +306,7 @@ export function CompliancePage() {
                     }}
                   />
                 </div>
-                {nist && nistOpen && data.nist ? (
+                {nist && nistOpen && data.nist && !data.nist.empty ? (
                   <ul className="frameworks">
                     {data.nist.functions.map((fn: any) => (
                       <li key={fn.name}>

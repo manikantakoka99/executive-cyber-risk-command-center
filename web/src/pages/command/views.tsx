@@ -195,7 +195,7 @@ function ComplianceCard({
               return (
                 <li key={row.name}>
                   {nist ? (
-                    <button type="button" className="text-link" onClick={() => setNistOpen((open) => !open)}>
+                    <button type="button" className="text-link nist-label" onClick={() => setNistOpen((open) => !open)}>
                       {row.name}
                     </button>
                   ) : (
@@ -204,12 +204,23 @@ function ComplianceCard({
                   <span className="bar">
                     <i className={`tone-${tone}`} style={{ width: `${Math.min(100, pct)}%` }} />
                   </span>
-                  <span className="mono">{row.coveragePct == null ? "—" : `${pct.toFixed(0)}%`}</span>
+                  <span className="mono">
+                    {row.coveragePct == null ? (
+                      <span className="nist-empty">
+                        <span className="nist-empty-mark">—</span>
+                        <small>No evidence yet</small>
+                      </span>
+                    ) : (
+                      `${pct.toFixed(0)}%`
+                    )}
+                  </span>
                 </li>
               );
             })}
           </ul>
-          {nistOpen && compliance?.nist ? <NistDetail nist={compliance.nist} /> : null}
+          {nistOpen && compliance?.nist && !compliance.nist.empty ? (
+            <NistDetail nist={compliance.nist} />
+          ) : null}
         </>
       ) : data.complianceDomain ? (
         <p>

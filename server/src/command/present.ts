@@ -1,5 +1,5 @@
 import { formatAedMillions } from "../lib/money.js";
-import type { NistScore } from "./nistCsf.js";
+import type { NistReading } from "./nistCsf.js";
 import {
   BASELINE,
   DOMAINS,
@@ -26,7 +26,9 @@ import {
   weightedCoverage,
   type Band,
   type GapKey,
+  type Scorecard,
 } from "./model.js";
+import { matchesModelRaws } from "./orgFloor.js";
 import {
   CAPABILITY,
   ROLE_LABEL,
@@ -105,7 +107,7 @@ export interface CommandWorkspace {
 export interface ComplianceLive {
   posturePct: number | null;
   frameworks: { name: string; code: string; coveragePct: number | null }[];
-  nist: NistScore | null;
+  nist: NistReading | null;
 }
 
 interface HeadlineView {
@@ -351,6 +353,7 @@ export function presentWorkspace(
   state: CommandState,
   orgName = "Al Dhabi Holdings",
   orgId?: string,
+  scorecard: Scorecard | null = BASELINE,
 ): CommandWorkspace {
   const known = isRoleCode(role);
   const views = viewsFor(role);
@@ -375,7 +378,7 @@ export function presentWorkspace(
     home: homeFor(role),
     openDecisions,
     headline: allow("command.headline")
-      ? presentHeadline(state, loss, expiring, outside, policyVersion, openDecisions)
+      ? presentHeadline(state, loss, expiring, outside, policyVersion, openDecisions, scorecard)
       : null,
     posture: allow("command.posture") ? presentPosture(technical, outside) : null,
     trust: allow("command.trust") ? presentTrust() : null,
@@ -392,18 +395,45 @@ function presentHeadline(
   _state: CommandState,
   loss: boolean,
   expiring: number,
-  outside: number,
+  _outside: number,
   policyVersion: string,
   openDecisions: number,
+  card: Scorecard | null,
 ): HeadlineView {
-  const card = BASELINE;
+  if (!card) {
+    return {
+      question: "Are we OK?",
+      title: "No domain scores for this organization yet.",
+      lede: "This organization has no domain score snapshots, so there is no headline to floor.",
+      band: "Low",
+      arithmetic: 0,
+      plain: 0,
+      floored: false,
+      floorNote: null,
+      floorDomainId: null,
+      floorDomainName: null,
+      counts: { Critical: 0, High: 0, Medium: 0, Low: 0 },
+      confidencePct: null,
+      confidenceLabel: null,
+      policyVersion,
+      outsideAppetite: 0,
+      domainCount: 0,
+      expiringAcceptances: expiring,
+      acceptanceCount: openDecisions,
+      loss: null,
+      lookFirst: [],
+      trend: [],
+      complianceDomain: null,
+    };
+  }
+  const outside = card.rows.filter((row) => row.adjusted > row.domain.appetite).length;
   const critical = card.rows.filter((row) => row.band === "Critical").map((row) => row.domain.name);
   const title = critical.length
     ? critical.length === 1
       ? "One domain is Critical and needs a decision this week."
       : `${numWord(critical.length)} domains are Critical and need decisions this week.`
     : "No domain is Critical.";
-  const cmp = scoredById("cmp");
+  const cmp = card.rows.find((row) => row.domain.id === "cmp");
   return {
     question: "Are we OK?",
     title,
@@ -423,7 +453,7 @@ function presentHeadline(
     confidenceLabel: confidenceLabel(card.confidence),
     policyVersion,
     outsideAppetite: outside,
-    domainCount: DOMAINS.length,
+    domainCount: card.rows.length,
     expiringAcceptances: expiring,
     // Same open-queue count as workspace.openDecisions (not accept-register size).
     acceptanceCount: openDecisions,
@@ -448,11 +478,13 @@ function presentHeadline(
         appetiteState: appetiteState(row.adjusted, row.domain.appetite),
         outside: row.adjusted > row.domain.appetite,
       })),
-    trend: monthScorecards().map(({ month, card: monthCard }) => ({
-      month,
-      score: round1(monthCard.arithmetic),
-      headline: monthCard.headline,
-    })),
+    trend: (matchesModelRaws(card) ? monthScorecards() : [{ month: MONTHS[MONTHS.length - 1]!, card }]).map(
+      ({ month, card: monthCard }) => ({
+        month,
+        score: round1(monthCard.arithmetic),
+        headline: monthCard.headline,
+      }),
+    ),
     complianceDomain: cmp
       ? {
           name: cmp.domain.name,
