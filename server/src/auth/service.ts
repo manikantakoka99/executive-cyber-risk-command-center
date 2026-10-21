@@ -51,7 +51,8 @@ export function readCookie(header: string | undefined, name: string): string | u
 export function sessionCookie(token: string, clear = false): string {
   const maxAge = clear ? 0 : Math.floor(SESSION_MS / 1000);
   const value = clear ? "" : encodeURIComponent(token);
-  return `${SESSION_COOKIE}=${value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${SESSION_COOKIE}=${value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${secure}`;
 }
 
 export async function login(email: string, password: string): Promise<{ token: string; principal: SessionPrincipal } | null> {

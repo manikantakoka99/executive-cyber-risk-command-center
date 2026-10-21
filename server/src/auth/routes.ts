@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { hasPermission, isRoleCode, ROLE_LABEL } from "../command/rbac.js";
+import { consumeLoginAttempt } from "./loginThrottle.js";
 import {
   acceptInvite,
   createInvite,
@@ -21,6 +22,11 @@ function publicError(reply: FastifyReply, status: number, code: string, message:
 export function registerAuthRoutes(app: FastifyInstance) {
   app.post("/api/ecc/auth/login", async (req, reply) => {
     const body = z.object({ email: z.string().min(3).max(200), password: z.string().min(1).max(200) }).safeParse(req.body ?? {});
+    const attempt = consumeLoginAttempt(req.ip, body.success ? body.data.email : null);
+    if (!attempt.ok) {
+      reply.header("retry-after", String(attempt.retryAfterSec));
+      return publicError(reply, 429, "too_many_requests", "Too many sign-in attempts. Try again later.");
+    }
     if (!body.success) {
       return publicError(reply, 401, "unauthorized", "Wrong email or password.");
     }

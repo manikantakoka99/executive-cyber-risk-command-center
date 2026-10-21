@@ -38,7 +38,6 @@ export function demoHeaderAuthEnabled(): boolean {
 export function isPublicEccPath(url: string): boolean {
   const path = url.split("?")[0] ?? url;
   if (path === "/health") return true;
-  if (path.startsWith("/api/ecc/organizations")) return true;
   // Login, logout, and invite acceptance are public. Any other /auth path
   // (including a signup URL) is also unauthenticated so a missing route is 404.
   // Switching org still requires a session.

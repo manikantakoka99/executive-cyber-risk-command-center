@@ -106,6 +106,8 @@ Use the same password for every seeded persona. Example: `layla.hashimi@aldhabi.
 
 Set `DEMO_AUTH=false` outside local QA. When it is `true`, the existing test harness may still pass `X-Org-Id` and `X-User-Id`. The browser does not send those headers. A session cookie always wins over headers, and a session cannot read another org by guessing ids.
 
+`GET /api/ecc/organizations` and `GET /api/ecc/organizations/:orgId/users` require that session. The organization list is only the orgs the user belongs to. The user list is the session org, and only an Admin can read it. Sign-in is throttled per IP and per email. The session cookie is `HttpOnly` and `SameSite=Lax`, and `Secure` when `NODE_ENV=production`.
+
 App roles match the schema’s eight `user_role_name` values exactly: `board_member`, `cxo`, `ciso`, `risk_lead`, `domain_analyst`, `program_office`, `auditor`, `admin`.
 
 **Tenant isolation** is enforced in the API (user must belong to the org) and in Postgres (`SET app.current_org_id` / RLS on DWAN tables). Cross-tenant header spoofing returns **403**. Authorization is checked before input validation on mutating endpoints (unauthorized → **403**, not **400**).

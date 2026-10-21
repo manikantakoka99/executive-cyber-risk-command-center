@@ -135,16 +135,6 @@ app.addHook("onRequest", (_req, _reply, done) => {
 
 app.get("/health", async () => ({ ok: true }));
 
-app.get("/api/ecc/organizations", async () => {
-  const { organizations } = await listOrganizations();
-  return { organizations };
-});
-
-app.get("/api/ecc/organizations/:orgId/users", async (req) => {
-  const { orgId } = req.params as { orgId: string };
-  return { users: await listUsers(orgId) };
-});
-
 app.addHook("preHandler", async (req, reply) => {
   if (isPublicEccPath(req.url)) return;
   if (!req.url.startsWith("/api/ecc")) return;
@@ -191,6 +181,47 @@ app.addHook("preHandler", async (req, reply) => {
 });
 
 registerAuthRoutes(app);
+
+app.get("/api/ecc/organizations", async (req) => {
+  const memberships = req.tenant.memberships?.length
+    ? req.tenant.memberships
+    : [
+        {
+          orgId: req.tenant.orgId,
+          orgName: req.tenant.orgName,
+          role: req.tenant.role,
+          userId: req.tenant.userId,
+        },
+      ];
+  const { organizations } = await listOrganizations();
+  const byId = new Map(organizations.map((org) => [org.orgId, org]));
+  return {
+    organizations: memberships.map((membership) => {
+      const known = byId.get(membership.orgId);
+      return (
+        known ?? {
+          orgId: membership.orgId,
+          name: membership.orgName,
+          industry: null,
+          hqCountry: null,
+        }
+      );
+    }),
+  };
+});
+
+app.get("/api/ecc/organizations/:orgId/users", async (req, reply) => {
+  const { orgId } = req.params as { orgId: string };
+  if (orgId !== req.tenant.orgId) {
+    return reply.code(404).send({ error: { code: "not_found", message: "Organization not found" } });
+  }
+  if (!hasPermission(req.tenant.role, "admin.users")) {
+    return reply.code(403).send({
+      error: { code: "forbidden", message: `Role ${req.tenant.role} cannot access this resource.` },
+    });
+  }
+  return { users: await listUsers(req.tenant.orgId) };
+});
 
 /** Central financial strip — every /api/ecc JSON response for non-financial roles. */
 app.addHook("onSend", async (req, reply, payload) => {
