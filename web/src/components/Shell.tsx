@@ -34,18 +34,19 @@ function scrollActiveNavLink(navEl: HTMLElement, behavior: ScrollBehavior) {
 }
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { organizations, orgId, setOrgId, users, userId, setUserId, me, signOut, error, retry } =
-    useAppState();
+  const { orgId, userId, me, signOut, switchOrg, error, retry } = useAppState();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const navScrollRef = useRef<HTMLElement>(null);
   const alignedPath = useRef<string | null>(null);
   const previousUser = useRef(userId);
+  const previousOrg = useRef(orgId);
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem("ecc.sidebar") === "collapsed",
   );
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [query, setQuery] = useState("");
   const perms = me?.permissions ?? [];
   const roleTone =
@@ -59,12 +60,15 @@ export function Shell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!me || me.userId !== userId) return;
-    if (previousUser.current && previousUser.current !== userId) {
-      // Persona switch: land on role home and drop any stale view state.
+    const userChanged = Boolean(previousUser.current && previousUser.current !== userId);
+    const orgChanged = Boolean(previousOrg.current && previousOrg.current !== orgId);
+    if (userChanged || orgChanged) {
+      // Org or identity switch: land on role home and drop any stale view state.
       navigate(me.home, { replace: true });
     }
     previousUser.current = userId;
-  }, [userId, me, navigate]);
+    previousOrg.current = orgId;
+  }, [userId, orgId, me, navigate]);
 
   useEffect(() => {
     localStorage.setItem("ecc.sidebar", collapsed ? "collapsed" : "open");
@@ -112,6 +116,22 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className={`app-frame role-${roleTone}${collapsed ? " sidebar-collapsed" : ""}`}>
       <aside className="sidebar glass" aria-label="Primary">
+        {me && me.memberships.length > 1 && (
+          <div className="org-switch" aria-label="Organizations">
+            {me.memberships.map((org, index) => (
+              <button
+                key={org.orgId}
+                type="button"
+                className={org.orgId === orgId ? "active" : ""}
+                title={org.orgName}
+                onClick={() => void switchOrg(org.orgId)}
+              >
+                <span className={`org-badge b${index % 4}`}>{org.orgName.slice(0, 1)}</span>
+                {!collapsed && <span>{org.orgName}</span>}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="brand">
           <div className="brand-mark" aria-hidden>
             <Shield size={18} />
@@ -163,46 +183,56 @@ export function Shell({ children }: { children: ReactNode }) {
             </button>
           </div>
           <div className="top-right">
-            <label className="sr-only" htmlFor="org-select">
-              Organization
-            </label>
-            <select
-              id="org-select"
-              className="org-select"
-              value={orgId}
-              onChange={(event) => setOrgId(event.target.value)}
-            >
-              {organizations.map((org) => (
-                <option key={org.orgId} value={org.orgId}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-            <label className="sr-only" htmlFor="user-select">
-              Signed in as
-            </label>
-            <select
-              id="user-select"
-              className="org-select"
-              value={userId}
-              onChange={(event) => setUserId(event.target.value)}
-            >
-              {users.map((user) => (
-                <option key={user.userId} value={user.userId}>
-                  {user.firstName} {user.lastName} · {user.title ?? roleLabel(user.role)}
-                </option>
-              ))}
-            </select>
-            {me && <span className="role-chip">{me.title || roleLabel(me.role)}</span>}
             <button className="icon-btn" type="button" onClick={toggle} aria-label="Toggle theme">
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
-            <button className="btn ghost sm" type="button" onClick={signOut}>
-              <LogOut size={14} /> Sign out
-            </button>
-            <div className="avatar" aria-hidden title={me?.email}>
-              {me ? initials(me.name) : "—"}
-            </div>
+            {me && (
+              <div className="account">
+                <button
+                  className="account-chip"
+                  type="button"
+                  aria-expanded={accountOpen}
+                  aria-haspopup="menu"
+                  onClick={() => setAccountOpen((open) => !open)}
+                >
+                  <span className="avatar" aria-hidden>
+                    {initials(me.name)}
+                  </span>
+                  <span className="account-copy">
+                    <strong>{me.name}</strong>
+                    <small>
+                      {roleLabel(me.role)} · {me.orgName}
+                    </small>
+                  </span>
+                </button>
+                {accountOpen && (
+                  <div className="account-menu" role="menu">
+                    {me.permissions.includes("admin.users") && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setAccountOpen(false);
+                          navigate("/admin");
+                        }}
+                      >
+                        Users
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setAccountOpen(false);
+                        signOut();
+                      }}
+                    >
+                      <LogOut size={14} /> Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </header>
 

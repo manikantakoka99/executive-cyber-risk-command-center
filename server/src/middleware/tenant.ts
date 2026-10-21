@@ -3,6 +3,8 @@ import { query } from "../db.js";
 import { findPersona, orgNameFor, roleOverride } from "../command/personas.js";
 import { canonicalRole, type RoleCode } from "../command/rbac.js";
 import { setTenantContext } from "../db.js";
+import type { Membership } from "../auth/service.js";
+import { sessionPrincipal } from "../auth/routes.js";
 
 export type UserRole = RoleCode;
 
@@ -15,6 +17,8 @@ export interface TenantContext {
   email: string;
   orgName: string;
   title?: string;
+  accountId?: string;
+  memberships?: Membership[];
 }
 
 declare module "fastify" {
@@ -26,10 +30,59 @@ declare module "fastify" {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+/** Header impersonation is local QA only. The product UI uses the session cookie. */
+export function demoHeaderAuthEnabled(): boolean {
+  return process.env.DEMO_AUTH === "true";
+}
+
+export function isPublicEccPath(url: string): boolean {
+  const path = url.split("?")[0] ?? url;
+  if (path === "/health") return true;
+  if (path.startsWith("/api/ecc/organizations")) return true;
+  // Login, logout, and invite acceptance are public. Any other /auth path
+  // (including a signup URL) is also unauthenticated so a missing route is 404.
+  // Switching org still requires a session.
+  if (path.startsWith("/api/ecc/auth/") && path !== "/api/ecc/auth/switch-org") return true;
+  return false;
+}
+
 export async function tenantMiddleware(
   req: FastifyRequest,
   reply: FastifyReply,
 ) {
+  const principal = await sessionPrincipal(req.headers.cookie);
+  if (req.headers.cookie?.includes("ecc_session=") && !principal) {
+    return reply.code(401).send({
+      error: { code: "unauthorized", message: "Session expired. Sign in again." },
+    });
+  }
+  if (principal) {
+    req.tenant = {
+      orgId: principal.orgId,
+      userId: principal.userId,
+      role: principal.role,
+      firstName: principal.firstName,
+      lastName: principal.lastName,
+      email: principal.email,
+      orgName: principal.orgName,
+      title: principal.title,
+      accountId: principal.accountId,
+      memberships: principal.memberships,
+    };
+    try {
+      await setTenantContext(principal.orgId, principal.userId);
+    } catch {
+      /* pool may be unavailable; app-layer org filters still apply */
+    }
+    return;
+  }
+
+  if (!demoHeaderAuthEnabled()) {
+    return reply.code(401).send({
+      error: { code: "unauthorized", message: "Sign in required." },
+    });
+  }
+
   const orgId = String(req.headers["x-org-id"] ?? "");
   const userId = String(req.headers["x-user-id"] ?? "");
 

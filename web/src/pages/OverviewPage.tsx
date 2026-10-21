@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { RoleButton } from "../components/RoleButton";
 import type { OverviewResponse, PendingDecision } from "../data/types";
 import { api } from "../lib/api";
 import {
@@ -366,10 +367,9 @@ export function OverviewPage({
                       : approveLabel(d.recommendedAction)}
                   </button>
                 ) : (
-                  <span className="role-hint">
-                    Acting as {actorRole ? roleLabel(actorRole) : "non-CxO"} —
-                    approve requires CxO.
-                  </span>
+                  <RoleButton role={actorRole} allowed={false} hint="Needs CxO or CISO" className="di-btn approve">
+                    {approveLabel(d.recommendedAction)}
+                  </RoleButton>
                 )}
                 {canRequestInfo && !d.synthetic && (
                   <button

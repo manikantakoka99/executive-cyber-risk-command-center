@@ -32,6 +32,8 @@ MIGRATIONS = [
     "006_ecc_sample_ingestion_proof.sql",
     "007_ecc_command_rbac.sql",
     "008_align_priority_bands.sql",
+    "009_ecc_auth.sql",
+    "010_decision_log_org.sql",
 ]
 
 

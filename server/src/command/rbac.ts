@@ -428,7 +428,15 @@ export function maxAcceptanceDays(severity: string): number {
 
 export function requiredPermission(method: string, path: string): Permission | "self" | null {
   const url = path.split("?")[0] ?? path;
-  if (url === "/health" || url.startsWith("/api/ecc/organizations") || url === "/api/ecc/me") {
+  if (
+    url === "/health" ||
+    url.startsWith("/api/ecc/organizations") ||
+    url === "/api/ecc/me" ||
+    url === "/api/ecc/auth/switch-org" ||
+    url === "/api/ecc/auth/login" ||
+    url === "/api/ecc/auth/logout" ||
+    url.startsWith("/api/ecc/auth/invite/")
+  ) {
     return null;
   }
   if (url.startsWith("/api/ecc/command") || url.startsWith("/api/ecc/admin") || url.startsWith("/api/ecc/dwan")) {

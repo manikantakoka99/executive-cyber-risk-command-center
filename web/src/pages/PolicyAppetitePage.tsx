@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { RoleButton } from "../components/RoleButton";
 import { useAppState } from "../context/AppState";
 import { ApiError, api } from "../lib/api";
 
@@ -45,6 +46,8 @@ export function PolicyAppetitePage() {
 
   const canPropose = !!me?.permissions.includes("policy.propose");
   const canApprove = !!me?.permissions.includes("policy.approve");
+  const readOnly = me?.role === "board_member" || me?.role === "auditor";
+  const showPropose = canPropose || !readOnly;
 
   const load = useCallback(async () => {
     const data = await api.policyBundle();
@@ -183,14 +186,14 @@ export function PolicyAppetitePage() {
         </article>
       </div>
 
-      {canPropose && (
+      {showPropose && (
         <section className="card" style={{ marginTop: 16 }}>
           <h3>Propose scoring policy</h3>
-          <p className="note">Creates a new draft version. Board approval locks it.</p>
+          <p className="note">Creates a new draft version. Board approval locks it. CISO proposes; Board or CxO approves.</p>
           <div className="form" style={{ display: "grid", gap: 12, maxWidth: 560 }}>
             <label>
               Notes
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} disabled={!canPropose} />
             </label>
             <label>
               Critical band minimum
@@ -200,11 +203,19 @@ export function PolicyAppetitePage() {
                 max={100}
                 value={criticalMin}
                 onChange={(e) => setCriticalMin(Number(e.target.value))}
+                disabled={!canPropose}
               />
             </label>
-            <button className="btn primary sm" type="button" disabled={busy} onClick={() => void propose()}>
+            <RoleButton
+              role={me?.role}
+              allowed={canPropose}
+              hint="Needs CISO"
+              className="btn primary sm"
+              disabled={busy}
+              onClick={() => void propose()}
+            >
               Propose draft
-            </button>
+            </RoleButton>
           </div>
         </section>
       )}
@@ -241,15 +252,17 @@ export function PolicyAppetitePage() {
                   <td>{p.proposedByName ?? "—"}</td>
                   <td>{p.approvedByName ?? "—"}</td>
                   <td>
-                    {p.status === "draft" && canApprove && (
-                      <button
+                    {p.status === "draft" && (
+                      <RoleButton
+                        role={me?.role}
+                        allowed={canApprove}
+                        hint="Needs Board or CxO"
                         className="btn primary sm"
-                        type="button"
                         disabled={busy}
                         onClick={() => void approve(p.policyId)}
                       >
                         Approve & lock
-                      </button>
+                      </RoleButton>
                     )}
                     {p.status === "approved" && <span className="note">Immutable</span>}
                   </td>
@@ -260,7 +273,7 @@ export function PolicyAppetitePage() {
         </div>
       </section>
 
-      {canPropose && (
+      {showPropose && (
         <section className="card" style={{ marginTop: 16 }}>
           <h3>Propose appetite change</h3>
           <div className="form" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}>
@@ -285,9 +298,16 @@ export function PolicyAppetitePage() {
                 onChange={(e) => setAppetiteMax(Number(e.target.value))}
               />
             </label>
-            <button className="btn primary sm" type="button" disabled={busy} onClick={() => void proposeAppetite()}>
+            <RoleButton
+              role={me?.role}
+              allowed={canPropose}
+              hint="Needs CISO"
+              className="btn primary sm"
+              disabled={busy}
+              onClick={() => void proposeAppetite()}
+            >
               Propose appetite
-            </button>
+            </RoleButton>
           </div>
         </section>
       )}
@@ -318,15 +338,17 @@ export function PolicyAppetitePage() {
                   <td>{a.proposedByName ?? "—"}</td>
                   <td>{a.approvedByName ?? "—"}</td>
                   <td>
-                    {a.status === "draft" && canApprove && (
-                      <button
+                    {a.status === "draft" && (
+                      <RoleButton
+                        role={me?.role}
+                        allowed={canApprove}
+                        hint="Needs Board or CxO"
                         className="btn primary sm"
-                        type="button"
                         disabled={busy}
                         onClick={() => void approveAppetite(a.appetiteId)}
                       >
                         Approve & lock
-                      </button>
+                      </RoleButton>
                     )}
                   </td>
                 </tr>

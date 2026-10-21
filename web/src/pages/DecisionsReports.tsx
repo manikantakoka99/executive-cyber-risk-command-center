@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { RoleButton } from "../components/RoleButton";
 import { api } from "../lib/api";
 import { useAppState } from "../context/AppState";
 import {
@@ -94,8 +95,8 @@ export function DecisionDetailPage() {
   if (!data && !error) return <div className="page"><div className="skeleton" /></div>;
   if (error && !data) return <div className="page"><p className="banner-error">{error}</p></div>;
 
-  const canAct = me?.role === "cxo";
-  const canRequest = me?.role === "cxo" || me?.role === "program_office";
+  const canAct = !!me?.permissions.includes("decisions.act");
+  const readOnly = me?.role === "board_member" || me?.role === "auditor";
   const terminal = ["approved", "declined", "closed"].includes(data.status);
   const approveBtn = (() => {
     const t = String(data.recommendedAction ?? "").trim();
@@ -163,50 +164,20 @@ export function DecisionDetailPage() {
               placeholder="Optional rationale recorded in decision_action_log"
             />
             <div className="di-actions">
-              {canAct && (
-                <button
-                  type="button"
-                  className="di-btn approve"
-                  disabled={!!busy}
-                  onClick={() => act("approve")}
-                >
-                  {busy === "approve" ? "Saving…" : approveBtn}
-                </button>
-              )}
-              {canRequest && (
-                <button
-                  type="button"
-                  className="di-btn defer"
-                  disabled={!!busy}
-                  onClick={() => act("request-info")}
-                >
-                  {busy === "request-info" ? "Saving…" : "Request More Information"}
-                </button>
-              )}
-              {canAct && (
-                <button
-                  type="button"
-                  className="di-btn defer"
-                  disabled={!!busy}
-                  onClick={() => act("decline")}
-                >
-                  Decline
-                </button>
-              )}
-              {canRequest && (
-                <button
-                  type="button"
-                  className="di-btn defer"
-                  disabled={!!busy}
-                  onClick={() => act("close")}
-                >
-                  Close
-                </button>
-              )}
+              <RoleButton role={me?.role} allowed={canAct} hint="Needs CxO or CISO" className="di-btn approve" disabled={!!busy} onClick={() => act("approve")}>
+                {busy === "approve" ? "Saving…" : approveBtn}
+              </RoleButton>
+              <RoleButton role={me?.role} allowed={canAct} hint="Needs CxO or CISO" className="di-btn defer" disabled={!!busy} onClick={() => act("request-info")}>
+                {busy === "request-info" ? "Saving…" : "Request More Information"}
+              </RoleButton>
+              <RoleButton role={me?.role} allowed={canAct} hint="Needs CxO or CISO" className="di-btn defer" disabled={!!busy} onClick={() => act("decline")}>
+                Decline
+              </RoleButton>
+              <RoleButton role={me?.role} allowed={canAct} hint="Needs CxO or CISO" className="di-btn defer" disabled={!!busy} onClick={() => act("close")}>
+                Close
+              </RoleButton>
             </div>
-            {!canAct && !canRequest && (
-              <p className="empty">Your role ({me?.role}) cannot mutate decisions.</p>
-            )}
+            {readOnly && <p className="note">Read-only for this role.</p>}
           </div>
         )}
         {terminal && (

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Shell } from "./components/Shell";
 import { AppProvider, useAppState } from "./context/AppState";
 import { ThemeProvider } from "./context/Theme";
@@ -24,6 +24,7 @@ import {
 import { EmptyState } from "./components/EmptyState";
 import { IngestionProofPage } from "./pages/IngestionProofPage";
 import { IntelligencePage } from "./pages/IntelligencePage";
+import { InvitePage } from "./pages/InvitePage";
 import { LoginPage } from "./pages/LoginPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { PolicyAppetitePage } from "./pages/PolicyAppetitePage";
@@ -121,8 +122,8 @@ function OperationsRoute() {
         }
       }}
       exporting={exporting}
-      canApprove={me.role === "cxo"}
-      canRequestInfo={me.role === "cxo" || me.role === "program_office"}
+      canApprove={me.permissions.includes("decisions.act")}
+      canRequestInfo={me.permissions.includes("decisions.act")}
       actorRole={me.role}
       onOverviewChanged={async () => {
         await load();
@@ -133,6 +134,14 @@ function OperationsRoute() {
 
 function EccApp() {
   const { ready, me, error, retry } = useAppState();
+  const location = useLocation();
+  if (location.pathname.startsWith("/invite/")) {
+    return (
+      <Routes>
+        <Route path="/invite/:token" element={<InvitePage />} />
+      </Routes>
+    );
+  }
   if (!ready) {
     return (
       <div className="page">
@@ -186,7 +195,7 @@ function EccApp() {
         <Route path="/compliance" element={<Permit permission="compliance.read"><CompliancePage /></Permit>} />
         <Route path="/reports" element={<Permit permission="reports.read"><ReportsPage /></Permit>} />
         <Route path="/audit" element={<Permit permission="audit.read"><AuditPage /></Permit>} />
-        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin" element={<Permit permission="admin.users"><AdminPage /></Permit>} />
         <Route
           path="*"
           element={

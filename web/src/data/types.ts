@@ -14,6 +14,7 @@ export interface UserRef {
   email: string;
   role: string;
   title?: string;
+  status?: "active" | "invited" | "disabled" | string;
 }
 
 export interface OverviewResponse {

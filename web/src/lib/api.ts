@@ -11,16 +11,20 @@ export class ApiError extends Error {
   }
 }
 
-let orgId = "";
-let userId = "";
-
-export function setAuthContext(nextOrgId: string, nextUserId: string) {
-  orgId = nextOrgId;
-  userId = nextUserId;
-}
-
-export function getAuthContext() {
-  return { orgId, userId };
+export interface SessionUser {
+  userId: string;
+  orgId: string;
+  orgName: string;
+  role: string;
+  title: string;
+  name: string;
+  email: string;
+  permissions?: string[];
+  views?: string[];
+  landing?: string;
+  capability?: string;
+  home?: string;
+  memberships?: { orgId: string; orgName: string; role: string; userId: string }[];
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -29,10 +33,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...(init?.headers as Record<string, string> | undefined),
   };
   if (init?.body) headers["Content-Type"] = "application/json";
-  if (orgId) headers["X-Org-Id"] = orgId;
-  if (userId) headers["X-User-Id"] = userId;
 
-  const res = await fetch(path, { ...init, headers });
+  const res = await fetch(path, { ...init, headers, credentials: "include" });
   if (!res.ok) {
     let code = "http_error";
     let message = res.statusText;
@@ -52,27 +54,36 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  login: (email: string, password: string) =>
+    request<{ user: SessionUser }>("/api/ecc/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+  logout: () => request<{ ok: boolean }>("/api/ecc/auth/logout", { method: "POST" }),
+  switchOrg: (orgId: string) =>
+    request<{ user: SessionUser }>("/api/ecc/auth/switch-org", {
+      method: "POST",
+      body: JSON.stringify({ orgId }),
+    }),
+  invitePreview: (token: string) =>
+    request<{ email: string; orgId: string; orgName: string; role: string; roleLabel: string }>(
+      `/api/ecc/auth/invite/${encodeURIComponent(token)}`,
+    ),
+  acceptInvite: (token: string, password: string) =>
+    request<{ user: SessionUser }>(`/api/ecc/auth/invite/${encodeURIComponent(token)}`, {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    }),
+  createInvite: (email: string, role: string) =>
+    request<{ email: string; role: string; roleLabel: string; expiresAt: string; invitePath: string }>(
+      "/api/ecc/admin/invites",
+      { method: "POST", body: JSON.stringify({ email, role }) },
+    ),
   organizations: () =>
     request<{ organizations: Organization[] }>("/api/ecc/organizations"),
   users: (oid: string) =>
     request<{ users: UserRef[] }>(`/api/ecc/organizations/${oid}/users`),
-  me: () =>
-    request<{
-      user: {
-        userId: string;
-        orgId: string;
-        orgName: string;
-        role: string;
-        title: string;
-        name: string;
-        email: string;
-        permissions: string[];
-        views: string[];
-        landing: string;
-        capability: string;
-        home: string;
-      };
-    }>("/api/ecc/me"),
+  me: () => request<{ user: SessionUser & { permissions: string[]; views: string[]; landing: string; capability: string; home: string } }>("/api/ecc/me"),
   commandWorkspace: () => request<CommandWorkspace>("/api/ecc/command/workspace"),
   commandDomain: (id: string) =>
     request<{ evidence: EvidenceView }>(`/api/ecc/command/domains/${id}`),

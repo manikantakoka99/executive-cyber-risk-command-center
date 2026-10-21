@@ -16,6 +16,8 @@ cd "$ROOT"
 
 export DATABASE_URL="${DATABASE_URL:-postgresql://ecc:ecc_dev_password@127.0.0.1:5433/cyber_command_center}"
 export PORT="${PORT:-4000}"
+# Clean-install still calls the API with demo headers. The UI uses session cookies.
+export DEMO_AUTH="${DEMO_AUTH:-true}"
 ORG_ID="${ORG_ID:-2accc7de-f693-4b19-8fe8-6db501be05e2}"
 CISO_ID="${CISO_ID:-c1500001-a090-41a0-8ecc-000000000001}"
 API_LOG="${API_LOG:-/tmp/ecc-clean-install-api.log}"

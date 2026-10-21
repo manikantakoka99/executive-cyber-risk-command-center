@@ -8,7 +8,9 @@ import { fileURLToPath } from "node:url";
 import "dotenv/config";
 
 import { query, runWithRequestTenant } from "./db.js";
-import { requireRoles, tenantMiddleware } from "./middleware/tenant.js";
+import { isPublicEccPath, requireRoles, tenantMiddleware } from "./middleware/tenant.js";
+import { registerAuthRoutes } from "./auth/routes.js";
+import { ensureAuthSchema } from "./auth/schema.js";
 import { listOrganizations, listUsers, seedCommandDirectory } from "./command/directory.js";
 import { registerCommandRoutes } from "./command/routes.js";
 import {
@@ -144,12 +146,7 @@ app.get("/api/ecc/organizations/:orgId/users", async (req) => {
 });
 
 app.addHook("preHandler", async (req, reply) => {
-  if (
-    req.url === "/health" ||
-    req.url.startsWith("/api/ecc/organizations")
-  ) {
-    return;
-  }
+  if (isPublicEccPath(req.url)) return;
   if (!req.url.startsWith("/api/ecc")) return;
   await tenantMiddleware(req, reply);
 });
@@ -171,6 +168,14 @@ app.get("/api/ecc/me", async (req) => ({
     canAcceptRisk: canAcceptRisk(req.tenant.role),
     canApprovePolicy: hasPermission(req.tenant.role, "policy.approve"),
     canProposePolicy: hasPermission(req.tenant.role, "policy.propose"),
+    memberships: req.tenant.memberships ?? [
+      {
+        orgId: req.tenant.orgId,
+        orgName: req.tenant.orgName,
+        role: req.tenant.role,
+        userId: req.tenant.userId,
+      },
+    ],
   },
 }));
 
@@ -184,6 +189,8 @@ app.addHook("preHandler", async (req, reply) => {
     },
   });
 });
+
+registerAuthRoutes(app);
 
 /** Central financial strip — every /api/ecc JSON response for non-financial roles. */
 app.addHook("onSend", async (req, reply, payload) => {
@@ -1114,9 +1121,14 @@ app.get("/api/ecc/ingestion/sample-workbook/trace/:signalId", async (req, reply)
 });
 
 await registerCommandRoutes(app);
-seedCommandDirectory().catch((err) => {
-  app.log.warn({ err }, "command directory seed skipped");
-});
+ensureAuthSchema()
+  .catch((err) => {
+    app.log.warn({ err }, "auth schema ensure skipped");
+  })
+  .then(() => seedCommandDirectory())
+  .catch((err) => {
+    app.log.warn({ err }, "command directory seed skipped");
+  });
 
 const port = Number(process.env.PORT ?? 4000);
 const host = process.env.HOST ?? "0.0.0.0";
