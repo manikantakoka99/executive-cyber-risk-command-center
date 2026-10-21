@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { query } from "../db.js";
 
-const PENDING = ["009_ecc_auth.sql", "010_decision_log_org.sql", "011_org_id_not_null.sql"];
+const PENDING = ["009_ecc_auth.sql", "010_decision_log_org.sql", "011_org_id_not_null.sql", "012_audit_log_org_restrict.sql"];
 
 let pending: Promise<void> | null = null;
 

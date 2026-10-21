@@ -66,7 +66,8 @@ for name in \
   008_align_priority_bands.sql \
   009_ecc_auth.sql \
   010_decision_log_org.sql \
-  011_org_id_not_null.sql
+  011_org_id_not_null.sql \
+  012_audit_log_org_restrict.sql
 do
   run_sql "$ROOT/migrations/$name"
 done

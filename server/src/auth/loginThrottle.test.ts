@@ -6,7 +6,7 @@ import {
   loginClientIp,
   recordLoginFailure,
   resetLoginThrottle,
-  trustProxyEnabled,
+  trustProxyHops,
 } from "./loginThrottle.js";
 import { sessionCookie } from "./service.js";
 
@@ -76,18 +76,29 @@ describe("login throttle", () => {
     assert.equal(loginBlocked("198.51.100.8", "three@ecc.test", later).ok, true);
   });
 
-  it("ignores X-Forwarded-For unless TRUST_PROXY is explicitly on", () => {
-    for (const off of [undefined, "", "0", "false", "off", "no", "FALSE"]) {
+  it("counts TRUST_PROXY hops from the right and ignores a spoofed leftmost address", () => {
+    for (const off of [undefined, "", "0", "false", "off", "no", "FALSE", "true", "yes", "on"]) {
       if (off === undefined) delete process.env.TRUST_PROXY;
       else process.env.TRUST_PROXY = off;
-      assert.equal(trustProxyEnabled(), false);
+      assert.equal(trustProxyHops(), 0);
       assert.equal(loginClientIp("10.0.0.8", "203.0.113.9, 10.0.0.2"), "10.0.0.8");
     }
     process.env.TRUST_PROXY = "1";
-    assert.equal(trustProxyEnabled(), true);
-    assert.equal(loginClientIp("10.0.0.8", "203.0.113.9, 10.0.0.2"), "203.0.113.9");
-    assert.equal(loginClientIp("10.0.0.8", ["198.51.100.7", "10.0.0.2"]), "198.51.100.7");
+    assert.equal(trustProxyHops(), 1);
+    assert.equal(loginClientIp("10.0.0.8", "203.0.113.9, 198.51.100.7"), "198.51.100.7");
+    assert.equal(loginClientIp("10.0.0.8", "198.51.100.7"), "198.51.100.7");
+    assert.equal(loginClientIp("10.0.0.8", ["203.0.113.9", "198.51.100.7"]), "198.51.100.7");
     assert.equal(loginClientIp(undefined, undefined), "unknown");
+    process.env.TRUST_PROXY = "2";
+    assert.equal(trustProxyHops(), 2);
+    assert.equal(
+      loginClientIp("10.0.0.8", "203.0.113.9, 198.51.100.7, 10.0.0.2"),
+      "198.51.100.7",
+    );
+    assert.equal(
+      loginClientIp("10.0.0.8", "9.9.9.9, 198.51.100.7, 10.0.0.2"),
+      "198.51.100.7",
+    );
   });
 });
 
