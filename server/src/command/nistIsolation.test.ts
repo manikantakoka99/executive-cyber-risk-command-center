@@ -26,6 +26,37 @@ function nistPct(body: { nist?: { coveragePct?: number }; frameworks?: { code?: 
   return body.nist?.coveragePct;
 }
 
+/** What this org's connectors and open evidence_expired signals score as. */
+async function expectedCoverage(orgId: string): Promise<number> {
+  const { rows } = await query<{ code: string; fresh: number; total: number; expired: boolean }>(
+    `SELECT d.code,
+            COUNT(c.connector_id)::int AS total,
+            COUNT(c.connector_id) FILTER (
+              WHERE c.status = 'active' AND c.last_sync_at IS NOT NULL
+            )::int AS fresh,
+            EXISTS (
+              SELECT 1 FROM security_signals s
+              WHERE s.org_id = $1
+                AND s.risk_domain_id = d.risk_domain_id
+                AND s.event_type = 'evidence_expired'
+                AND s.lifecycle_status IS DISTINCT FROM 'resolved'
+            ) AS expired
+     FROM risk_domains d
+     JOIN connectors c ON c.risk_domain_id = d.risk_domain_id AND c.org_id = $1
+     GROUP BY d.risk_domain_id, d.code`,
+    [orgId],
+  );
+  const evidence: Record<string, DomainEvidence> = {};
+  for (const row of rows) {
+    evidence[row.code] = {
+      fresh: Number(row.fresh),
+      total: Number(row.total),
+      evidenceExpired: Boolean(row.expired),
+    };
+  }
+  return scoreNist(evidence).coveragePct;
+}
+
 describe("NIST compliance is scoped to the session org", () => {
   const ids: string[] = [];
   let cookieA = "";
@@ -82,8 +113,9 @@ describe("NIST compliance is scoped to the session org", () => {
     await query(
       `INSERT INTO security_signals (org_id, risk_domain_id, event_type, observed_at, title, lifecycle_status)
        SELECT $1, risk_domain_id, 'evidence_expired', now(), $2, 'received'
-       FROM risk_domains WHERE code = 'soc_mdr'`,
-      [FAL, SIGNAL],
+       FROM risk_domains
+       WHERE code::text = ANY($3::text[])`,
+      [FAL, SIGNAL, codes],
     );
 
     const loginA = await app.inject({
@@ -114,16 +146,8 @@ describe("NIST compliance is scoped to the session org", () => {
   });
 
   it("shows each session its own score and ignores a forged org header or param", async () => {
-    const fresh: DomainEvidence = { fresh: 1, total: 1 };
-    const evidenceA: Record<string, DomainEvidence> = {};
-    for (const category of NIST_CATEGORIES) {
-      for (const code of category.domains) evidenceA[code] = fresh;
-    }
-    const expectedA = scoreNist(evidenceA).coveragePct;
-    const expectedB = scoreNist({
-      soc_mdr: { fresh: 1, total: 1, evidenceExpired: true },
-      unmapped: { fresh: 0, total: 1 },
-    }).coveragePct;
+    const expectedA = await expectedCoverage(AL);
+    const expectedB = await expectedCoverage(FAL);
     assert.notEqual(expectedA, expectedB);
 
     const ownA = await app.inject({

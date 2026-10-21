@@ -19,26 +19,62 @@ async function signIn(page: Page, userId: string) {
   const email = LOGIN_EMAIL[userId];
   if (!email) throw new Error(`No role login for ${userId}`);
   await page.context().clearCookies();
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.locator('input[type="email"]').fill(email);
+  const emailInput = page.locator('input[type="email"]');
+  const blocked = page.getByRole("heading", { name: "Could not load Command Center" });
+  for (let attempt = 0; attempt < 8; attempt++) {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    const which = await Promise.race([
+      emailInput.waitFor({ state: "visible", timeout: 20_000 }).then(() => "login" as const),
+      blocked.waitFor({ state: "visible", timeout: 20_000 }).then(() => "limited" as const),
+    ]).catch(() => "missing" as const);
+    if (which === "login") break;
+    await page.waitForTimeout(20_000);
+  }
+  await emailInput.fill(email);
   await page.locator('input[type="password"]').fill(LOGIN_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.locator("aside.sidebar nav a").first().waitFor();
 }
 
 async function openApp(page: Page, path = "/register") {
-  for (let attempt = 0; attempt < 6; attempt++) {
+  const limited = page.getByRole("alert").filter({ hasText: "Too Many Requests" });
+  for (let attempt = 0; attempt < 8; attempt++) {
     await page.goto(path, { waitUntil: "domcontentloaded" });
     const shell = page.locator("aside.sidebar nav a").first();
-    const limited = page.getByText("Too Many Requests");
     const which = await Promise.race([
       shell.waitFor({ state: "visible", timeout: 20_000 }).then(() => "shell" as const),
       limited.waitFor({ state: "visible", timeout: 20_000 }).then(() => "limited" as const),
     ]).catch(() => "missing" as const);
-    if (which === "shell") return;
+    // The sidebar stays mounted across client navigations, so a 429 can sit under a visible shell.
+    if (which === "shell" && !(await limited.isVisible().catch(() => false))) return;
     await page.waitForTimeout(20_000);
   }
   await page.locator("aside.sidebar nav a").first().waitFor();
+}
+
+/** Page bodies keep a 429 on screen until the next load. Wait out the one-minute window, then reload. */
+async function waitForMain(page: Page) {
+  const deadline = Date.now() + 180_000;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate(() => {
+      const main = document.querySelector("main");
+      if (!main) return "missing";
+      const text = main.textContent ?? "";
+      if (/Too Many Requests/.test(text)) return "limited";
+      if (/\bLoading\b|Could not load/.test(text)) return "loading";
+      if (main.querySelector(".skeleton-stack")) return "loading";
+      if (text.trim().length > 40) return "ready";
+      return "loading";
+    });
+    if (state === "ready") return;
+    if (state === "limited") {
+      await page.waitForTimeout(20_000);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      continue;
+    }
+    await page.waitForTimeout(200);
+  }
+  throw new Error("main content did not finish loading");
 }
 
 test.describe("sidebar", () => {
@@ -141,14 +177,7 @@ test.describe("stat rows, borders, width, overflow", () => {
         expect(hrefs.length).toBeGreaterThan(0);
         for (const href of hrefs) {
           await openApp(page, href!);
-          await page.waitForFunction(() => {
-            const main = document.querySelector("main");
-            if (!main) return false;
-            const text = main.textContent ?? "";
-            if (/\bLoading\b|Too Many Requests|Could not load/.test(text)) return false;
-            if (main.querySelector(".skeleton-stack")) return false;
-            return text.trim().length > 40;
-          });
+          await waitForMain(page);
           if (href === "/c/changed") await page.locator("main .kv-pair").first().waitFor();
           const report = await page.evaluate(() => {
             const doc = document.documentElement;
@@ -255,7 +284,7 @@ test("top bar stays one row at 1024x585", async ({ page }) => {
   const metrics = await page.evaluate(() => {
     const nodes = [
       ...document.querySelectorAll(
-        ".workspace-bar .search-trigger, .workspace-bar .org-select, .workspace-bar .role-chip, .workspace-bar .icon-btn, .workspace-bar .sign-out, .workspace-bar .avatar",
+        ".workspace-bar .search-trigger, .workspace-bar .icon-btn, .workspace-bar .account-chip",
       ),
     ] as HTMLElement[];
     return nodes.map((el) => {
@@ -265,33 +294,22 @@ test("top bar stays one row at 1024x585", async ({ page }) => {
         top: rect.top,
         width: rect.width,
         height: rect.height,
-        label: el.getAttribute("aria-label"),
-        title: el.getAttribute("title"),
       };
     });
   });
-  expect(metrics.length).toBeGreaterThanOrEqual(6);
+  expect(metrics.length).toBe(3);
   const tops = metrics.map((item) => item.top);
   expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
   for (const item of metrics) {
-    const isControl =
-      item.cls.includes("search-trigger") ||
-      item.cls.includes("org-select") ||
-      item.cls.includes("icon-btn") ||
-      item.cls.includes("sign-out");
-    if (!isControl) continue;
-    expect(item.width).toBeGreaterThanOrEqual(32);
-    expect(item.height).toBeGreaterThanOrEqual(32);
+    expect(item.width, item.cls).toBeGreaterThanOrEqual(32);
+    expect(item.height, item.cls).toBeGreaterThanOrEqual(32);
   }
-  const signOut = metrics.find((item) => item.cls.includes("sign-out"));
-  expect(signOut?.label).toBe("Sign out");
-  expect(signOut?.title).toBe("Sign out");
-  const labelHidden = await page.locator(".sign-out-label").evaluate((el) => getComputedStyle(el).display === "none");
-  expect(labelHidden).toBe(true);
   const searchTextHidden = await page
     .locator(".search-trigger span")
     .evaluate((el) => getComputedStyle(el).display === "none");
   expect(searchTextHidden).toBe(true);
+  await page.locator(".workspace-bar .account-chip").click();
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
 });
 
 test.describe("ingestion tiles", () => {
@@ -331,6 +349,7 @@ test.describe("ingestion tiles", () => {
 });
 
 test("NIST CSF 2.0 card follows compliance permission", async ({ page }) => {
+  test.setTimeout(240_000);
   await page.setViewportSize({ width: 1280, height: 800 });
   await signIn(page, PERSONAS[0].id);
   await openApp(page, "/compliance");
