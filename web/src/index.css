@@ -181,8 +181,9 @@ textarea {
 }
 
 .page {
-  max-width: 1440px;
-  margin: 0 auto;
+  max-width: none;
+  width: 100%;
+  margin: 0;
   padding: 28px 30px 60px;
 }
 
