@@ -36,18 +36,18 @@ BOARD = datetime(2026, 6, 5, 0, 0, tzinfo=timezone.utc)
 
 # Persona user ids kept stable for the existing UI demo directory.
 PERSONAS = [
-    ("c1500001-a090-41a0-8ecc-000000000001", "Layla", "Al Hashimi", "layla.hashimi@aldhabi.demo", "ciso"),
-    ("c1500001-a090-41a0-8ecc-000000000002", "Omar", "Al Mansoori", "omar.mansoori@aldhabi.demo", "cxo"),
-    ("c1500001-a090-41a0-8ecc-000000000003", "Fatima", "Al Nuaimi", "fatima.nuaimi@aldhabi.demo", "cxo"),
-    ("c1500001-a090-41a0-8ecc-000000000004", "Khalid", "Al Suwaidi", "khalid.suwaidi@aldhabi.demo", "cxo"),
-    ("c1500001-a090-41a0-8ecc-000000000005", "Mariam", "Al Dhaheri", "mariam.dhaheri@aldhabi.demo", "cxo"),
-    ("c1500001-a090-41a0-8ecc-000000000006", "Hessa", "Al Ketbi", "hessa.ketbi@aldhabi.demo", "board_member"),
-    ("c1500001-a090-41a0-8ecc-000000000007", "Yusuf", "Rahman", "yusuf.rahman@aldhabi.demo", "domain_analyst"),
-    ("c1500001-a090-41a0-8ecc-000000000008", "Aisha", "Khan", "aisha.khan@aldhabi.demo", "domain_analyst"),
-    ("c1500001-a090-41a0-8ecc-000000000009", "Nadia", "Farouk", "nadia.farouk@aldhabi.demo", "admin"),
-    ("c1500001-a090-41a0-8ecc-00000000000a", "Rashid", "Al Maktoum", "rashid.maktoum@aldhabi.demo", "risk_lead"),
-    ("c1500001-a090-41a0-8ecc-00000000000b", "Sara", "Ibrahim", "sara.ibrahim@aldhabi.demo", "program_office"),
-    ("c1500001-a090-41a0-8ecc-00000000000c", "James", "Okoye", "james.okoye@aldhabi.demo", "auditor"),
+    ("c1500001-a090-41a0-8ecc-000000000001", "Layla", "Al Hashimi", "layla@ciso.com", "ciso"),
+    ("c1500001-a090-41a0-8ecc-000000000002", "Omar", "Al Mansoori", "omar.almansoori@example.com", "cxo"),
+    ("c1500001-a090-41a0-8ecc-000000000003", "Fatima", "Al Nuaimi", "fatima.alnuaimi@example.com", "cxo"),
+    ("c1500001-a090-41a0-8ecc-000000000004", "Khalid", "Al Suwaidi", "khalid.alsuwaidi@example.com", "cxo"),
+    ("c1500001-a090-41a0-8ecc-000000000005", "Mariam", "Al Dhaheri", "mariam@cxo.com", "cxo"),
+    ("c1500001-a090-41a0-8ecc-000000000006", "Hessa", "Al Ketbi", "hessa@board.com", "board_member"),
+    ("c1500001-a090-41a0-8ecc-000000000007", "Yusuf", "Rahman", "yusuf@domainanalyst.com", "domain_analyst"),
+    ("c1500001-a090-41a0-8ecc-000000000008", "Aisha", "Khan", "aisha.khan@example.com", "domain_analyst"),
+    ("c1500001-a090-41a0-8ecc-000000000009", "Nadia", "Farouk", "nadia@admin.com", "admin"),
+    ("c1500001-a090-41a0-8ecc-00000000000a", "Rashid", "Al Maktoum", "rashid@risklead.com", "risk_lead"),
+    ("c1500001-a090-41a0-8ecc-00000000000b", "Sara", "Ibrahim", "sara@programoffice.com", "program_office"),
+    ("c1500001-a090-41a0-8ecc-00000000000c", "James", "Okoye", "james@auditor.com", "auditor"),
 ]
 
 # Board appetite limits (aligned with reference HTML / command model)
@@ -671,9 +671,9 @@ def main():
         (TENANT_B,),
     )
     falcon_personas = [
-        ("c1500001-a090-41a0-8ecc-0000000000b1", "Nora", "Al Falasi", "nora.falasi@falcon.demo", "ciso"),
-        ("c1500001-a090-41a0-8ecc-0000000000b2", "Tariq", "Hassan", "tariq.hassan@falcon.demo", "board_member"),
-        ("c1500001-a090-41a0-8ecc-0000000000b3", "Samira", "Qureshi", "samira.qureshi@falcon.demo", "cxo"),
+        ("c1500001-a090-41a0-8ecc-0000000000b1", "Nora", "Al Falasi", "nora.alfalasi@example.com", "ciso"),
+        ("c1500001-a090-41a0-8ecc-0000000000b2", "Tariq", "Hassan", "tariq.hassan@example.com", "board_member"),
+        ("c1500001-a090-41a0-8ecc-0000000000b3", "Samira", "Qureshi", "samira.qureshi@example.com", "cxo"),
     ]
     for uid, first, last, email, role in falcon_personas:
         cur.execute(

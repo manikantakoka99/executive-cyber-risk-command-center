@@ -5,6 +5,7 @@ import { query } from "../db.js";
 import { ensureAuthSchema } from "../auth/schema.js";
 import { hashPassword } from "../auth/passwords.js";
 import { resetLoginThrottle } from "../auth/loginThrottle.js";
+import { personasForOrg, TENANT_B_ORG_ID } from "./personas.js";
 
 const AL = "2accc7de-f693-4b19-8fe8-6db501be05e2";
 const FAL = "e5082391-0ae2-4ed1-93d6-c11650b39dbb";
@@ -129,7 +130,8 @@ describe("organization directory", () => {
     const users = (own.json() as { users: { orgId: string; email: string }[] }).users;
     assert.ok(users.some((user) => user.email === EMAIL_ADMIN));
     assert.ok(users.every((user) => user.orgId === AL));
-    assert.equal(users.some((user) => user.email.endsWith("@falcon.demo")), false);
+    const falconEmails = new Set(personasForOrg(TENANT_B_ORG_ID).map((persona) => persona.email));
+    assert.equal(users.some((user) => falconEmails.has(user.email)), false);
 
     const other = await app.inject({
       method: "GET",

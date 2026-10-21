@@ -1,6 +1,7 @@
 import { query } from "../db.js";
-import { canonicalRole, isRoleCode, ROLE_LABEL, type RoleCode } from "../command/rbac.js";
+import { canonicalRole, homeFor, isRoleCode, ROLE_LABEL, type RoleCode } from "../command/rbac.js";
 import { findPersona } from "../command/personas.js";
+import { deliverMail } from "./outboundMail.js";
 import { hashPassword, hashSecret, newSecret, passwordAccepted, verifyPasswordOrDummy } from "./passwords.js";
 import { ensureAuthSchema } from "./schema.js";
 
@@ -55,6 +56,14 @@ export function sessionCookie(token: string, clear = false): string {
   return `${SESSION_COOKIE}=${value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${secure}`;
 }
 
+/**
+ * Runs after the password matches and before a session is issued.
+ * Today it accepts everyone. A later emailed OTP can return false here.
+ */
+export async function verifySecondFactor(_input: { email: string; accountId: string }): Promise<boolean> {
+  return true;
+}
+
 export async function login(email: string, password: string): Promise<{ token: string; principal: SessionPrincipal } | null> {
   await ensureAuthSchema();
   const normalized = email.trim().toLowerCase();
@@ -66,6 +75,8 @@ export async function login(email: string, password: string): Promise<{ token: s
   const account = rows[0] ?? null;
   const ok = await verifyPasswordOrDummy(password, account?.password_hash ?? null);
   if (!account || !ok) return null;
+  const secondFactor = await verifySecondFactor({ email: account.email, accountId: account.account_id });
+  if (!secondFactor) return null;
   const memberships = await membershipsFor(account.account_id);
   const home = memberships[0];
   if (!home) return null;
@@ -179,6 +190,10 @@ export async function createInvite(input: {
      VALUES ($1, $2, $3, $4, $5, $6)`,
     [input.orgId, email, input.role, hashSecret(token), input.invitedBy, expires.toISOString()],
   );
+  deliverMail({
+    to: email,
+    subject: "You are invited to the Executive Cyber Risk Command Center",
+  });
   return { token, email, role: input.role, expiresAt: expires.toISOString() };
 }
 

@@ -95,14 +95,30 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/dwan_tests.sql
 
 The product UI signs in with email and password. Passwords are bcrypt hashes in `auth_accounts`. There is no public signup: an org Admin invites someone, and the invite link lets that person set a password.
 
-Seed local demo passwords (nothing is committed):
+Seed local demo passwords (nothing real is committed):
 
 ```bash
 cd server
+# Preferred: copy ../logins.example.csv to ../logins.csv and replace the placeholders.
+ECC_DEMO_LOGINS_FILE=../logins.csv npm run auth:seed
+# Fallback when that file is unset: one password for every role login.
 ECC_DEMO_PASSWORD='replace-with-a-local-password' npm run auth:seed
 ```
 
-Use the same password for every seeded persona. Example: `layla.hashimi@aldhabi.demo` (CISO, Al Dhabi). Layla is also a member of Falcon National Bank, so the sidebar org switcher appears for her. `.env.example` has the placeholder only.
+There is one login per role, `firstname@<role domain>`. Layla (`layla@ciso.com`, CISO, Al Dhabi) is also a member of Falcon National Bank, so the sidebar org switcher appears for her. A missing line in the logins file fails the seed. `logins.csv` is gitignored. `logins.example.csv` has placeholders only.
+
+Those role domains are real public domains. The app has no mail transport. Invites and any other outbound message stay log-only, and messages to `ciso.com`, `cxo.com`, `board.com`, `risklead.com`, `domainanalyst.com`, `auditor.com`, `programoffice.com`, and `admin.com` stay log-only even if a transport is added later. Email and password open the role home directly. `verifySecondFactor` runs after the password check and currently accepts the sign-in; it is the seam for a later emailed OTP.
+
+| Login | Role | Org | Home |
+|---|---|---|---|
+| `layla@ciso.com` | CISO | Al Dhabi (also Falcon) | `/c/posture` |
+| `mariam@cxo.com` | CxO | Al Dhabi | `/c/headline` |
+| `hessa@board.com` | Board | Al Dhabi | `/c/headline` |
+| `rashid@risklead.com` | Risk Lead | Al Dhabi | `/c/closure` |
+| `yusuf@domainanalyst.com` | Domain Analyst | Al Dhabi | `/c/trust` |
+| `james@auditor.com` | Auditor | Al Dhabi | `/c/changed` |
+| `sara@programoffice.com` | Program Office | Al Dhabi | `/c/pack` |
+| `nadia@admin.com` | Admin | Al Dhabi | `/admin` |
 
 Set `DEMO_AUTH=false` outside local QA. When it is `true`, the existing test harness may still pass `X-Org-Id` and `X-User-Id`. The browser does not send those headers. A session cookie always wins over headers, and a session cannot read another org by guessing ids.
 

@@ -1,4 +1,7 @@
 node_modules/
+# Local demo passwords. Copy logins.example.csv to logins.csv. Never commit it.
+/logins.csv
+/logins.local.csv
 dist/
 .env
 .venv-ecc/
