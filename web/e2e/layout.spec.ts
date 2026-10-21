@@ -285,3 +285,56 @@ test("top bar stays one row at 1024x585", async ({ page }) => {
     .evaluate((el) => getComputedStyle(el).display === "none");
   expect(searchTextHidden).toBe(true);
 });
+
+test.describe("ingestion tiles", () => {
+  test.beforeEach(async ({ page }) => {
+    await signIn(page, PERSONAS[0].id);
+  });
+
+  for (const width of [1280, 1440, 1920]) {
+    test(`source filename stays inside its tile at ${width}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 727 });
+      await openApp(page, "/ingestion");
+      await page.locator(".ingest-summary .exec-body").first().waitFor();
+      const title = await page.locator(".ingest-summary .exec-body").first().getAttribute("title");
+      expect(title).toBe("CyberCommandCenter_Tool_To_Risk_Domain_Solution.xlsx");
+      const overlap = await page.evaluate(() => {
+        const tiles = [...document.querySelectorAll(".ingest-summary .exec-grid > div")] as HTMLElement[];
+        const boxes = tiles.map((tile) => tile.getBoundingClientRect());
+        const hits: string[] = [];
+        for (let i = 0; i < tiles.length; i++) {
+          const value = tiles[i]!.querySelector(".exec-body, .risk-number") as HTMLElement | null;
+          if (value && value.scrollWidth > tiles[i]!.clientWidth) {
+            hits.push(`value ${value.scrollWidth} > tile ${tiles[i]!.clientWidth}`);
+          }
+          for (let j = i + 1; j < boxes.length; j++) {
+            const a = boxes[i]!;
+            const b = boxes[j]!;
+            const x = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+            const y = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+            if (x > 1 && y > 1) hits.push(`tiles ${i} and ${j} intersect`);
+          }
+        }
+        return hits;
+      });
+      expect(overlap).toEqual([]);
+    });
+  }
+});
+
+test("NIST CSF 2.0 card follows compliance permission", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page, PERSONAS[0].id);
+  await openApp(page, "/compliance");
+  await page.getByRole("button", { name: "NIST CSF 2.0" }).waitFor();
+  await page.getByRole("button", { name: "NIST CSF 2.0" }).click();
+  await expect(page.getByText("Govern")).toBeVisible();
+  await expect(page.getByText(/gap RS\.CO/)).toBeVisible();
+  await expect(page.getByText(/gap RC\.CO/)).toBeVisible();
+  await expect(page.getByText(/certified/i)).toHaveCount(0);
+
+  await signIn(page, "c1500001-a090-41a0-8ecc-000000000007");
+  await openApp(page, "/compliance");
+  await expect(page.getByText("Outside this role")).toBeVisible();
+  await expect(page.getByRole("button", { name: "NIST CSF 2.0" })).toHaveCount(0);
+});

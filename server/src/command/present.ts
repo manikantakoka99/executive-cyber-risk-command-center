@@ -1,4 +1,5 @@
 import { formatAedMillions } from "../lib/money.js";
+import type { NistScore } from "./nistCsf.js";
 import {
   BASELINE,
   DOMAINS,
@@ -98,7 +99,8 @@ export interface CommandWorkspace {
 
 export interface ComplianceLive {
   posturePct: number | null;
-  frameworks: { name: string; coveragePct: number | null }[];
+  frameworks: { name: string; code: string; coveragePct: number | null }[];
+  nist: NistScore | null;
 }
 
 interface HeadlineView {
@@ -110,6 +112,8 @@ interface HeadlineView {
   plain: number;
   floored: boolean;
   floorNote: string | null;
+  floorDomainId: string | null;
+  floorDomainName: string | null;
   counts: Record<Band, number>;
   confidencePct: number | null;
   confidenceLabel: string | null;
@@ -403,9 +407,12 @@ function presentHeadline(
     arithmetic: round1(card.arithmetic),
     plain: round1(card.plain),
     floored: card.floored,
-    floorNote: card.floored
-      ? `Floor rule applied. The coverage-adjusted average (${format1(card.arithmetic)}) is ${bandName(card.arithmetic)}, but ${card.counts.Critical} domain${card.counts.Critical > 1 ? "s are" : " is"} Critical, so the headline cannot read better than High.`
-      : null,
+    floorNote:
+      card.floored && card.floorDomain
+        ? `Org held at ${card.headline} because ${card.floorDomain.domain.name} is ${card.floorDomain.band}`
+        : null,
+    floorDomainId: card.floored ? card.floorDomain?.domain.id ?? null : null,
+    floorDomainName: card.floored ? card.floorDomain?.domain.name ?? null : null,
     counts: card.counts,
     confidencePct: Math.round(card.confidence * 100),
     confidenceLabel: confidenceLabel(card.confidence),
@@ -645,7 +652,7 @@ function presentWhatIf(role: string, state: CommandState, loss: boolean): WhatIf
         : null,
     floorNote:
       afterCard.floored || BASELINE.floored
-        ? "The headline stays High while any domain is Critical, so a ransomware investment alone does not change it. That is the floor rule working as designed."
+        ? `Org held at ${BASELINE.headline} because ${BASELINE.floorDomain?.domain.name ?? "a domain"} is ${BASELINE.floorDomain?.band ?? BASELINE.headline}. A single control investment does not lift that floor.`
         : null,
     canSeeLoss: loss,
     modelNote: loss
@@ -770,7 +777,7 @@ function presentPack(role: string, state: CommandState, orgName: string): PackVi
     blocks: [
       {
         heading: "Posture",
-        text: `The weighted, coverage-adjusted score is ${format1(card.arithmetic)} (${bandName(card.arithmetic)}); the floor rule raises the headline to ${card.headline} because ${critical.map((row) => row.domain.name).join(" and ")} ${critical.length > 1 ? "are" : "is"} Critical. Spread: ${card.counts.Critical} Critical, ${card.counts.High} High, ${card.counts.Medium} Medium, ${card.counts.Low} Low.`,
+        text: `The weighted, coverage-adjusted score is ${format1(card.arithmetic)} (${bandName(card.arithmetic)}); the floor rule holds the headline at ${card.headline} because ${card.floorDomain?.domain.name ?? critical.map((row) => row.domain.name).join(" and ")} is ${card.floorDomain?.band ?? "Critical"}. Spread: ${card.counts.Critical} Critical, ${card.counts.High} High, ${card.counts.Medium} Medium, ${card.counts.Low} Low.`,
         items: [{ text: "Enterprise score", source: sourceLabel("enterprise_scores_v2") }],
       },
       ...(lossAllowed

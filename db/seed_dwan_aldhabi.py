@@ -621,7 +621,7 @@ def main():
         SELECT %s, framework_id, pct, %s
         FROM compliance_frameworks
         JOIN (VALUES
-          ('dubai_isr', 82),('pci_dss_v4', 74),('iso_27001', 88),('nesa_uae_ia', 79),('gdpr', 71),('nist_csf_2', 76)
+          ('dubai_isr', 82),('pci_dss_v4', 74),('iso_27001', 88),('nesa_uae_ia', 79),('gdpr', 71)
         ) AS v(code, pct) ON compliance_frameworks.code = v.code
         """,
         (ORG_ID, SNAP),

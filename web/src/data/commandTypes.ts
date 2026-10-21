@@ -31,7 +31,15 @@ export interface CommandWorkspace {
   pack: PackView | null;
   complianceLive: {
     posturePct: number | null;
-    frameworks: { name: string; coveragePct: number | null }[];
+    frameworks: { name: string; code?: string; coveragePct: number | null }[];
+    nist: {
+      label: string;
+      coveragePct: number;
+      evidenced: number;
+      total: number;
+      note: string;
+      functions: { name: string; covered: number; total: number; gaps: string[]; partial: string[] }[];
+    } | null;
   } | null;
 }
 
@@ -44,6 +52,8 @@ export interface HeadlineView {
   plain: number;
   floored: boolean;
   floorNote: string | null;
+  floorDomainId: string | null;
+  floorDomainName: string | null;
   counts: Record<Band, number>;
   confidencePct: number | null;
   confidenceLabel: string | null;

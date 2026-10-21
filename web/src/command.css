@@ -1172,6 +1172,22 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   .exec-hero .exec-grid { grid-template-columns: 1fr 1fr; }
 }
 
+.ingest-summary .exec-grid > div {
+  min-width: 0;
+}
+.ingest-summary .exec-body {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+}
+.ingest-summary .exec-body > span,
+.ingest-summary .risk-number {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Below 1200px the workspace bar stays one row. */
 @media (max-width: 1199px) {
   .workspace-bar,

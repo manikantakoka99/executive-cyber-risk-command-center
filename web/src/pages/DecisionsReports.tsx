@@ -247,6 +247,7 @@ export function CompliancePage() {
   const { orgId, ready } = useAppState();
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [nistOpen, setNistOpen] = useState(false);
   useEffect(() => {
     if (!ready) return;
     setData(null);
@@ -271,43 +272,66 @@ export function CompliancePage() {
             No compliance framework snapshots exist for this organization.
           </p>
         ) : (
-          data.frameworks.map((c: any) => (
-            <div key={c.frameworkId} className="comp-row">
-              <div className="comp-top">
-                <div className="name">
-                  {c.displayName}
-                  <div className="di-domain">
-                    {c.controlsEvidenced}/{c.controlsTotal} evidenced
-                    {c.nextRenewalDate
-                      ? ` · renewal ${String(c.nextRenewalDate).slice(0, 10)}`
-                      : ""}
+          data.frameworks.map((c: any) => {
+            const nist = c.code === "nist_csf_2";
+            return (
+              <div key={c.frameworkId} className="comp-row">
+                <div className="comp-top">
+                  <div className="name">
+                    {nist ? (
+                      <button type="button" className="text-link" onClick={() => setNistOpen((open) => !open)}>
+                        {c.displayName}
+                      </button>
+                    ) : (
+                      c.displayName
+                    )}
+                    <div className="di-domain">
+                      {c.controlsEvidenced}/{c.controlsTotal} evidenced
+                      {c.nextRenewalDate
+                        ? ` · renewal ${String(c.nextRenewalDate).slice(0, 10)}`
+                        : ""}
+                    </div>
                   </div>
+                  <div className="pct">{Math.round(c.coveragePct)}%</div>
                 </div>
-                <div className="pct">{Math.round(c.coveragePct)}%</div>
-              </div>
-              <div
-                className="comp-bar-bg"
-                role="meter"
-                aria-valuenow={Math.round(c.coveragePct)}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={`${c.displayName} coverage`}
-              >
                 <div
-                  className="comp-bar-fill"
-                  style={{
-                    width: `${Math.min(100, c.coveragePct)}%`,
-                    background:
-                      c.coveragePct >= 85
-                        ? "var(--good)"
-                        : c.coveragePct >= 70
-                          ? "var(--medium)"
-                          : "var(--high)",
-                  }}
-                />
+                  className="comp-bar-bg"
+                  role="meter"
+                  aria-valuenow={Math.round(c.coveragePct)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${c.displayName} coverage`}
+                >
+                  <div
+                    className="comp-bar-fill"
+                    style={{
+                      width: `${Math.min(100, c.coveragePct)}%`,
+                      background:
+                        c.coveragePct >= 85
+                          ? "var(--good)"
+                          : c.coveragePct >= 70
+                            ? "var(--medium)"
+                            : "var(--high)",
+                    }}
+                  />
+                </div>
+                {nist && nistOpen && data.nist ? (
+                  <ul className="frameworks">
+                    {data.nist.functions.map((fn: any) => (
+                      <li key={fn.name}>
+                        <span>{fn.name}</span>
+                        <span className="mono">
+                          {fn.covered}/{fn.total}
+                          {fn.gaps?.length ? ` · gap ${fn.gaps.join(", ")}` : ""}
+                          {fn.partial?.length ? ` · partial ${fn.partial.join(", ")}` : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

@@ -76,8 +76,10 @@ async function loadCompliance(orgId: string): Promise<ComplianceLive | null> {
       posturePct: data.posturePct,
       frameworks: data.frameworks.map((row) => ({
         name: row.displayName,
+        code: row.code,
         coveragePct: row.coveragePct,
       })),
+      nist: data.nist,
     };
   } catch {
     return null;

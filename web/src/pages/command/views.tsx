@@ -69,11 +69,15 @@ export function HeadlineView({
             ) : null}
             <Chip tone={data.outsideAppetite > 0 ? "crit" : "low"}>{appetiteState}</Chip>
           </div>
-          {data.floorNote && (
+          {data.floorNote && data.floorDomainId && data.floorDomainName ? (
             <div className="why">
-              <b>Floor rule applied.</b> {data.floorNote.replace(/^Floor rule applied\.\s*/, "")}
+              Org held at {data.band} because{" "}
+              <button type="button" className="text-link" onClick={() => onOpen(data.floorDomainId!)}>
+                {data.floorDomainName}
+              </button>{" "}
+              is {data.band}.
             </div>
-          )}
+          ) : null}
           <p className="note">
             Policy {data.policyVersion}
             {data.confidencePct != null ? ` · Confidence ${data.confidencePct}%` : ""}
@@ -171,26 +175,37 @@ function ComplianceCard({
   compliance: CommandWorkspace["complianceLive"];
 }) {
   const frameworks = compliance?.frameworks ?? [];
+  const [nistOpen, setNistOpen] = useState(false);
 
   return (
     <section className="card">
       <h3>Compliance summary</h3>
       {frameworks.length > 0 ? (
-        <ul className="frameworks">
-          {frameworks.map((row) => {
-            const pct = row.coveragePct ?? 0;
-            const tone = complianceTone(pct);
-            return (
-              <li key={row.name}>
-                <span>{row.name}</span>
-                <span className="bar">
-                  <i className={`tone-${tone}`} style={{ width: `${Math.min(100, pct)}%` }} />
-                </span>
-                <span className="mono">{row.coveragePct == null ? "—" : `${pct.toFixed(0)}%`}</span>
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <ul className="frameworks">
+            {frameworks.map((row) => {
+              const pct = row.coveragePct ?? 0;
+              const tone = complianceTone(pct);
+              const nist = row.code === "nist_csf_2" || row.name === "NIST CSF 2.0";
+              return (
+                <li key={row.name}>
+                  {nist ? (
+                    <button type="button" className="text-link" onClick={() => setNistOpen((open) => !open)}>
+                      {row.name}
+                    </button>
+                  ) : (
+                    <span>{row.name}</span>
+                  )}
+                  <span className="bar">
+                    <i className={`tone-${tone}`} style={{ width: `${Math.min(100, pct)}%` }} />
+                  </span>
+                  <span className="mono">{row.coveragePct == null ? "—" : `${pct.toFixed(0)}%`}</span>
+                </li>
+              );
+            })}
+          </ul>
+          {nistOpen && compliance?.nist ? <NistDetail nist={compliance.nist} /> : null}
+        </>
       ) : data.complianceDomain ? (
         <p>
           Framework rollup is not connected. Continuous Compliance is {data.complianceDomain.band.toLowerCase()} at{" "}
@@ -200,6 +215,34 @@ function ComplianceCard({
         <p className="note">Compliance summary is not available for this role.</p>
       )}
     </section>
+  );
+}
+
+function NistDetail({
+  nist,
+}: {
+  nist: NonNullable<CommandWorkspace["complianceLive"]>["nist"];
+}) {
+  if (!nist) return null;
+  return (
+    <div className="nist-detail">
+      <p className="note">{nist.note}</p>
+      <p className="note">
+        {nist.evidenced} of {nist.total} categories have ECC evidence.
+      </p>
+      <ul className="frameworks">
+        {nist.functions.map((fn) => (
+          <li key={fn.name}>
+            <span>{fn.name}</span>
+            <span className="mono">
+              {fn.covered}/{fn.total}
+              {fn.gaps.length > 0 ? ` · gap ${fn.gaps.join(", ")}` : ""}
+              {fn.partial.length > 0 ? ` · partial ${fn.partial.join(", ")}` : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

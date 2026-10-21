@@ -152,12 +152,12 @@ export function IngestionProofPage() {
       {error && <div className="banner-error">{error}</div>}
       {msg && <p className="banner-ok">{msg}</p>}
 
-      <section className="panel exec-hero">
+      <section className="panel exec-hero ingest-summary">
         <div className="exec-grid">
           <div>
             <div className="kpi-label">Source</div>
-            <div className="exec-body">
-              CyberCommandCenter_Tool_To_Risk_Domain_Solution.xlsx
+            <div className="exec-body" title="CyberCommandCenter_Tool_To_Risk_Domain_Solution.xlsx">
+              <span>CyberCommandCenter_Tool_To_Risk_Domain_Solution.xlsx</span>
             </div>
           </div>
           <div>

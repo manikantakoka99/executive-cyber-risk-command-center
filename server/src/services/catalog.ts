@@ -1,6 +1,13 @@
 import { query } from "../db.js";
 import { sqlExcludeTestFinding, sqlExcludeTestText } from "../command/testFixtures.js";
 import { formatAed, formatImpactSummary, reformatAedInText } from "../lib/money.js";
+import {
+  NIST_CSF_CODE,
+  NIST_CSF_LABEL,
+  modelDomainEvidence,
+  scoreNist,
+  type NistScore,
+} from "../command/nistCsf.js";
 
 const OPEN = ["open", "acknowledged", "in_remediation"];
 
@@ -242,7 +249,47 @@ function mapFinding(r: Record<string, unknown>) {
   };
 }
 
+async function ensureNistCompliance(orgId: string, score: NistScore) {
+  const { rows: frameworks } = await query(
+    `INSERT INTO compliance_frameworks (code, display_name, renewal_cycle_months)
+     VALUES ($1, $2, NULL)
+     ON CONFLICT (code) DO UPDATE SET display_name = EXCLUDED.display_name
+     RETURNING framework_id`,
+    [NIST_CSF_CODE, NIST_CSF_LABEL],
+  );
+  const frameworkId = frameworks[0]?.framework_id as string | undefined;
+  if (!frameworkId) return;
+  const { rows: existing } = await query(
+    `SELECT coverage_pct, controls_evidenced
+     FROM org_compliance_status
+     WHERE org_id = $1 AND framework_id = $2
+     ORDER BY snapshot_at DESC
+     LIMIT 1`,
+    [orgId, frameworkId],
+  );
+  const current = existing[0];
+  if (
+    current &&
+    Number(current.coverage_pct).toFixed(2) === score.coveragePct.toFixed(2) &&
+    Number(current.controls_evidenced) === score.evidenced
+  ) {
+    return;
+  }
+  await query(
+    `INSERT INTO org_compliance_status
+       (org_id, framework_id, coverage_pct, controls_total, controls_evidenced, snapshot_at)
+     VALUES ($1, $2, $3, $4, $5, now())`,
+    [orgId, frameworkId, score.coveragePct, score.total, score.evidenced],
+  );
+}
+
 export async function getCompliance(orgId: string) {
+  const nist = scoreNist(modelDomainEvidence());
+  try {
+    await ensureNistCompliance(orgId, nist);
+  } catch {
+    // Databases created before nist_csf_2 was added to framework_code reject the lookup.
+  }
   const { rows } = await query(
     `SELECT DISTINCT ON (c.framework_id)
         c.status_id, c.framework_id, f.code, f.display_name, f.renewal_cycle_months,
@@ -274,7 +321,7 @@ export async function getCompliance(orgId: string) {
             items.reduce((s, i) => s + i.coveragePct, 0) / items.length
           ).toFixed(2),
         );
-  return { posturePct: avg, frameworks: items };
+  return { posturePct: avg, frameworks: items, nist };
 }
 
 export async function getActivity(orgId: string, limit = 50) {

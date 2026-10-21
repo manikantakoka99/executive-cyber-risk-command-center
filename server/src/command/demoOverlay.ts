@@ -1,6 +1,6 @@
 /**
  * Al Dhabi demo: force executive screens onto one canonical source of truth
- * (command Headline: 50.8 High, AED 2.9M, 4 open decisions, domain band spread).
+ * (command Headline: 50.8 Critical after the floor, AED 2.9M, 4 open decisions, domain band spread).
  */
 import { CANONICAL } from "./canonical.js";
 import { BASELINE, ENTERPRISE_LOSS, MONTHS, monthScorecards } from "./model.js";
