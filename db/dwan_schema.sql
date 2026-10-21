@@ -139,6 +139,66 @@ CREATE TABLE users (
 CREATE UNIQUE INDEX uq_users_email ON users (lower(email));
 CREATE INDEX ix_users_org ON users(org_id);
 
+-- Login identity and per-org membership. Tenant key is org_id (not a second tenant id).
+-- Not added to the RLS loop below: the session row is read before app_org_id() is set.
+-- org_compliance_status, control_assessments, domain_scores, domain_score_components,
+-- and enterprise_scores already carry org_id and stay in that loop.
+CREATE TABLE auth_accounts (
+  account_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email         VARCHAR(200) NOT NULL,
+  password_hash TEXT NOT NULL,
+  first_name    VARCHAR(100) NOT NULL,
+  last_name     VARCHAR(100),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT ck_auth_password_hash CHECK (password_hash ~ '^[$]2[aby][$]')
+);
+CREATE UNIQUE INDEX uq_auth_accounts_email ON auth_accounts (lower(email));
+
+CREATE TABLE auth_sessions (
+  session_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token_hash  CHAR(64) NOT NULL UNIQUE,
+  account_id  UUID NOT NULL REFERENCES auth_accounts(account_id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  org_id      UUID NOT NULL REFERENCES organizations(org_id) ON DELETE CASCADE,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  revoked_at  TIMESTAMPTZ
+);
+CREATE INDEX ix_auth_sessions_account ON auth_sessions(account_id);
+CREATE INDEX ix_auth_sessions_org ON auth_sessions(org_id);
+
+CREATE TABLE org_memberships (
+  account_id  UUID NOT NULL REFERENCES auth_accounts(account_id) ON DELETE CASCADE,
+  org_id      UUID NOT NULL REFERENCES organizations(org_id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  role_code   VARCHAR(64) NOT NULL,
+  status      VARCHAR(20) NOT NULL DEFAULT 'active',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (account_id, org_id),
+  CONSTRAINT ck_membership_status CHECK (status IN ('active', 'invited', 'disabled')),
+  CONSTRAINT ck_membership_role CHECK (role_code IN (
+    'board_member', 'cxo', 'ciso', 'risk_lead', 'domain_analyst', 'program_office', 'auditor', 'admin'
+  ))
+);
+CREATE INDEX ix_org_memberships_org ON org_memberships(org_id);
+CREATE INDEX ix_org_memberships_user ON org_memberships(user_id);
+
+CREATE TABLE org_invites (
+  invite_id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id      UUID NOT NULL REFERENCES organizations(org_id) ON DELETE CASCADE,
+  email       VARCHAR(200) NOT NULL,
+  role_code   VARCHAR(64) NOT NULL,
+  token_hash  CHAR(64) NOT NULL UNIQUE,
+  invited_by  UUID REFERENCES users(user_id) ON DELETE SET NULL,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  accepted_at TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT ck_invite_role CHECK (role_code IN (
+    'board_member', 'cxo', 'ciso', 'risk_lead', 'domain_analyst', 'program_office', 'auditor', 'admin'
+  ))
+);
+CREATE INDEX ix_org_invites_org ON org_invites(org_id);
+
 -- What each role may do.  Global reference data, read-only to the app.
 CREATE TABLE role_capabilities (
   role                    user_role_name PRIMARY KEY,

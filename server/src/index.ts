@@ -8,7 +8,9 @@ import { fileURLToPath } from "node:url";
 import "dotenv/config";
 
 import { query, runWithRequestTenant } from "./db.js";
-import { requireRoles, tenantMiddleware } from "./middleware/tenant.js";
+import { isPublicEccPath, requireRoles, tenantMiddleware } from "./middleware/tenant.js";
+import { registerAuthRoutes } from "./auth/routes.js";
+import { ensureAuthSchema } from "./auth/schema.js";
 import { listOrganizations, listUsers, seedCommandDirectory } from "./command/directory.js";
 import { registerCommandRoutes } from "./command/routes.js";
 import {
@@ -133,23 +135,8 @@ app.addHook("onRequest", (_req, _reply, done) => {
 
 app.get("/health", async () => ({ ok: true }));
 
-app.get("/api/ecc/organizations", async () => {
-  const { organizations } = await listOrganizations();
-  return { organizations };
-});
-
-app.get("/api/ecc/organizations/:orgId/users", async (req) => {
-  const { orgId } = req.params as { orgId: string };
-  return { users: await listUsers(orgId) };
-});
-
 app.addHook("preHandler", async (req, reply) => {
-  if (
-    req.url === "/health" ||
-    req.url.startsWith("/api/ecc/organizations")
-  ) {
-    return;
-  }
+  if (isPublicEccPath(req.url)) return;
   if (!req.url.startsWith("/api/ecc")) return;
   await tenantMiddleware(req, reply);
 });
@@ -171,6 +158,14 @@ app.get("/api/ecc/me", async (req) => ({
     canAcceptRisk: canAcceptRisk(req.tenant.role),
     canApprovePolicy: hasPermission(req.tenant.role, "policy.approve"),
     canProposePolicy: hasPermission(req.tenant.role, "policy.propose"),
+    memberships: req.tenant.memberships ?? [
+      {
+        orgId: req.tenant.orgId,
+        orgName: req.tenant.orgName,
+        role: req.tenant.role,
+        userId: req.tenant.userId,
+      },
+    ],
   },
 }));
 
@@ -183,6 +178,49 @@ app.addHook("preHandler", async (req, reply) => {
       message: `Role ${req.tenant.role} cannot access this resource.`,
     },
   });
+});
+
+registerAuthRoutes(app);
+
+app.get("/api/ecc/organizations", async (req) => {
+  const memberships = req.tenant.memberships?.length
+    ? req.tenant.memberships
+    : [
+        {
+          orgId: req.tenant.orgId,
+          orgName: req.tenant.orgName,
+          role: req.tenant.role,
+          userId: req.tenant.userId,
+        },
+      ];
+  const { organizations } = await listOrganizations();
+  const byId = new Map(organizations.map((org) => [org.orgId, org]));
+  return {
+    organizations: memberships.map((membership) => {
+      const known = byId.get(membership.orgId);
+      return (
+        known ?? {
+          orgId: membership.orgId,
+          name: membership.orgName,
+          industry: null,
+          hqCountry: null,
+        }
+      );
+    }),
+  };
+});
+
+app.get("/api/ecc/organizations/:orgId/users", async (req, reply) => {
+  const { orgId } = req.params as { orgId: string };
+  if (orgId !== req.tenant.orgId) {
+    return reply.code(404).send({ error: { code: "not_found", message: "Organization not found" } });
+  }
+  if (!hasPermission(req.tenant.role, "admin.users")) {
+    return reply.code(403).send({
+      error: { code: "forbidden", message: `Role ${req.tenant.role} cannot access this resource.` },
+    });
+  }
+  return { users: await listUsers(req.tenant.orgId) };
 });
 
 /** Central financial strip — every /api/ecc JSON response for non-financial roles. */
@@ -1114,9 +1152,14 @@ app.get("/api/ecc/ingestion/sample-workbook/trace/:signalId", async (req, reply)
 });
 
 await registerCommandRoutes(app);
-seedCommandDirectory().catch((err) => {
-  app.log.warn({ err }, "command directory seed skipped");
-});
+ensureAuthSchema()
+  .catch((err) => {
+    app.log.warn({ err }, "auth schema ensure skipped");
+  })
+  .then(() => seedCommandDirectory())
+  .catch((err) => {
+    app.log.warn({ err }, "command directory seed skipped");
+  });
 
 const port = Number(process.env.PORT ?? 4000);
 const host = process.env.HOST ?? "0.0.0.0";

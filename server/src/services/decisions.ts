@@ -67,9 +67,9 @@ export async function getDecision(orgId: string, decisionId: string) {
      FROM decision_action_log l
      LEFT JOIN users u ON u.user_id = l.actor_user_id
      LEFT JOIN v_user_primary_role v ON v.user_id = u.user_id
-     WHERE l.decision_id = $1
+     WHERE l.decision_id = $1 AND l.org_id = $2
      ORDER BY l.acted_at ASC`,
-    [decisionId],
+    [decisionId, orgId],
   );
   return {
     ...mapDecision(rows[0]),
@@ -161,9 +161,9 @@ export async function applyDecisionAction(
     );
 
     await client.query(
-      `INSERT INTO decision_action_log (decision_id, actor_user_id, action, notes)
-       VALUES ($1, $2, $3, $4)`,
-      [decisionId, tenant.userId, ACTION_LOG[action], notes ?? null],
+      `INSERT INTO decision_action_log (org_id, decision_id, actor_user_id, action, notes)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [tenant.orgId, decisionId, tenant.userId, ACTION_LOG[action], notes ?? null],
     );
 
     await client.query(

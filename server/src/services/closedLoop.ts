@@ -311,9 +311,9 @@ export async function createScenarioDecision(
   );
 
   await query(
-    `INSERT INTO decision_action_log (decision_id, actor_user_id, action, notes)
-     VALUES ($1,$2,$3,$4)`,
-    [dec[0].decision_id, tenant.userId, outcome.log, body.notes ?? null],
+    `INSERT INTO decision_action_log (org_id, decision_id, actor_user_id, action, notes)
+     VALUES ($1,$2,$3,$4,$5)`,
+    [tenant.orgId, dec[0].decision_id, tenant.userId, outcome.log, body.notes ?? null],
   );
 
   await audit(

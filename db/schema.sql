@@ -67,6 +67,65 @@ CREATE TABLE users (
 );
 CREATE INDEX ix_users_org ON users(org_id);
 
+-- Login identity, sessions, and per-org role. Passwords are bcrypt hashes.
+-- These tables are intentionally outside RLS: the session is resolved before
+-- app.current_org_id is set. Business data stays org_id-scoped.
+CREATE TABLE auth_accounts (
+  account_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email         VARCHAR(200) NOT NULL,
+  password_hash TEXT NOT NULL,
+  first_name    VARCHAR(100) NOT NULL,
+  last_name     VARCHAR(100),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT ck_auth_password_hash CHECK (password_hash ~ '^[$]2[aby][$]')
+);
+CREATE UNIQUE INDEX uq_auth_accounts_email ON auth_accounts (lower(email));
+
+CREATE TABLE auth_sessions (
+  session_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token_hash  CHAR(64) NOT NULL UNIQUE,
+  account_id  UUID NOT NULL REFERENCES auth_accounts(account_id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  org_id      UUID NOT NULL REFERENCES organizations(org_id) ON DELETE CASCADE,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  revoked_at  TIMESTAMPTZ
+);
+CREATE INDEX ix_auth_sessions_account ON auth_sessions(account_id);
+CREATE INDEX ix_auth_sessions_org ON auth_sessions(org_id);
+
+CREATE TABLE org_memberships (
+  account_id  UUID NOT NULL REFERENCES auth_accounts(account_id) ON DELETE CASCADE,
+  org_id      UUID NOT NULL REFERENCES organizations(org_id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  role_code   VARCHAR(64) NOT NULL,
+  status      VARCHAR(20) NOT NULL DEFAULT 'active',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (account_id, org_id),
+  CONSTRAINT ck_membership_status CHECK (status IN ('active', 'invited', 'disabled')),
+  CONSTRAINT ck_membership_role CHECK (role_code IN (
+    'board_member', 'cxo', 'ciso', 'risk_lead', 'domain_analyst', 'program_office', 'auditor', 'admin'
+  ))
+);
+CREATE INDEX ix_org_memberships_org ON org_memberships(org_id);
+CREATE INDEX ix_org_memberships_user ON org_memberships(user_id);
+
+CREATE TABLE org_invites (
+  invite_id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id      UUID NOT NULL REFERENCES organizations(org_id) ON DELETE CASCADE,
+  email       VARCHAR(200) NOT NULL,
+  role_code   VARCHAR(64) NOT NULL,
+  token_hash  CHAR(64) NOT NULL UNIQUE,
+  invited_by  UUID REFERENCES users(user_id) ON DELETE SET NULL,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  accepted_at TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT ck_invite_role CHECK (role_code IN (
+    'board_member', 'cxo', 'ciso', 'risk_lead', 'domain_analyst', 'program_office', 'auditor', 'admin'
+  ))
+);
+CREATE INDEX ix_org_invites_org ON org_invites(org_id);
+
 -- ============================================================================
 -- 2. RISK DOMAINS — the 12 YVI Tech solutions feeding the Command Center
 -- ============================================================================
@@ -174,9 +233,11 @@ CREATE TABLE executive_decisions (
 );
 CREATE INDEX ix_decisions_org_status ON executive_decisions(org_id, status);
 
--- Audit trail of every action taken on a decision (approve / request info / decline)
+-- Audit trail of every action taken on a decision (approve / request info / decline).
+-- org_id matches executive_decisions so a log row cannot be read across organizations.
 CREATE TABLE decision_action_log (
   action_log_id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id          UUID NOT NULL REFERENCES organizations(org_id) ON DELETE CASCADE,
   decision_id     UUID NOT NULL REFERENCES executive_decisions(decision_id) ON DELETE CASCADE,
   actor_user_id   UUID REFERENCES users(user_id) ON DELETE SET NULL,
   action          VARCHAR(50) NOT NULL,            -- 'approved' / 'info_requested' / 'declined' / 'closed'
@@ -184,6 +245,24 @@ CREATE TABLE decision_action_log (
   acted_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX ix_decision_action_log_decision ON decision_action_log(decision_id);
+CREATE INDEX ix_decision_action_log_org ON decision_action_log(org_id);
+
+CREATE FUNCTION set_decision_log_org() RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.org_id IS NULL THEN
+    SELECT d.org_id INTO NEW.org_id FROM executive_decisions d WHERE d.decision_id = NEW.decision_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER trg_decision_log_org
+  BEFORE INSERT ON decision_action_log
+  FOR EACH ROW EXECUTE FUNCTION set_decision_log_org();
+
+ALTER TABLE decision_action_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE decision_action_log FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation_decision_log ON decision_action_log
+  USING (org_id = current_setting('app.current_org_id', true)::UUID);
 
 -- ============================================================================
 -- 8. COMPLIANCE — frameworks and posture tracking
@@ -240,7 +319,7 @@ CREATE INDEX ix_reports_org ON generated_reports(org_id);
 -- ============================================================================
 CREATE TABLE audit_log (
   log_id      BIGSERIAL PRIMARY KEY,
-  org_id      UUID REFERENCES organizations(org_id) ON DELETE SET NULL,
+  org_id      UUID NOT NULL REFERENCES organizations(org_id) ON DELETE RESTRICT,
   user_id     UUID REFERENCES users(user_id) ON DELETE SET NULL,
   action      VARCHAR(50) NOT NULL,
   entity_type VARCHAR(50) NOT NULL,

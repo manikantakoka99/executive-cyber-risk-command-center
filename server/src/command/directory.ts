@@ -176,6 +176,10 @@ export async function assignRole(userId: string, orgId: string, role: RoleCode):
        ON CONFLICT (user_id, role_id) DO UPDATE SET is_primary = true`,
       [userId, roleRows[0].role_id, orgId],
     );
+    await query(
+      `UPDATE org_memberships SET role_code = $1 WHERE user_id = $2 AND org_id = $3`,
+      [role, userId, orgId],
+    );
   } catch {
     /* override still applies for this process */
   }

@@ -93,12 +93,22 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/dwan_tests.sql
 
 ## Demo auth and tenants
 
-> **Must-fix before production:** demo auth trusts `X-Org-Id` / `X-User-Id` headers with no signature, session, or IdP. Anyone who can call the API can impersonate any seeded persona. Replace with real authentication (OIDC/SAML + short-lived tokens) and never ship header-trusted identity to production.
+The product UI signs in with email and password. Passwords are bcrypt hashes in `auth_accounts`. There is no public signup: an org Admin invites someone, and the invite link lets that person set a password.
 
-Sign-in is passwordless for local/demo use. Pick an organization, then a persona. Every API call sends:
+Seed local demo passwords (nothing is committed):
 
-- `X-Org-Id`
-- `X-User-Id`
+```bash
+cd server
+ECC_DEMO_PASSWORD='replace-with-a-local-password' npm run auth:seed
+```
+
+Use the same password for every seeded persona. Example: `layla.hashimi@aldhabi.demo` (CISO, Al Dhabi). Layla is also a member of Falcon National Bank, so the sidebar org switcher appears for her. `.env.example` has the placeholder only.
+
+Set `DEMO_AUTH=false` outside local QA. When it is `true`, the existing test harness may still pass `X-Org-Id` and `X-User-Id`. The browser does not send those headers. A session cookie always wins over headers, and a session cannot read another org by guessing ids.
+
+The platform risk policies `ecc_default` 1.0.0 and 1.1.0 are copied onto every organization. A new organization, and an invite into an organization that does not have them yet, receives the same two rows. `risk_policies.org_id` is required.
+
+`GET /api/ecc/organizations` and `GET /api/ecc/organizations/:orgId/users` require that session. The organization list is only the orgs the user belongs to. The user list is the session org, and only an Admin can read it. Failed sign-ins are throttled per IP (30) and per email (8) for 15 minutes, in memory on that API process only — a second instance does not share the counters. A successful sign-in clears that email's failures and does not count toward the limit. A key that is already blocked stays blocked until the window ends. `TRUST_PROXY` is a hop count, the same as Express `trust proxy` = N. Unset, `0`, `false`, `off`, `no`, and any non-integer keep the socket address and ignore `X-Forwarded-For`. A positive integer walks that many hops from the right of the header (the socket is the first hop), so a spoofed leftmost address does not change the per-IP key. The session cookie is `HttpOnly` and `SameSite=Lax`, and `Secure` when `NODE_ENV=production`.
 
 App roles match the schema’s eight `user_role_name` values exactly: `board_member`, `cxo`, `ciso`, `risk_lead`, `domain_analyst`, `program_office`, `auditor`, `admin`.
 

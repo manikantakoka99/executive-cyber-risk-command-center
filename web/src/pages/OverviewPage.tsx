@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { RoleButton } from "../components/RoleButton";
 import type { OverviewResponse, PendingDecision } from "../data/types";
 import { api } from "../lib/api";
 import {
@@ -366,24 +367,33 @@ export function OverviewPage({
                       : approveLabel(d.recommendedAction)}
                   </button>
                 ) : (
-                  <span className="role-hint">
-                    Acting as {actorRole ? roleLabel(actorRole) : "non-CxO"} —
-                    approve requires CxO.
-                  </span>
+                  <RoleButton role={actorRole} allowed={false} hint="Only CxO can approve or decline" className="di-btn approve">
+                    {approveLabel(d.recommendedAction)}
+                  </RoleButton>
                 )}
-                {canRequestInfo && !d.synthetic && (
-                  <button
-                    type="button"
-                    className="di-btn defer"
-                    disabled={!!busyId}
-                    aria-busy={busyId === `${d.decisionId}:request-info`}
-                    onClick={() => runAction(d, "request-info")}
-                  >
-                    {busyId === `${d.decisionId}:request-info`
-                      ? "Saving…"
-                      : "Request More Information"}
-                  </button>
-                )}
+                {!d.synthetic &&
+                  (canRequestInfo ? (
+                    <button
+                      type="button"
+                      className="di-btn defer"
+                      disabled={!!busyId}
+                      aria-busy={busyId === `${d.decisionId}:request-info`}
+                      onClick={() => runAction(d, "request-info")}
+                    >
+                      {busyId === `${d.decisionId}:request-info`
+                        ? "Saving…"
+                        : "Request More Information"}
+                    </button>
+                  ) : (
+                    <RoleButton
+                      role={actorRole}
+                      allowed={false}
+                      hint="Only CxO or Program Office can request information"
+                      className="di-btn defer"
+                    >
+                      Request More Information
+                    </RoleButton>
+                  ))}
                 {!d.synthetic && (
                   <Link className="di-btn defer" to={`/decisions/${d.decisionId}`}>
                     Full history
