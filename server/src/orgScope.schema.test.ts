@@ -48,7 +48,14 @@ describe("org_id scoping", () => {
     assert.match(app, /CREATE TABLE organizations \(/);
     assert.match(dwan, /CREATE TABLE organizations \(/);
     assert.match(tableBody(app, "audit_log"), /org_id\s+UUID NOT NULL/);
+    assert.match(
+      tableBody(app, "audit_log"),
+      /org_id\s+UUID NOT NULL REFERENCES organizations\(org_id\) ON DELETE RESTRICT/,
+    );
     assert.doesNotMatch(tableBody(dwan, "audit_log"), /org_id\s+UUID NOT NULL/);
+    const restrict = readFileSync(path.join(root, "db/migrations/012_audit_log_org_restrict.sql"), "utf8");
+    assert.match(restrict, /audit_log_org_id_fkey/);
+    assert.match(restrict, /ON DELETE RESTRICT/);
     const migration = readFileSync(path.join(root, "db/migrations/011_org_id_not_null.sql"), "utf8");
     assert.match(migration, /RAISE EXCEPTION 'org_id still NULL on % \(% rows\)'/);
   });

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "test": "DEMO_AUTH=true tsx --test --test-concurrency=1 src/*.test.ts src/**/*.test.ts ../web/forbiddenReason.test.ts",
+    "test": "DEMO_AUTH=true tsx --test --test-concurrency=1 src/*.test.ts src/**/*.test.ts ../web/forbiddenReason.test.ts ../web/decisionNotes.test.ts",
     "auth:seed": "tsx scripts/seed_auth.ts",
     "demo:prepare": "tsx scripts/ecc_demo.ts prepare",
     "demo:reset": "tsx scripts/ecc_demo.ts reset",

@@ -30,26 +30,43 @@ export function resetLoginThrottle(): void {
   buckets.clear();
 }
 
-/** TRUST_PROXY is off unless the env var is set to an explicit on value. */
-export function trustProxyEnabled(): boolean {
-  const raw = process.env.TRUST_PROXY?.trim().toLowerCase();
-  if (!raw) return false;
-  return raw !== "0" && raw !== "false" && raw !== "off" && raw !== "no";
+/**
+ * Hop count, matching Express `trust proxy` = N.
+ * The socket is hop 0. A positive integer walks that many addresses into
+ * X-Forwarded-For from the right. Unset, 0, and any non-integer (including
+ * true/on) trust nothing, so a client cannot choose the throttle key.
+ */
+export function trustProxyHops(): number {
+  const raw = process.env.TRUST_PROXY?.trim().toLowerCase() ?? "";
+  if (!/^[1-9]\d*$/.test(raw)) return 0;
+  return Number(raw);
 }
 
 /**
- * Socket address by default. The first X-Forwarded-For hop is used only when
- * TRUST_PROXY is explicitly enabled, so an untrusted client cannot widen the key.
+ * Socket address unless TRUST_PROXY is a hop count.
+ * Addresses are ordered nearest-first (socket, then X-Forwarded-For from the
+ * right), and the client is the first untrusted hop, the same walk Express uses.
+ * A spoofed leftmost entry is farther away and does not change the key.
  */
 export function loginClientIp(
   socketIp: string | undefined,
   forwardedFor: string | string[] | undefined,
 ): string {
   const direct = socketIp?.trim() || "unknown";
-  if (!trustProxyEnabled()) return direct;
-  const raw = Array.isArray(forwardedFor) ? forwardedFor.join(",") : forwardedFor;
-  const first = raw?.split(",")[0]?.trim();
-  return first || direct;
+  const hops = trustProxyHops();
+  if (hops < 1) return direct;
+  const header = Array.isArray(forwardedFor) ? forwardedFor.join(",") : (forwardedFor ?? "");
+  const fromRight = header
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .reverse();
+  const addrs = [direct, ...fromRight];
+  for (let i = 0; i < addrs.length - 1; i += 1) {
+    if (i < hops) continue;
+    return addrs[i] || direct;
+  }
+  return addrs[addrs.length - 1] || direct;
 }
 
 function emailKey(email: string | null | undefined): string {

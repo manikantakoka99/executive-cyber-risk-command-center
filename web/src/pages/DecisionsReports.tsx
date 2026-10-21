@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { RoleButton } from "../components/RoleButton";
+import { decisionNotesField } from "./decisionNotesField";
 import { api } from "../lib/api";
 import { useAppState } from "../context/AppState";
 import {
@@ -97,7 +98,7 @@ export function DecisionDetailPage() {
 
   const canDecide = me?.role === "cxo";
   const canRequestOrClose = me?.role === "cxo" || me?.role === "program_office";
-  const readOnly = me?.role === "board_member" || me?.role === "auditor";
+  const notesField = decisionNotesField(me?.role, data.decisionNotes);
   const terminal = ["approved", "declined", "closed"].includes(data.status);
   const approveBtn = (() => {
     const t = String(data.recommendedAction ?? "").trim();
@@ -156,14 +157,23 @@ export function DecisionDetailPage() {
 
         {!terminal && (
           <div className="action-panel">
-            <label htmlFor="decision-notes">Decision notes (audit trail)</label>
-            <textarea
-              id="decision-notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Optional rationale recorded in decision_action_log"
-            />
+            {notesField.editable ? (
+              <>
+                <label htmlFor="decision-notes">Decision notes (audit trail)</label>
+                <textarea
+                  id="decision-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Optional rationale recorded in decision_action_log"
+                />
+              </>
+            ) : notesField.readOnlyText ? (
+              <div>
+                <div className="eyebrow">Decision notes (audit trail)</div>
+                <p className="note">{notesField.readOnlyText}</p>
+              </div>
+            ) : null}
             <div className="di-actions">
               <RoleButton role={me?.role} allowed={canDecide} hint="Only CxO can approve or decline" className="di-btn approve" disabled={!!busy} onClick={() => act("approve")}>
                 {busy === "approve" ? "Saving…" : approveBtn}
@@ -178,7 +188,7 @@ export function DecisionDetailPage() {
                 Close
               </RoleButton>
             </div>
-            {readOnly && <p className="note">Read-only for this role.</p>}
+            {notesField.readOnlyNote && <p className="note">Read-only for this role.</p>}
           </div>
         )}
         {terminal && (

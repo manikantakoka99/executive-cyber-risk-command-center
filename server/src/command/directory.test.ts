@@ -224,6 +224,24 @@ describe("organization directory", () => {
         assert.equal((await loginAs("xff-b@ecc.test", "not-the-password", "203.0.113.2")).statusCode, 401);
         assert.equal((await loginAs("xff-c@ecc.test", "not-the-password", "203.0.113.3")).statusCode, 401);
       });
+      await withThrottle("10", "2", async () => {
+        assert.equal(
+          (await loginAs("xff-spoof-a@ecc.test", "not-the-password", "203.0.113.9, 198.51.100.20")).statusCode,
+          401,
+        );
+        assert.equal(
+          (await loginAs("xff-spoof-b@ecc.test", "not-the-password", "198.51.100.99, 198.51.100.20")).statusCode,
+          401,
+        );
+        assert.equal(
+          (await loginAs("xff-spoof-c@ecc.test", "not-the-password", "203.0.113.1, 198.51.100.20")).statusCode,
+          429,
+        );
+        assert.equal(
+          (await loginAs("xff-spoof-d@ecc.test", "not-the-password", "203.0.113.9, 198.51.100.21")).statusCode,
+          401,
+        );
+      });
     } finally {
       if (previousProxy === undefined) delete process.env.TRUST_PROXY;
       else process.env.TRUST_PROXY = previousProxy;
