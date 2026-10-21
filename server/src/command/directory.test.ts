@@ -149,39 +149,109 @@ describe("organization directory", () => {
   });
 
   it("throttles repeated sign-in attempts for one email", async () => {
-    const previousEmail = process.env.LOGIN_THROTTLE_EMAIL;
-    const previousIp = process.env.LOGIN_THROTTLE_IP;
-    process.env.LOGIN_THROTTLE_EMAIL = "2";
-    process.env.LOGIN_THROTTLE_IP = "20";
-    resetLoginThrottle();
-    try {
+    await withThrottle("2", "20", async () => {
       for (let i = 0; i < 2; i += 1) {
-        const attempt = await app.inject({
-          method: "POST",
-          url: "/api/ecc/auth/login",
-          payload: { email: "throttle-one@ecc.test", password: "not-the-password" },
-        });
+        const attempt = await loginAs("throttle-one@ecc.test", "not-the-password");
         assert.equal(attempt.statusCode, 401);
       }
-      const blocked = await app.inject({
-        method: "POST",
-        url: "/api/ecc/auth/login",
-        payload: { email: "throttle-one@ecc.test", password: "not-the-password" },
-      });
+      const blocked = await loginAs("throttle-one@ecc.test", "not-the-password");
       assert.equal(blocked.statusCode, 429);
-      assert.match(blocked.headers["retry-after"] ?? "", /^[1-9]/);
-      const other = await app.inject({
-        method: "POST",
-        url: "/api/ecc/auth/login",
-        payload: { email: "throttle-two@ecc.test", password: "not-the-password" },
-      });
+      assert.match(String(blocked.headers["retry-after"] ?? ""), /^[1-9]/);
+      const other = await loginAs("throttle-two@ecc.test", "not-the-password");
       assert.equal(other.statusCode, 401);
+    });
+  });
+
+  it("lets twenty successful sign-ins through in one window", async () => {
+    await withThrottle("8", "30", async () => {
+      for (let i = 0; i < 20; i += 1) {
+        const attempt = await loginAs(EMAIL_ADMIN, PASSWORD);
+        assert.equal(attempt.statusCode, 200);
+      }
+    });
+  });
+
+  it("returns 429 after eight failures and does not clear that block with the right password", async () => {
+    await withThrottle("8", "30", async () => {
+      for (let i = 0; i < 8; i += 1) {
+        const attempt = await loginAs(EMAIL_ADMIN, "not-the-password");
+        assert.equal(attempt.statusCode, 401);
+      }
+      const blocked = await loginAs(EMAIL_ADMIN, PASSWORD);
+      assert.equal(blocked.statusCode, 429);
+      const still = await loginAs(EMAIL_ADMIN, "not-the-password");
+      assert.equal(still.statusCode, 429);
+    });
+  });
+
+  it("resets the email failure count after a successful sign-in", async () => {
+    await withThrottle("8", "30", async () => {
+      for (let i = 0; i < 3; i += 1) {
+        assert.equal((await loginAs(EMAIL_CISO, "not-the-password")).statusCode, 401);
+      }
+      assert.equal((await loginAs(EMAIL_CISO, PASSWORD)).statusCode, 200);
+      for (let i = 0; i < 8; i += 1) {
+        assert.equal((await loginAs(EMAIL_CISO, "not-the-password")).statusCode, 401);
+      }
+      assert.equal((await loginAs(EMAIL_CISO, "not-the-password")).statusCode, 429);
+    });
+  });
+
+  it("does not lock a second email before the per-IP failure limit", async () => {
+    await withThrottle("8", "30", async () => {
+      for (let i = 0; i < 8; i += 1) {
+        assert.equal((await loginAs("throttle-a@ecc.test", "not-the-password")).statusCode, 401);
+      }
+      assert.equal((await loginAs("throttle-a@ecc.test", "not-the-password")).statusCode, 429);
+      assert.equal((await loginAs("throttle-b@ecc.test", "not-the-password")).statusCode, 401);
+    });
+  });
+
+  it("uses X-Forwarded-For for the login IP only when TRUST_PROXY is on", async () => {
+    const previousProxy = process.env.TRUST_PROXY;
+    try {
+      delete process.env.TRUST_PROXY;
+      await withThrottle("10", "2", async () => {
+        assert.equal((await loginAs("xff-a@ecc.test", "not-the-password", "203.0.113.1")).statusCode, 401);
+        assert.equal((await loginAs("xff-b@ecc.test", "not-the-password", "203.0.113.2")).statusCode, 401);
+        assert.equal((await loginAs("xff-c@ecc.test", "not-the-password", "203.0.113.3")).statusCode, 429);
+      });
+      process.env.TRUST_PROXY = "1";
+      await withThrottle("10", "2", async () => {
+        assert.equal((await loginAs("xff-a@ecc.test", "not-the-password", "203.0.113.1")).statusCode, 401);
+        assert.equal((await loginAs("xff-b@ecc.test", "not-the-password", "203.0.113.2")).statusCode, 401);
+        assert.equal((await loginAs("xff-c@ecc.test", "not-the-password", "203.0.113.3")).statusCode, 401);
+      });
     } finally {
+      if (previousProxy === undefined) delete process.env.TRUST_PROXY;
+      else process.env.TRUST_PROXY = previousProxy;
       resetLoginThrottle();
-      if (previousEmail === undefined) delete process.env.LOGIN_THROTTLE_EMAIL;
-      else process.env.LOGIN_THROTTLE_EMAIL = previousEmail;
-      if (previousIp === undefined) delete process.env.LOGIN_THROTTLE_IP;
-      else process.env.LOGIN_THROTTLE_IP = previousIp;
     }
   });
 });
+
+function loginAs(email: string, password: string, forwardedFor?: string) {
+  return app.inject({
+    method: "POST",
+    url: "/api/ecc/auth/login",
+    headers: forwardedFor ? { "x-forwarded-for": forwardedFor } : {},
+    payload: { email, password },
+  });
+}
+
+async function withThrottle(emailLimit: string, ipLimit: string, run: () => Promise<void>) {
+  const previousEmail = process.env.LOGIN_THROTTLE_EMAIL;
+  const previousIp = process.env.LOGIN_THROTTLE_IP;
+  process.env.LOGIN_THROTTLE_EMAIL = emailLimit;
+  process.env.LOGIN_THROTTLE_IP = ipLimit;
+  resetLoginThrottle();
+  try {
+    await run();
+  } finally {
+    resetLoginThrottle();
+    if (previousEmail === undefined) delete process.env.LOGIN_THROTTLE_EMAIL;
+    else process.env.LOGIN_THROTTLE_EMAIL = previousEmail;
+    if (previousIp === undefined) delete process.env.LOGIN_THROTTLE_IP;
+    else process.env.LOGIN_THROTTLE_IP = previousIp;
+  }
+}

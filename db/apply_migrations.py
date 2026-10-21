@@ -34,6 +34,7 @@ MIGRATIONS = [
     "008_align_priority_bands.sql",
     "009_ecc_auth.sql",
     "010_decision_log_org.sql",
+    "011_org_id_not_null.sql",
 ]
 
 

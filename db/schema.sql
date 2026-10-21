@@ -319,7 +319,7 @@ CREATE INDEX ix_reports_org ON generated_reports(org_id);
 -- ============================================================================
 CREATE TABLE audit_log (
   log_id      BIGSERIAL PRIMARY KEY,
-  org_id      UUID REFERENCES organizations(org_id) ON DELETE SET NULL,
+  org_id      UUID NOT NULL REFERENCES organizations(org_id) ON DELETE SET NULL,
   user_id     UUID REFERENCES users(user_id) ON DELETE SET NULL,
   action      VARCHAR(50) NOT NULL,
   entity_type VARCHAR(50) NOT NULL,

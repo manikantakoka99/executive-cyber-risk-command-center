@@ -367,7 +367,7 @@ export function OverviewPage({
                       : approveLabel(d.recommendedAction)}
                   </button>
                 ) : (
-                  <RoleButton role={actorRole} allowed={false} hint="Needs CxO" className="di-btn approve">
+                  <RoleButton role={actorRole} allowed={false} hint="Only CxO can approve or decline" className="di-btn approve">
                     {approveLabel(d.recommendedAction)}
                   </RoleButton>
                 )}
@@ -388,7 +388,7 @@ export function OverviewPage({
                     <RoleButton
                       role={actorRole}
                       allowed={false}
-                      hint="Needs CxO or Program Office"
+                      hint="Only CxO or Program Office can request information"
                       className="di-btn defer"
                     >
                       Request More Information

@@ -1,7 +1,12 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { hasPermission, isRoleCode, ROLE_LABEL } from "../command/rbac.js";
-import { consumeLoginAttempt } from "./loginThrottle.js";
+import {
+  clearEmailLoginFailures,
+  loginBlocked,
+  loginClientIp,
+  recordLoginFailure,
+} from "./loginThrottle.js";
 import {
   acceptInvite,
   createInvite,
@@ -22,16 +27,23 @@ function publicError(reply: FastifyReply, status: number, code: string, message:
 export function registerAuthRoutes(app: FastifyInstance) {
   app.post("/api/ecc/auth/login", async (req, reply) => {
     const body = z.object({ email: z.string().min(3).max(200), password: z.string().min(1).max(200) }).safeParse(req.body ?? {});
-    const attempt = consumeLoginAttempt(req.ip, body.success ? body.data.email : null);
-    if (!attempt.ok) {
-      reply.header("retry-after", String(attempt.retryAfterSec));
+    const email = body.success ? body.data.email : null;
+    const ip = loginClientIp(req.ip, req.headers["x-forwarded-for"]);
+    const blocked = loginBlocked(ip, email);
+    if (!blocked.ok) {
+      reply.header("retry-after", String(blocked.retryAfterSec));
       return publicError(reply, 429, "too_many_requests", "Too many sign-in attempts. Try again later.");
     }
     if (!body.success) {
+      recordLoginFailure(ip, null);
       return publicError(reply, 401, "unauthorized", "Wrong email or password.");
     }
     const result = await login(body.data.email, body.data.password);
-    if (!result) return publicError(reply, 401, "unauthorized", "Wrong email or password.");
+    if (!result) {
+      recordLoginFailure(ip, email);
+      return publicError(reply, 401, "unauthorized", "Wrong email or password.");
+    }
+    clearEmailLoginFailures(email);
     reply.header("set-cookie", sessionCookie(result.token));
     return { user: publicUser(result.principal) };
   });

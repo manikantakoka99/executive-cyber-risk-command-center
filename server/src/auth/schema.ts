@@ -3,11 +3,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { query } from "../db.js";
 
-const PENDING = ["009_ecc_auth.sql", "010_decision_log_org.sql"];
+const PENDING = ["009_ecc_auth.sql", "010_decision_log_org.sql", "011_org_id_not_null.sql"];
 
 let pending: Promise<void> | null = null;
 
-/** Apply migration 009 once when the database is reachable and it is not recorded. */
+/** Apply pending auth and org migrations once when they are not recorded. */
 export function ensureAuthSchema(): Promise<void> {
   if (!pending) {
     pending = apply().catch((err) => {

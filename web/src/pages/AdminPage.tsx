@@ -78,7 +78,7 @@ export function AdminPage() {
           <h1 className="page-title">Users and roles</h1>
           <p className="page-sub">Invite a person into {me?.orgName}. They set a password from the link. Roles stay the eight schema roles.</p>
         </div>
-        <button className="btn primary sm" type="button" onClick={() => setInviteOpen((open) => !open)}>
+        <button className="btn primary sm touch" type="button" onClick={() => setInviteOpen((open) => !open)}>
           Invite
         </button>
       </div>
@@ -109,7 +109,7 @@ export function AdminPage() {
               ))}
             </select>
           </label>
-          <button className="btn primary sm" type="submit" disabled={busy === "invite"}>
+          <button className="btn primary sm touch" type="submit" disabled={busy === "invite"}>
             Send invite
           </button>
           {invitePath && (
@@ -151,6 +151,7 @@ export function AdminPage() {
                 <td>
                   {user.userId && user.status !== "invited" ? (
                     <select
+                      className="role-select"
                       aria-label={`Role for ${user.firstName}`}
                       value={user.role}
                       disabled={busy === user.userId}

@@ -1,11 +1,13 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 /**
- * An action the role cannot perform stays on screen, disabled, with a tooltip.
- * Board and Auditor are read-only: those controls are omitted.
+ * Workflow actions stay visible for every role. When this role cannot use the
+ * action, the button is aria-disabled and a tooltip names who can. Native
+ * disabled is not used: it would drop the button from the tab order, so the
+ * tooltip would be unreachable from the keyboard. Edit, delete, and inline
+ * save controls are omitted by the page instead of rendered here.
  */
 export function RoleButton({
-  role,
   allowed,
   hint,
   children,
@@ -14,7 +16,7 @@ export function RoleButton({
   disabled,
   type = "button",
 }: {
-  role: string | null | undefined;
+  role?: string | null;
   allowed: boolean;
   hint: string;
   children: ReactNode;
@@ -23,19 +25,31 @@ export function RoleButton({
   disabled?: boolean;
   type?: "button" | "submit";
 }) {
-  const readOnly = role === "board_member" || role === "auditor";
-  if (!allowed && readOnly) return null;
   const blocked = !allowed;
+  const inactive = blocked || !!disabled;
+  const tipId = useId();
   return (
-    <span className="tip-wrap" title={blocked ? hint : undefined}>
+    <span className="tip-wrap">
       <button
         type={type}
         className={className}
-        disabled={blocked || !!disabled}
-        onClick={blocked ? undefined : onClick}
+        aria-disabled={inactive ? true : undefined}
+        aria-describedby={blocked ? tipId : undefined}
+        onClick={(event) => {
+          if (inactive) {
+            event.preventDefault();
+            return;
+          }
+          onClick?.();
+        }}
       >
         {children}
       </button>
+      {blocked ? (
+        <span id={tipId} role="tooltip" className="tip">
+          {hint}
+        </span>
+      ) : null}
     </span>
   );
 }

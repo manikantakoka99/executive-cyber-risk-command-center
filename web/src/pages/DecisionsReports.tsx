@@ -165,16 +165,16 @@ export function DecisionDetailPage() {
               placeholder="Optional rationale recorded in decision_action_log"
             />
             <div className="di-actions">
-              <RoleButton role={me?.role} allowed={canDecide} hint="Needs CxO" className="di-btn approve" disabled={!!busy} onClick={() => act("approve")}>
+              <RoleButton role={me?.role} allowed={canDecide} hint="Only CxO can approve or decline" className="di-btn approve" disabled={!!busy} onClick={() => act("approve")}>
                 {busy === "approve" ? "Saving…" : approveBtn}
               </RoleButton>
-              <RoleButton role={me?.role} allowed={canRequestOrClose} hint="Needs CxO or Program Office" className="di-btn defer" disabled={!!busy} onClick={() => act("request-info")}>
+              <RoleButton role={me?.role} allowed={canRequestOrClose} hint="Only CxO or Program Office can request information" className="di-btn defer" disabled={!!busy} onClick={() => act("request-info")}>
                 {busy === "request-info" ? "Saving…" : "Request More Information"}
               </RoleButton>
-              <RoleButton role={me?.role} allowed={canDecide} hint="Needs CxO" className="di-btn defer" disabled={!!busy} onClick={() => act("decline")}>
+              <RoleButton role={me?.role} allowed={canDecide} hint="Only CxO can approve or decline" className="di-btn defer" disabled={!!busy} onClick={() => act("decline")}>
                 Decline
               </RoleButton>
-              <RoleButton role={me?.role} allowed={canRequestOrClose} hint="Needs CxO or Program Office" className="di-btn defer" disabled={!!busy} onClick={() => act("close")}>
+              <RoleButton role={me?.role} allowed={canRequestOrClose} hint="Only CxO or Program Office can close" className="di-btn defer" disabled={!!busy} onClick={() => act("close")}>
                 Close
               </RoleButton>
             </div>

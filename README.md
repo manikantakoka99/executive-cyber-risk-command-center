@@ -106,7 +106,9 @@ Use the same password for every seeded persona. Example: `layla.hashimi@aldhabi.
 
 Set `DEMO_AUTH=false` outside local QA. When it is `true`, the existing test harness may still pass `X-Org-Id` and `X-User-Id`. The browser does not send those headers. A session cookie always wins over headers, and a session cannot read another org by guessing ids.
 
-`GET /api/ecc/organizations` and `GET /api/ecc/organizations/:orgId/users` require that session. The organization list is only the orgs the user belongs to. The user list is the session org, and only an Admin can read it. Sign-in is throttled per IP and per email. The session cookie is `HttpOnly` and `SameSite=Lax`, and `Secure` when `NODE_ENV=production`.
+The platform risk policies `ecc_default` 1.0.0 and 1.1.0 are copied onto every organization. A new organization, and an invite into an organization that does not have them yet, receives the same two rows. `risk_policies.org_id` is required.
+
+`GET /api/ecc/organizations` and `GET /api/ecc/organizations/:orgId/users` require that session. The organization list is only the orgs the user belongs to. The user list is the session org, and only an Admin can read it. Failed sign-ins are throttled per IP (30) and per email (8) for 15 minutes, in memory on that API process only — a second instance does not share the counters. A successful sign-in clears that email's failures and does not count toward the limit. A key that is already blocked stays blocked until the window ends. `TRUST_PROXY` is off unless set to an explicit on value (`0`, `false`, `off`, `no`, or unset keep the socket address and ignore `X-Forwarded-For`). The session cookie is `HttpOnly` and `SameSite=Lax`, and `Secure` when `NODE_ENV=production`.
 
 App roles match the schema’s eight `user_role_name` values exactly: `board_member`, `cxo`, `ciso`, `risk_lead`, `domain_analyst`, `program_office`, `auditor`, `admin`.
 

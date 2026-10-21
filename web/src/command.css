@@ -841,7 +841,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .btn.sm { padding: 6px 12px; font-size: 13px; }
 .btn-group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .whatif-save { margin-top: 24px; }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.btn:disabled,
+.btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; transform: none; }
+.btn[aria-disabled="true"]:hover { transform: none; }
 .log-line { padding: 4px 0; }
 
 .auth-screen {
@@ -966,7 +968,30 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
   cursor: pointer;
 }
 .account-menu button:hover { background: var(--accentSoft); }
-.tip-wrap { display: inline-flex; }
+.tip-wrap { position: relative; display: inline-flex; }
+.tip-wrap .tip {
+  display: none;
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  width: max-content;
+  max-width: 240px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--surface-solid);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: left;
+  pointer-events: none;
+}
+.tip-wrap:hover .tip,
+.tip-wrap:focus-within .tip { display: block; }
+.btn.touch { min-height: 44px; }
+select.role-select { min-height: 44px; padding: 0 10px; }
 .invite-form {
   display: flex;
   flex-wrap: wrap;

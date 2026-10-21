@@ -135,6 +135,10 @@ export async function switchOrg(token: string, orgId: string): Promise<SessionPr
   return principalFromToken(token);
 }
 
+async function seedDefaultRiskPolicies(orgId: string): Promise<void> {
+  await query(`SELECT seed_org_default_risk_policies($1::uuid)`, [orgId]);
+}
+
 export async function createInvite(input: {
   orgId: string;
   email: string;
@@ -142,6 +146,7 @@ export async function createInvite(input: {
   invitedBy: string;
 }): Promise<{ token: string; email: string; role: RoleCode; expiresAt: string }> {
   await ensureAuthSchema();
+  await seedDefaultRiskPolicies(input.orgId);
   if (!isRoleCode(input.role)) {
     throw Object.assign(new Error("A known role is required."), { status: 400 });
   }
@@ -203,6 +208,7 @@ export async function acceptInvite(
   if (problem) return { error: problem };
   const invite = await openInvite(token);
   if (!invite) return { error: "This invite is invalid or has expired." };
+  await seedDefaultRiskPolicies(invite.org_id);
   const passwordHash = await hashPassword(password);
   const email = invite.email.trim().toLowerCase();
   const names = nameFromEmail(email);
