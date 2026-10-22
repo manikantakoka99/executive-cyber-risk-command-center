@@ -7,6 +7,7 @@ import {
   describeScenario,
   type GapKey,
 } from "./model.js";
+import { isDemoOrg } from "./demoOverlay.js";
 import { canAcceptRisk, hasPermission, isRoleCode, type RoleCode } from "./rbac.js";
 
 export type QueueState = "open" | "approved" | "accepted" | "deferred";
@@ -155,17 +156,38 @@ export function initialState(): CommandState {
   };
 }
 
+/** Non-demo orgs start empty so Al Dhabi's queue/loss model is not shared. */
+export function emptyState(): CommandState {
+  return {
+    queue: [],
+    accept: [],
+    fixes: [],
+    decisions: [],
+    scenarios: [],
+    whatif: { ...WHATIF_TODAY, cost: "", preset: "now" },
+    packReviewedBy: null,
+  };
+}
+
+function stateForOrg(orgId: string): CommandState {
+  return isDemoOrg(orgId) ? initialState() : emptyState();
+}
+
 export function getState(orgId: string): CommandState {
   let state = byOrg.get(orgId);
   if (!state) {
-    state = initialState();
+    state = stateForOrg(orgId);
     byOrg.set(orgId, state);
   }
   return state;
 }
 
-export function resetState(orgId: string) {
-  byOrg.set(orgId, initialState());
+/** Reset org command state. Pass seedDemoQueue for unit tests that need the Al Dhabi queue on a non-demo id. */
+export function resetState(orgId: string, opts?: { seedDemoQueue?: boolean }) {
+  byOrg.set(
+    orgId,
+    opts?.seedDemoQueue || isDemoOrg(orgId) ? initialState() : emptyState(),
+  );
 }
 
 export type ActionResult =

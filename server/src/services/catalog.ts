@@ -285,8 +285,10 @@ function evidenceFromRows(
 }
 
 /**
- * Connector feeds for one org. Null when that org has no connectors:
+ * Per-domain connector feeds for one org. Null when that org has no connectors:
  * there is nothing to score, and the command-model 90.91 is not borrowed.
+ * Sample workbook ingestion stamps last_sync_at and upserts one connector per
+ * domain it covered so those domains appear here (the unmapped parent alone does not).
  */
 async function evidenceForOrg(orgId: string): Promise<Record<string, DomainEvidence> | null> {
   const { rows: counted } = await query<{ n: number }>(

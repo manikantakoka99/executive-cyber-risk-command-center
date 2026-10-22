@@ -25,7 +25,7 @@ import {
 const ORG = "org-access-test";
 
 describe("command RBAC", () => {
-  beforeEach(() => resetState(ORG));
+  beforeEach(() => resetState(ORG, { seedDemoQueue: true }));
 
   it("exposes exactly the schema's eight roles", () => {
     assert.deepEqual([...ROLE_CODES], [

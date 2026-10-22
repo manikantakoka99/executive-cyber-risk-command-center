@@ -67,7 +67,12 @@ async function workspaceFor(req: FastifyRequest) {
     scorecard,
   );
   if (hasPermission(req.tenant.role, "compliance.read")) {
-    workspace.complianceLive = await loadCompliance();
+    try {
+      workspace.complianceLive = await loadCompliance();
+    } catch (err) {
+      req.log.error({ err }, "compliance read failed");
+      workspace.complianceLive = null;
+    }
   }
   // Belt-and-suspenders: never emit AED / loss figures without command.loss.
   return redactFinancial(req.tenant.role, workspace);

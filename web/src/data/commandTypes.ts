@@ -20,7 +20,7 @@ export interface CommandWorkspace {
   landing: ViewId;
   views: { id: ViewId; label: string }[];
   home: string;
-  openDecisions: number;
+  openDecisions: number | null;
   headline: HeadlineView | null;
   posture: PostureView | null;
   trust: TrustView | null;

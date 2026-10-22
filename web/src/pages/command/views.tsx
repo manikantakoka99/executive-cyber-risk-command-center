@@ -34,7 +34,7 @@ export function HeadlineView({
 }: {
   data: HeadlineView;
   /** Canonical open-decision count from workspace (same source as queue badge). */
-  openDecisions: number;
+  openDecisions: number | null;
   compliance: CommandWorkspace["complianceLive"];
   onOpen: (id: string) => void;
 }) {
@@ -106,21 +106,36 @@ export function HeadlineView({
             tone="high"
             note={`P90 bad year ${formatAedMillions(data.loss.p90)}`}
           />
-        ) : null}
+        ) : (
+          <KpiCard
+            label="Expected annual loss"
+            value={0}
+            display="—"
+            note="No loss model for this organization"
+          />
+        )}
         <KpiCard
           label="Open decisions"
-          value={decisionsOpen}
+          value={decisionsOpen ?? 0}
+          display={decisionsOpen == null ? "—" : undefined}
           tone="info"
-          note="Awaiting executive action"
+          note={decisionsOpen == null ? "No decision queue for this organization" : "Awaiting executive action"}
         />
         <KpiCard
           label="Confidence"
           value={data.confidencePct ?? 0}
-          suffix="%"
+          suffix={data.confidencePct == null ? "" : "%"}
+          display={data.confidencePct == null ? "—" : undefined}
           tone={
-            (data.confidencePct ?? 0) >= 80 ? "low" : (data.confidencePct ?? 0) >= 60 ? "med" : "crit"
+            data.confidencePct == null
+              ? undefined
+              : data.confidencePct >= 80
+                ? "low"
+                : data.confidencePct >= 60
+                  ? "med"
+                  : "crit"
           }
-          note={data.confidenceLabel ?? "Coverage-adjusted"}
+          note={data.confidenceLabel ?? "No feed confidence for this organization"}
         />
       </div>
 
@@ -228,7 +243,7 @@ function ComplianceCard({
           <b>{fmt1(data.complianceDomain.score)}</b> and {data.complianceDomain.appetiteState.toLowerCase()}.
         </p>
       ) : (
-        <p className="note">Compliance summary is not available for this role.</p>
+        <p className="note">No compliance data.</p>
       )}
     </section>
   );

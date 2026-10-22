@@ -28,6 +28,7 @@ import {
   type GapKey,
   type Scorecard,
 } from "./model.js";
+import { isDemoOrg } from "./demoOverlay.js";
 import { matchesModelRaws } from "./orgFloor.js";
 import {
   CAPABILITY,
@@ -92,7 +93,7 @@ export interface CommandWorkspace {
   landing: ViewId;
   views: { id: ViewId; label: string }[];
   home: string;
-  openDecisions: number;
+  openDecisions: number | null;
   headline: HeadlineView | null;
   posture: PostureView | null;
   trust: TrustView | null;
@@ -363,7 +364,11 @@ export function presentWorkspace(
   const outside = outsideCount();
   const expiring = state.accept.filter((item) => daysUntil(item.expires) <= 30).length;
   const policyVersion = activePolicyLabel(orgId);
-  const openDecisions = state.queue.filter((item) => item.state === "open").length;
+  // Demo-only command queue. Other orgs must not inherit Al Dhabi's open count.
+  const demoOrg = !orgId || isDemoOrg(orgId);
+  const openDecisions = demoOrg
+    ? state.queue.filter((item) => item.state === "open").length
+    : null;
 
   return {
     asOf: "2026-09-05T00:00:00.000Z",
@@ -378,7 +383,7 @@ export function presentWorkspace(
     home: homeFor(role),
     openDecisions,
     headline: allow("command.headline")
-      ? presentHeadline(state, loss, expiring, outside, policyVersion, openDecisions, scorecard)
+      ? presentHeadline(state, loss, expiring, outside, policyVersion, openDecisions, scorecard, orgId)
       : null,
     posture: allow("command.posture") ? presentPosture(technical, outside) : null,
     trust: allow("command.trust") ? presentTrust() : null,
@@ -397,8 +402,9 @@ function presentHeadline(
   expiring: number,
   _outside: number,
   policyVersion: string,
-  openDecisions: number,
+  openDecisions: number | null,
   card: Scorecard | null,
+  orgId?: string,
 ): HeadlineView {
   if (!card) {
     return {
@@ -418,8 +424,8 @@ function presentHeadline(
       policyVersion,
       outsideAppetite: 0,
       domainCount: 0,
-      expiringAcceptances: expiring,
-      acceptanceCount: openDecisions,
+      expiringAcceptances: null,
+      acceptanceCount: null,
       loss: null,
       lookFirst: [],
       trend: [],
@@ -434,6 +440,9 @@ function presentHeadline(
       : `${numWord(critical.length)} domains are Critical and need decisions this week.`
     : "No domain is Critical.";
   const cmp = card.rows.find((row) => row.domain.id === "cmp");
+  // Loss, model confidence, and the demo queue belong to Al Dhabi only.
+  const demoOrg = !orgId || isDemoOrg(orgId);
+  const modelConfidence = matchesModelRaws(card);
   return {
     question: "Are we OK?",
     title,
@@ -449,23 +458,24 @@ function presentHeadline(
     floorDomainId: card.floored ? card.floorDomain?.domain.id ?? null : null,
     floorDomainName: card.floored ? card.floorDomain?.domain.name ?? null : null,
     counts: card.counts,
-    confidencePct: Math.round(card.confidence * 100),
-    confidenceLabel: confidenceLabel(card.confidence),
+    confidencePct: modelConfidence ? Math.round(card.confidence * 100) : null,
+    confidenceLabel: modelConfidence ? confidenceLabel(card.confidence) : null,
     policyVersion,
     outsideAppetite: outside,
     domainCount: card.rows.length,
-    expiringAcceptances: expiring,
+    expiringAcceptances: demoOrg ? expiring : null,
     // Same open-queue count as workspace.openDecisions (not accept-register size).
     acceptanceCount: openDecisions,
-    loss: loss
-      ? {
-          ale: ENTERPRISE_LOSS.ale,
-          p90: ENTERPRISE_LOSS.p90,
-          p95: ENTERPRISE_LOSS.p95,
-          note: `In most years no major event occurs; the range is driven by rare, large events. A bad year (1 in 10) is about ${formatAedMillions(ENTERPRISE_LOSS.p90)} and 1 in 20 about ${formatAedMillions(ENTERPRISE_LOSS.p95)}. Sum of three simulated scenarios, draw by draw.`,
-          drivers: Object.values(LOSS).map((item) => ({ name: item.name, ale: item.ale })),
-        }
-      : null,
+    loss:
+      loss && demoOrg
+        ? {
+            ale: ENTERPRISE_LOSS.ale,
+            p90: ENTERPRISE_LOSS.p90,
+            p95: ENTERPRISE_LOSS.p95,
+            note: `In most years no major event occurs; the range is driven by rare, large events. A bad year (1 in 10) is about ${formatAedMillions(ENTERPRISE_LOSS.p90)} and 1 in 20 about ${formatAedMillions(ENTERPRISE_LOSS.p95)}. Sum of three simulated scenarios, draw by draw.`,
+            drivers: Object.values(LOSS).map((item) => ({ name: item.name, ale: item.ale })),
+          }
+        : null,
     lookFirst: card.rows
       .filter((row) => row.band === "Critical" || row.band === "High")
       .sort((a, b) => b.adjusted - a.adjusted)
