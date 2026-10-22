@@ -37,7 +37,7 @@ Default ports: **UI `5173`**, **API `4000`**, **Postgres `5433`** (host) → `54
 ```bash
 git clone https://github.com/manikantakoka99/executive-cyber-risk-command-center.git
 cd executive-cyber-risk-command-center
-cp .env.example .env
+cp .env.example server/.env
 
 docker compose up -d db
 docker compose exec -T db pg_isready -U ecc -d cyber_command_center
@@ -49,12 +49,12 @@ npm run demo:seed
 cp ../logins.example.csv ../logins.csv   # then edit placeholders locally
 ECC_DEMO_LOGINS_FILE=../logins.csv npm run auth:seed
 # or: ECC_DEMO_PASSWORD='replace-with-a-local-password' npm run auth:seed
-npm run dev                              # http://127.0.0.1:4000/health
+npm run dev                              # http://localhost:4000/health
 
 # New terminal
 cd web
 npm install
-npm run dev                              # http://127.0.0.1:5173
+npm run dev                              # http://localhost:5173
 ```
 
 ### Windows (PowerShell)
@@ -62,7 +62,7 @@ npm run dev                              # http://127.0.0.1:5173
 ```powershell
 git clone https://github.com/manikantakoka99/executive-cyber-risk-command-center.git
 cd executive-cyber-risk-command-center
-Copy-Item .env.example .env
+Copy-Item .env.example server/.env
 
 docker compose up -d db
 docker compose exec -T db pg_isready -U ecc -d cyber_command_center
@@ -83,8 +83,8 @@ npm run dev
 
 | Service | URL / connection |
 | --- | --- |
-| UI | http://127.0.0.1:5173 |
-| API | http://127.0.0.1:4000/health |
+| UI | http://localhost:5173 |
+| API | http://localhost:4000/health |
 | Postgres | `postgresql://ecc:ecc_dev_password@localhost:5433/cyber_command_center` |
 
 On an empty volume, Compose init runs `db/docker-init/apply_app_schema.sh` (schema, migrations **001–013** including `013_nist_csf_2.sql` for the NIST CSF 2.0 framework catalog row, sample workbook, AED formatting, tenant seed). `npm run demo:seed` adds the Al Dhabi demo scenarios and runs sample workbook ingestion so per-domain NIST evidence is recorded (aligned/mapped coverage, never a certification claim). `db/dwan_schema.sql` stays in the repo for reference and is not applied by Compose.
@@ -94,7 +94,7 @@ On an empty volume, Compose init runs `db/docker-init/apply_app_schema.sh` (sche
 ```bash
 docker compose down -v
 docker compose up -d db
-cd server && npm run demo:seed && npm run auth:seed && npm run dev
+cd server && npm run demo:seed && ECC_DEMO_LOGINS_FILE=../logins.csv npm run auth:seed && npm run dev
 ```
 
 Optional one-command helper (starts `db`, then API + Vite):
@@ -106,27 +106,34 @@ chmod +x scripts/dev-up.sh
 
 ## Environment
 
-Copy `.env.example` to `.env`. Every variable below is read by the listed file (see also commented optionals in `.env.example`).
+The API and `npm run auth:seed` / `demo:seed` run from `server/` and load **`server/.env`** (`dotenv/config` in `server/src/index.ts` and `server/src/db.ts`; `server/scripts/ecc_demo.ts` loads the same path). Copy the example there:
+
+```bash
+cp .env.example server/.env
+```
+
+A root `.env` is not read. Every variable below is loaded from `server/.env` by the listed file (see also commented optionals in `.env.example`).
 
 | Variable | Read by | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | `server/src/db.ts` | Postgres connection string (Compose default uses host port **5433**) |
-| `SUPABASE_DB_URL` | `server/src/db.ts` | Optional alias if you point the API at Supabase |
-| `PORT` | `server/src/index.ts` | API port (default **4000**) |
-| `HOST` | `server/src/index.ts` | API bind address (default `0.0.0.0`) |
-| `CORS_ORIGIN` | `server/src/index.ts` | Browser origin(s), comma-separated (default `http://localhost:5173`) |
-| `DEMO_AUTH` | `server/src/middleware/tenant.ts` | `true` only for local QA that may send `X-Org-Id` / `X-User-Id`; use `false` otherwise. A session cookie always wins over headers. |
-| `ECC_DEMO_LOGINS_FILE` | `server/scripts/seed_auth.ts` | Path to a gitignored `email,password` CSV for `npm run auth:seed` |
-| `ECC_DEMO_PASSWORD` | `server/scripts/seed_auth.ts` | Fallback: one local password for every role login when the CSV is unset |
-| `LOGIN_THROTTLE_EMAIL` | `server/src/auth/loginThrottle.ts` | Max failed sign-ins per email in the window (default 8) |
-| `LOGIN_THROTTLE_IP` | `server/src/auth/loginThrottle.ts` | Max failed sign-ins per IP in the window (default 30) |
-| `TRUST_PROXY` | `server/src/auth/loginThrottle.ts` | Exact reverse-proxy hop count for login throttle IP (see below) |
-| `DEFAULT_RISK_APPETITE` | `server/src/services/overview.ts` | Default appetite percent when none is stored (default 50) |
-| `DEFAULT_ORG_ID` | `server/scripts/ecc_demo.ts` | Org for `npm run demo:seed` / demo CLI |
-| `DEMO_ORG_ID` | `server/scripts/ecc_demo.ts` | Optional alias; wins over `DEFAULT_ORG_ID` when set |
-| `ECC_ENABLE_SAMPLE_INGESTION` | `server/src/index.ts`, `server/src/services/sampleWorkbookIngestion.ts` | Set to `false` to disable sample workbook ingestion |
-| `PG_POOL_MAX` | `server/src/db.ts` | Postgres pool size (default 20) |
-| `ACCEPT_RISK_ROLES` | `server/src/command/rbac.ts` | Optional comma-separated role codes allowed to accept risk |
+| `DATABASE_URL` | `server/src/db.ts` (via `server/.env`) | Postgres connection string (Compose default uses host port **5433**) |
+| `SUPABASE_DB_URL` | `server/src/db.ts` (via `server/.env`) | Optional alias if you point the API at Supabase |
+| `PORT` | `server/src/index.ts` (via `server/.env`) | API port (default **4000**) |
+| `HOST` | `server/src/index.ts` (via `server/.env`) | API bind address (default `0.0.0.0`) |
+| `CORS_ORIGIN` | `server/src/index.ts` (via `server/.env`) | Browser origin allowlist, comma-separated. Default when unset: `http://localhost:5173` only (fail closed — never `*` / any-origin). Set `CORS_ORIGIN=http://localhost:5173` in `server/.env` for local Vite. |
+| `DEMO_AUTH` | `server/src/middleware/tenant.ts` (via `server/.env`) | `true` only for local QA that may send `X-Org-Id` / `X-User-Id`; use `false` otherwise. A session cookie always wins over headers. |
+| `NODE_ENV` | `server/src/auth/service.ts` (via `server/.env` / process env) | When `production`, the session cookie is marked `Secure`. Leave unset for local HTTP. |
+| `ECC_DEMO_LOGINS_FILE` | `server/scripts/seed_auth.ts` (process env when seeding) | Path to a gitignored `email,password` CSV for `npm run auth:seed` |
+| `ECC_DEMO_PASSWORD` | `server/scripts/seed_auth.ts` (process env / `server/.env`) | Fallback: one local password for every role login when the CSV is unset |
+| `LOGIN_THROTTLE_EMAIL` | `server/src/auth/loginThrottle.ts` (via `server/.env`) | Max failed sign-ins per email in the window (default 8) |
+| `LOGIN_THROTTLE_IP` | `server/src/auth/loginThrottle.ts` (via `server/.env`) | Max failed sign-ins per IP in the window (default 30) |
+| `TRUST_PROXY` | `server/src/auth/loginThrottle.ts` (via `server/.env`) | Exact reverse-proxy hop count for login throttle IP (see below) |
+| `DEFAULT_RISK_APPETITE` | `server/src/services/overview.ts` (via `server/.env`) | Default appetite percent when none is stored (default 50) |
+| `DEFAULT_ORG_ID` | `server/scripts/ecc_demo.ts` (via `server/.env`) | Org for `npm run demo:seed` / demo CLI |
+| `DEMO_ORG_ID` | `server/scripts/ecc_demo.ts` (via `server/.env`) | Optional alias; wins over `DEFAULT_ORG_ID` when set |
+| `ECC_ENABLE_SAMPLE_INGESTION` | `server/src/index.ts`, `server/src/services/sampleWorkbookIngestion.ts` (via `server/.env`) | Set to `false` to disable sample workbook ingestion |
+| `PG_POOL_MAX` | `server/src/db.ts` (via `server/.env`) | Postgres pool size (default 20) |
+| `ACCEPT_RISK_ROLES` | `server/src/command/rbac.ts` (via `server/.env`) | Optional comma-separated role codes allowed to accept risk |
 
 ### `TRUST_PROXY`
 
@@ -149,7 +156,7 @@ ECC_DEMO_LOGINS_FILE=../logins.csv npm run auth:seed
 ECC_DEMO_PASSWORD='replace-with-a-local-password' npm run auth:seed
 ```
 
-Never commit `logins.csv` or a filled-in `.env`. `logins.example.csv` contains placeholders only.
+Never commit `logins.csv` or a filled-in `server/.env`. `logins.example.csv` contains placeholders only.
 
 | Login | Role | Org | Home |
 | --- | --- | --- | --- |
@@ -173,13 +180,13 @@ Failed sign-ins are throttled per IP (30) and per email (8) for 15 minutes, in m
 ```
 .
 ├── web/                 # React + Vite UI (:5173)
-├── server/              # Fastify API (:4000)
+├── server/              # Fastify API (:4000); loads server/.env
 ├── db/                  # schema, migrations, docker init, seeds
 ├── docs/                # architecture, API, scoring, RBAC
 ├── reference/           # sample workbook and fixtures
 ├── scripts/             # local helpers (dev-up, clean-install checks)
 ├── docker-compose.yml   # Postgres 16 on host port 5433
-├── .env.example
+├── .env.example         # copy to server/.env
 └── logins.example.csv
 ```
 
@@ -203,10 +210,11 @@ GitHub Actions runs the clean-install check on pull requests (`.github/workflows
 | `docs/ecc-architecture.md` | Stack and tenancy |
 | `docs/ecc-api-design.md` | API contract |
 | `docs/ecc-risk-scoring.md` | KPI / scoring model |
+| `docs/canonical_values.md` | Demo headline canonical numbers |
 | `db/dwan_schema.sql` | Reference schema |
 
 ## Security
 
-- Do not commit `.env`, `logins.csv`, or any real passwords.
+- Do not commit `server/.env`, `logins.csv`, or any real passwords.
 - Keep `DEMO_AUTH=false` outside local automated tests.
 - NIST CSF 2.0 in the product is mapping coverage only — not a certification claim.

@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import "dotenv/config";
 
 import { query, runWithRequestTenant } from "./db.js";
+import { resolveCorsOrigins } from "./corsOrigin.js";
 import { isPublicEccPath, requireRoles, tenantMiddleware } from "./middleware/tenant.js";
 import { registerAuthRoutes } from "./auth/routes.js";
 import { ensureAuthSchema } from "./auth/schema.js";
@@ -122,7 +123,8 @@ export const app = Fastify({ logger: true });
 installRequestValidation(app);
 
 await app.register(cors, {
-  origin: process.env.CORS_ORIGIN?.split(",") ?? true,
+  // Fail closed: unset CORS_ORIGIN → http://localhost:5173 only (never true / *).
+  origin: resolveCorsOrigins(),
 });
 await app.register(rateLimit, {
   max: 300,

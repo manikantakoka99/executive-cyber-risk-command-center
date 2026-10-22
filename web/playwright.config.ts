@@ -7,7 +7,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    // Match Vite’s default bind and README CORS allowlist (localhost, not 127.0.0.1).
+    baseURL: "http://localhost:5173",
     headless: true,
   },
 });
