@@ -40,6 +40,16 @@ cd executive-cyber-risk-command-center
 cp .env.example server/.env
 
 docker compose up -d db
+# Wait until Postgres accepts connections AND first-boot init finished
+# (pg_isready alone is true mid-init; seeding then gets ECONNRESET).
+for i in $(seq 1 90); do
+  if docker compose exec -T db pg_isready -U ecc -d cyber_command_center >/dev/null 2>&1 \
+    && docker compose exec -T db psql -U ecc -d cyber_command_center -tAc \
+      "SELECT 1 FROM schema_migrations WHERE version = '013_nist_csf_2'" 2>/dev/null | grep -q 1; then
+    break
+  fi
+  sleep 1
+done
 docker compose exec -T db pg_isready -U ecc -d cyber_command_center
 
 cd server
@@ -65,6 +75,16 @@ cd executive-cyber-risk-command-center
 Copy-Item .env.example server/.env
 
 docker compose up -d db
+# Wait until Postgres accepts connections AND first-boot init finished
+# (pg_isready alone is true mid-init; seeding then gets ECONNRESET).
+for ($i = 1; $i -le 90; $i++) {
+  docker compose exec -T db pg_isready -U ecc -d cyber_command_center 2>$null | Out-Null
+  if ($LASTEXITCODE -eq 0) {
+    $mig = docker compose exec -T db psql -U ecc -d cyber_command_center -tAc "SELECT 1 FROM schema_migrations WHERE version = '013_nist_csf_2'" 2>$null
+    if ($mig -match '1') { break }
+  }
+  Start-Sleep -Seconds 1
+}
 docker compose exec -T db pg_isready -U ecc -d cyber_command_center
 
 cd server
@@ -94,7 +114,34 @@ On an empty volume, Compose init runs `db/docker-init/apply_app_schema.sh` (sche
 ```bash
 docker compose down -v
 docker compose up -d db
+# Same wait as Quick start: ready + migration 013 (init finished).
+for i in $(seq 1 90); do
+  if docker compose exec -T db pg_isready -U ecc -d cyber_command_center >/dev/null 2>&1 \
+    && docker compose exec -T db psql -U ecc -d cyber_command_center -tAc \
+      "SELECT 1 FROM schema_migrations WHERE version = '013_nist_csf_2'" 2>/dev/null | grep -q 1; then
+    break
+  fi
+  sleep 1
+done
+docker compose exec -T db pg_isready -U ecc -d cyber_command_center
 cd server && npm run demo:seed && ECC_DEMO_LOGINS_FILE=../logins.csv npm run auth:seed && npm run dev
+```
+
+PowerShell reset (same wait):
+
+```powershell
+docker compose down -v
+docker compose up -d db
+for ($i = 1; $i -le 90; $i++) {
+  docker compose exec -T db pg_isready -U ecc -d cyber_command_center 2>$null | Out-Null
+  if ($LASTEXITCODE -eq 0) {
+    $mig = docker compose exec -T db psql -U ecc -d cyber_command_center -tAc "SELECT 1 FROM schema_migrations WHERE version = '013_nist_csf_2'" 2>$null
+    if ($mig -match '1') { break }
+  }
+  Start-Sleep -Seconds 1
+}
+docker compose exec -T db pg_isready -U ecc -d cyber_command_center
+cd server; npm run demo:seed; $env:ECC_DEMO_LOGINS_FILE="..\logins.csv"; npm run auth:seed; npm run dev
 ```
 
 Optional one-command helper (starts `db`, then API + Vite):
