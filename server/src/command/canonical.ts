@@ -1,5 +1,5 @@
 /**
- * Doc-canonical demo headline values (Vinga / DWAN explanation PDF + HTML).
+ * Doc-canonical demo headline values (DWAN explanation PDF / HTML).
  * Consistency tests and presenters compare at displayed precision.
  */
 export const CANONICAL = {

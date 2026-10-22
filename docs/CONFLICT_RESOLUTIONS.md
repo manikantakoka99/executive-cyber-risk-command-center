@@ -1,4 +1,4 @@
-# Conflict resolutions (Vinga checklist §11)
+# Conflict resolutions (checklist §11)
 
 **Authority order:** (1) `dwan_schema.sql` + DESIGN_NOTES · (2) ECC_PRODUCT_CONTEXT · (3) Explanation PDF · (4) HTML reference (UX patterns only).
 

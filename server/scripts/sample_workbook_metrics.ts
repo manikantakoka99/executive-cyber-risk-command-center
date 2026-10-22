@@ -3,7 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(here, "../../.env") });
+// Same file the API and ecc_demo.ts load from server/.
+dotenv.config({ path: path.join(here, "../.env") });
 
 import { query } from "../src/db.js";
 import {

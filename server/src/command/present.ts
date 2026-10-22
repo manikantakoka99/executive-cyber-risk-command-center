@@ -77,7 +77,7 @@ function sourceLabel(table: string): string {
   }
 }
 
-/** Pixel headline: "Held at Critical by Attack Surface & VAPT". */
+/** Floor hold line, e.g. "Held at Critical by Attack Surface & VAPT". */
 export function floorHoldLine(band: string, domainName: string): string {
   return `Held at ${band} by ${domainName.replaceAll(" and ", " & ")}`;
 }
