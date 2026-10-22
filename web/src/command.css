@@ -1367,6 +1367,64 @@ button.nist-label:focus-visible {
   min-width: 0;
   height: 100%;
 }
+
+/* Empty headline KPIs: same 40px value size as real figures, muted token. */
+.kpi-empty-value {
+  color: var(--muted);
+  font-size: 40px;
+  line-height: 1;
+  font-weight: 750;
+}
+
+/* Headline KPI block: one muted caption under loss/confidence/decisions. */
+.kpi-headline-block {
+  margin-bottom: 16px;
+}
+.kpi-headline-block > .kpi-row {
+  margin-bottom: 0;
+}
+.kpi-row-headline {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.kpi-group-empty-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+.kpi-group-empty-row > .kpi-group-empty {
+  grid-column: 2 / span 3;
+  margin: 0;
+  padding: 0;
+  font: 400 14px/1.4 var(--body);
+  color: var(--muted);
+  text-align: left;
+}
+@media (max-width: 900px) {
+  .kpi-row-headline,
+  .kpi-group-empty-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .kpi-group-empty-row > .kpi-group-empty {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Compliance read failure: keep the full score-card height; muted, not red. */
+.compliance-load-error {
+  align-self: stretch;
+  min-height: 246px;
+  display: flex;
+  flex-direction: column;
+}
+.compliance-load-error .kpi-empty-value {
+  margin: 8px 0 0;
+}
+.compliance-load-caption {
+  margin: 10px 0 0;
+  font: 400 14px/1.4 var(--body);
+  color: var(--muted);
+}
 .kpi-row .kpi-label,
 .exec-hero .exec-grid .kpi-label {
   line-height: 1.3;

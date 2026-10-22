@@ -6,6 +6,7 @@ import {
   NIST_CATEGORIES,
   NIST_CATEGORY_TOTAL,
   categoryCovered,
+  domainHasCurrentEvidence,
   modelDomainEvidence,
   scoreNist,
   type DomainEvidence,
@@ -38,17 +39,29 @@ describe("NIST CSF 2.0 coverage", () => {
     assert.equal(recover.total, 2);
   });
 
-  it("drops a category when its only domain has no current evidence", () => {
+  it("drops a category when its only domain has zero synced connectors", () => {
     const fresh: DomainEvidence = { fresh: 1, total: 1 };
-    const stale: DomainEvidence = { fresh: 1, total: 4 };
+    const unsynced: DomainEvidence = { fresh: 0, total: 4 };
     const evidence: Record<string, DomainEvidence> = {};
     for (const category of NIST_CATEGORIES) {
-      for (const code of category.domains) evidence[code] = code === "soc_mdr" ? stale : fresh;
+      for (const code of category.domains) evidence[code] = code === "soc_mdr" ? unsynced : fresh;
     }
     const score = scoreNist(evidence);
     assert.equal(score.evidenced, NIST_CATEGORIES.filter((c) => categoryCovered(c, evidence)).length);
     assert.equal(score.functions.find((fn) => fn.name === "Detect")!.covered, 1);
     assert.ok(score.evidenced < 20);
+  });
+
+  it("keeps a domain covered when one connector is synced and another is not", () => {
+    const mixed: DomainEvidence = { fresh: 1, total: 2 };
+    assert.equal(domainHasCurrentEvidence(mixed), true);
+    const evidence: Record<string, DomainEvidence> = {};
+    for (const category of NIST_CATEGORIES) {
+      for (const code of category.domains) evidence[code] = mixed;
+    }
+    const score = scoreNist(evidence);
+    assert.equal(score.evidenced, 20);
+    assert.equal(score.coveragePct, 90.91);
   });
 
   it("matches the command-model feed fixture at 20 of 22", () => {

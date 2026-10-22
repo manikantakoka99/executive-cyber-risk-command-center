@@ -251,6 +251,9 @@ function mapFinding(r: Record<string, unknown>) {
   };
 }
 
+// Per-domain fresh/total for the session org. Coverage uses domainHasCurrentEvidence
+// (fresh > 0); unsynced rows raise total only. Unmapped is a real domain code here
+// but is never listed on NIST_CATEGORIES, so it cannot cover a NIST category.
 const EVIDENCE_SQL = `SELECT d.code,
             COUNT(c.connector_id)::int AS total,
             COUNT(c.connector_id) FILTER (

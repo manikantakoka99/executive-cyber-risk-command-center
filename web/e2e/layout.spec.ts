@@ -408,3 +408,107 @@ for (const width of [1280, 1440, 1920]) {
     expect(Math.abs((headline.nist ?? 0) - (headline.other ?? 0))).toBeLessThanOrEqual(0.5);
   });
 }
+
+test("headline empty org uses muted dashes and one No evidence yet caption", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page, PERSONAS[0].id);
+  await openApp(page, "/c/headline");
+  await page.locator(".org-switch button", { hasText: "Falcon" }).click();
+  // Org switch lands on the role home (posture); open headline for the empty KPIs.
+  await openApp(page, "/c/headline");
+  await page.getByTestId("kpi-group-empty").waitFor();
+
+  const report = await page.evaluate(() => {
+    const empties = [...document.querySelectorAll(".kpi-row-headline .kpi-empty-value")] as HTMLElement[];
+    const caption = document.querySelector(".kpi-group-empty") as HTMLElement | null;
+    const notes = [...document.querySelectorAll(".kpi-row-headline .kpi .note")]
+      .map((el) => (el.textContent || "").trim())
+      .filter((text) => /No (loss|decision|feed)/i.test(text));
+    const captionCs = caption ? getComputedStyle(caption) : null;
+    const cards = [...document.querySelectorAll(".kpi-row-headline > .kpi")] as HTMLElement[];
+    const lossCard = cards[1] ?? null;
+    return {
+      dashCount: empties.length,
+      dashTexts: empties.map((el) => el.textContent?.trim()),
+      dashColors: empties.map((el) => getComputedStyle(el).color),
+      dashSizes: empties.map((el) => getComputedStyle(el).fontSize),
+      caption: caption?.textContent?.trim() ?? null,
+      captionSize: captionCs?.fontSize ?? null,
+      captionColor: captionCs?.color ?? null,
+      captionLeft: caption ? Math.round(caption.getBoundingClientRect().left) : null,
+      firstEvidenceCardLeft: lossCard ? Math.round(lossCard.getBoundingClientRect().left) : null,
+      perCardNotes: notes,
+    };
+  });
+
+  expect(report.dashCount).toBe(3);
+  expect(report.dashTexts).toEqual(["—", "—", "—"]);
+  for (const color of report.dashColors) {
+    expect(color).toBe("rgb(94, 107, 99)");
+  }
+  for (const size of report.dashSizes) {
+    expect(size).toBe("40px");
+  }
+  expect(report.caption).toBe("No evidence yet");
+  expect(report.captionSize).toBe("14px");
+  expect(report.captionColor).toBe("rgb(94, 107, 99)");
+  expect(report.perCardNotes).toEqual([]);
+  expect(Math.abs((report.captionLeft ?? 0) - (report.firstEvidenceCardLeft ?? 0))).toBeLessThanOrEqual(2);
+});
+
+test("compliance load error keeps card height and shows muted retry caption", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page, PERSONAS[0].id);
+
+  await page.route("**/api/ecc/command/workspace**", async (route) => {
+    const response = await route.fetch();
+    const json = (await response.json()) as {
+      complianceLive?: Record<string, unknown> | null;
+    };
+    json.complianceLive = {
+      posturePct: null,
+      frameworks: [],
+      nist: null,
+      loadError: true,
+    };
+    await route.fulfill({
+      status: response.status(),
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(json),
+    });
+  });
+
+  await openApp(page, "/c/headline");
+  const card = page.getByTestId("compliance-load-error");
+  await card.waitFor();
+
+  const report = await page.evaluate(() => {
+    const cardEl = document.querySelector('[data-testid="compliance-load-error"]') as HTMLElement | null;
+    const dash = cardEl?.querySelector(".kpi-empty-value") as HTMLElement | null;
+    const caption = cardEl?.querySelector(".compliance-load-caption") as HTMLElement | null;
+    const body = (cardEl?.textContent || "").replace(/\s+/g, " ");
+    return {
+      height: cardEl ? Math.round(cardEl.getBoundingClientRect().height) : null,
+      dash: dash?.textContent?.trim() ?? null,
+      dashColor: dash ? getComputedStyle(dash).color : null,
+      dashSize: dash ? getComputedStyle(dash).fontSize : null,
+      caption: caption?.textContent?.trim() ?? null,
+      captionColor: caption ? getComputedStyle(caption).color : null,
+      captionSize: caption ? getComputedStyle(caption).fontSize : null,
+      hasFrameworkRollup: /Framework rollup is not connected/i.test(body),
+      hasNoComplianceData: /No compliance data/i.test(body),
+    };
+  });
+
+  expect(report.height).toBeGreaterThanOrEqual(246);
+  expect(report.dash).toBe("—");
+  expect(report.dashColor).toBe("rgb(94, 107, 99)");
+  expect(report.dashSize).toBe("40px");
+  expect(report.caption).toBe("Couldn't load. Refresh to retry");
+  expect(report.captionColor).toBe("rgb(94, 107, 99)");
+  expect(report.captionSize).toBe("14px");
+  expect(report.hasFrameworkRollup).toBe(false);
+  expect(report.hasNoComplianceData).toBe(false);
+});

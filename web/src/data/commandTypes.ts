@@ -41,6 +41,8 @@ export interface CommandWorkspace {
       note: string;
       functions: { name: string; covered: number; total: number; gaps: string[]; partial: string[] }[];
     } | null;
+    /** True when the compliance read failed; not the same as empty/no-evidence. */
+    loadError?: boolean;
   } | null;
 }
 

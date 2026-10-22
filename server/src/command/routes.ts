@@ -71,7 +71,14 @@ async function workspaceFor(req: FastifyRequest) {
       workspace.complianceLive = await loadCompliance();
     } catch (err) {
       req.log.error({ err }, "compliance read failed");
-      workspace.complianceLive = null;
+      // Explicit load-error payload so the UI can keep card size and avoid the
+      // "Framework rollup is not connected" fallback that needs complianceDomain.
+      workspace.complianceLive = {
+        posturePct: null,
+        frameworks: [],
+        nist: null,
+        loadError: true,
+      };
     }
   }
   // Belt-and-suspenders: never emit AED / loss figures without command.loss.

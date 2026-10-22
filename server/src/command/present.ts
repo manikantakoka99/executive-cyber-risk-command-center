@@ -109,6 +109,8 @@ export interface ComplianceLive {
   posturePct: number | null;
   frameworks: { name: string; code: string; coveragePct: number | null }[];
   nist: NistReading | null;
+  /** Set when the compliance read throws; distinct from empty/no-evidence. */
+  loadError?: boolean;
 }
 
 interface HeadlineView {

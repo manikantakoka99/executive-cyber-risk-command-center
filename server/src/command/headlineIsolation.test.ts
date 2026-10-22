@@ -112,4 +112,52 @@ describe("headline loss, confidence and decisions are scoped to the session org"
       assert.notEqual(body.openDecisions, CANONICAL.openDecisions, name);
     }
   });
+
+  it("ignores forged org id in params and headers; anonymous gets 401", async () => {
+    const falconCookie = cookies[1]!;
+    const alId = ORGS[0]!.id;
+    type Body = {
+      openDecisions: number | null;
+      headline: {
+        confidencePct: number | null;
+        acceptanceCount: number | null;
+        loss: { ale: number } | null;
+      };
+    };
+
+    function assertNoAlDhabi(body: Body, label: string) {
+      assert.equal(body.headline.loss, null, `${label} loss`);
+      assert.equal(body.headline.confidencePct, null, `${label} confidence`);
+      assert.equal(body.openDecisions, null, `${label} openDecisions`);
+      assert.equal(body.headline.acceptanceCount, null, `${label} acceptanceCount`);
+      assert.notEqual(body.headline.confidencePct, CANONICAL.confidencePct, label);
+      assert.notEqual(body.openDecisions, CANONICAL.openDecisions, label);
+      if (body.headline.loss) {
+        assert.notEqual(Number(body.headline.loss.ale.toFixed(2)), CANONICAL.ale, label);
+      }
+    }
+
+    for (const key of ["orgId", "org_id", "org", "tenant"]) {
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/ecc/command/workspace?${key}=${alId}`,
+        headers: { cookie: falconCookie },
+      });
+      assert.equal(res.statusCode, 200, key);
+      assertNoAlDhabi(res.json() as Body, `param ${key}`);
+    }
+
+    for (const header of ["x-org-id", "x-tenant-id", "x-ecc-org", "x-org"]) {
+      const res = await app.inject({
+        method: "GET",
+        url: "/api/ecc/command/workspace",
+        headers: { cookie: falconCookie, [header]: alId },
+      });
+      assert.equal(res.statusCode, 200, header);
+      assertNoAlDhabi(res.json() as Body, `header ${header}`);
+    }
+
+    const anon = await app.inject({ method: "GET", url: "/api/ecc/command/workspace" });
+    assert.equal(anon.statusCode, 401);
+  });
 });

@@ -59,10 +59,16 @@ export interface DomainEvidence {
   evidenceExpired?: boolean;
 }
 
-/** Current evidence: fresh/total ≥ 0.5 and no open evidence_expired signal. */
+/**
+ * A domain counts as covered when at least one of its connectors has synced
+ * successfully (`fresh > 0`) and there is no open evidence_expired signal.
+ * Unsynced connectors add to `total` but must not cancel synced ones — there is
+ * no half-synced ratio. Unmapped connectors are never mapped into NIST
+ * categories (see NIST_CATEGORIES.domains), so they never contribute here.
+ */
 export function domainHasCurrentEvidence(row: DomainEvidence | undefined): boolean {
   if (!row || row.total <= 0 || row.evidenceExpired) return false;
-  return row.fresh / row.total >= 0.5;
+  return row.fresh > 0;
 }
 
 export function categoryCovered(

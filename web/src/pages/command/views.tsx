@@ -47,6 +47,8 @@ export function HeadlineView({
     data.outsideAppetite > 0 ? "Domains outside appetite" : "Within appetite";
   // Workspace openDecisions is the single source (queue open count); card must not use accept-register size.
   const decisionsOpen = openDecisions;
+  const evidenceEmpty =
+    data.loss == null && decisionsOpen == null && data.confidencePct == null;
 
   return (
     <div className="view-board">
@@ -90,53 +92,60 @@ export function HeadlineView({
         </div>
       </article>
 
-      <div className="kpi-row">
-        <KpiCard
-          label="Outside appetite"
-          value={data.outsideAppetite}
-          suffix={` / ${data.domainCount}`}
-          tone={data.outsideAppetite > 0 ? "crit" : "low"}
-          note="Domains above board limit"
-        />
-        {data.loss ? (
+      <div className="kpi-headline-block">
+        <div className="kpi-row kpi-row-headline">
           <KpiCard
-            label="Expected annual loss"
-            value={data.loss.ale}
-            display={formatAedMillions(data.loss.ale)}
-            tone="high"
-            note={`P90 bad year ${formatAedMillions(data.loss.p90)}`}
+            label="Outside appetite"
+            value={data.outsideAppetite}
+            suffix={` / ${data.domainCount}`}
+            tone={data.outsideAppetite > 0 ? "crit" : "low"}
+            note="Domains above board limit"
           />
-        ) : (
+          {data.loss ? (
+            <KpiCard
+              label="Expected annual loss"
+              value={data.loss.ale}
+              display={formatAedMillions(data.loss.ale)}
+              tone="high"
+              note={`P90 bad year ${formatAedMillions(data.loss.p90)}`}
+            />
+          ) : (
+            <KpiCard label="Expected annual loss" value={0} display="—" emptyValue />
+          )}
           <KpiCard
-            label="Expected annual loss"
-            value={0}
-            display="—"
-            note="No loss model for this organization"
+            label="Open decisions"
+            value={decisionsOpen ?? 0}
+            display={decisionsOpen == null ? "—" : undefined}
+            emptyValue={decisionsOpen == null}
+            tone={decisionsOpen == null ? undefined : "info"}
+            note={decisionsOpen == null ? undefined : "Awaiting executive action"}
           />
-        )}
-        <KpiCard
-          label="Open decisions"
-          value={decisionsOpen ?? 0}
-          display={decisionsOpen == null ? "—" : undefined}
-          tone="info"
-          note={decisionsOpen == null ? "No decision queue for this organization" : "Awaiting executive action"}
-        />
-        <KpiCard
-          label="Confidence"
-          value={data.confidencePct ?? 0}
-          suffix={data.confidencePct == null ? "" : "%"}
-          display={data.confidencePct == null ? "—" : undefined}
-          tone={
-            data.confidencePct == null
-              ? undefined
-              : data.confidencePct >= 80
-                ? "low"
-                : data.confidencePct >= 60
-                  ? "med"
-                  : "crit"
-          }
-          note={data.confidenceLabel ?? "No feed confidence for this organization"}
-        />
+          <KpiCard
+            label="Confidence"
+            value={data.confidencePct ?? 0}
+            suffix={data.confidencePct == null ? "" : "%"}
+            display={data.confidencePct == null ? "—" : undefined}
+            emptyValue={data.confidencePct == null}
+            tone={
+              data.confidencePct == null
+                ? undefined
+                : data.confidencePct >= 80
+                  ? "low"
+                  : data.confidencePct >= 60
+                    ? "med"
+                    : "crit"
+            }
+            note={data.confidencePct == null ? undefined : (data.confidenceLabel ?? undefined)}
+          />
+        </div>
+        {evidenceEmpty ? (
+          <div className="kpi-group-empty-row">
+            <span aria-hidden="true" />
+            <p className="kpi-group-empty" data-testid="kpi-group-empty">
+              No evidence yet
+            </p>
+          </div>
+        ) : null}
       </div>
 
       {data.loss && (
@@ -196,6 +205,18 @@ function ComplianceCard({
 }) {
   const frameworks = compliance?.frameworks ?? [];
   const [nistOpen, setNistOpen] = useState(false);
+
+  if (compliance?.loadError) {
+    return (
+      <section className="card compliance-load-error" data-testid="compliance-load-error">
+        <h3>Compliance summary</h3>
+        <p className="big mono kpi-empty-value" aria-hidden>
+          —
+        </p>
+        <p className="compliance-load-caption">Couldn't load. Refresh to retry</p>
+      </section>
+    );
+  }
 
   return (
     <section className="card">
