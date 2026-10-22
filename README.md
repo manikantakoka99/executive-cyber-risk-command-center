@@ -1,116 +1,149 @@
 # Executive Cyber Risk Command Center (ECC)
 
-Data-backed **YVI DWAN Cyber Command Center** — executive aggregation of 12 security domains into Risk → Impact → Decision → Action.
+Data-backed **YVI DWAN Cyber Command Center** — an executive view that rolls twelve security domains into Risk → Impact → Decision → Action.
 
-> Authoritative design: `docs/ecc-*.md`, `docs/PEP_RBAC_TEST_MATRIX.md`, and `db/dwan_schema.sql`.
+Authoritative design lives under `docs/` (architecture, API, scoring, RBAC) and in `db/dwan_schema.sql`.
 
-## Fedora local run (docker-compose.yml)
+## Features
 
-Exact path on a fresh Fedora host (Podman works if you alias `docker` → `podman`):
+- Multi-tenant organizations with role-based access (board, CxO, CISO, risk lead, analyst, program office, auditor, admin)
+- Command Center headline with per-org domain scores and a floor at the worst High/Critical domain
+- Decisions, scenarios, connectors, ingestion proof, and compliance posture
+- NIST CSF 2.0 shown as **aligned / mapped** coverage from that org’s evidence (never “certified”)
+- Session cookie auth with invites (no public signup)
+
+## Tech stack
+
+| Layer | Stack |
+| --- | --- |
+| Web | React, Vite (dev server proxies `/api` to the API) |
+| API | Node.js, Fastify, TypeScript |
+| Database | PostgreSQL 16 via Docker Compose |
+
+## Prerequisites
+
+- **Node.js** and **npm** (current LTS is fine)
+- **Docker** with **Docker Compose** v2
+- Git
+
+Postgres is provided by Compose; you do not need a system-wide Postgres install for the default path.
+
+## Quick start
+
+Default ports: **UI `5173`**, **API `4000`**, **Postgres `5433`** (host) → `5432` (container).
+
+### macOS / Linux
 
 ```bash
-# 0) Host packages (once)
-sudo dnf install -y git nodejs npm docker docker-compose-plugin
-# or: sudo dnf install -y git nodejs npm podman podman-compose
-sudo systemctl enable --now docker   # skip if using rootless podman
-
-# 1) Clone the PR branch (until it is merged)
 git clone https://github.com/manikantakoka99/executive-cyber-risk-command-center.git
 cd executive-cyber-risk-command-center
-git checkout cursor/hide-seeded-feeds-94b5
 cp .env.example .env
 
-# 2) Postgres only (service name is `db` in docker-compose.yml)
-#    An empty volume applies schema.sql, migrations 001–008, the sample workbook,
-#    AED formatting, then the tenant seed. The first boot builds ecc-postgres:16.
-docker compose down -v
 docker compose up -d db
 docker compose exec -T db pg_isready -U ecc -d cyber_command_center
 
-# 3) API (:4000) — install, demo seed, then watch mode
 cd server
 npm install
-npm run demo:seed          # four Al Dhabi demo scenarios
-npm run dev                # http://127.0.0.1:4000/health
+npm run demo:seed
+# Demo passwords (pick one; do not commit real values):
+cp ../logins.example.csv ../logins.csv   # then edit placeholders locally
+ECC_DEMO_LOGINS_FILE=../logins.csv npm run auth:seed
+# or: ECC_DEMO_PASSWORD='replace-with-a-local-password' npm run auth:seed
+npm run dev                              # http://127.0.0.1:4000/health
 
-# 4) Web (:5173) — new terminal; Vite proxies /api → :4000
-cd ../web
+# New terminal
+cd web
 npm install
-npm run dev                # http://127.0.0.1:5173
+npm run dev                              # http://127.0.0.1:5173
+```
+
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/manikantakoka99/executive-cyber-risk-command-center.git
+cd executive-cyber-risk-command-center
+Copy-Item .env.example .env
+
+docker compose up -d db
+docker compose exec -T db pg_isready -U ecc -d cyber_command_center
+
+cd server
+npm install
+npm run demo:seed
+Copy-Item ..\logins.example.csv ..\logins.csv   # then edit placeholders locally
+$env:ECC_DEMO_LOGINS_FILE="..\logins.csv"; npm run auth:seed
+# or: $env:ECC_DEMO_PASSWORD="replace-with-a-local-password"; npm run auth:seed
+npm run dev
+
+# New terminal
+cd web
+npm install
+npm run dev
 ```
 
 | Service | URL / connection |
-|--------|-------------------|
+| --- | --- |
 | UI | http://127.0.0.1:5173 |
 | API | http://127.0.0.1:4000/health |
 | Postgres | `postgresql://ecc:ecc_dev_password@localhost:5433/cyber_command_center` |
 
-Docker init on an empty volume runs `db/docker-init/apply_app_schema.sh`:
+On an empty volume, Compose init runs `db/docker-init/apply_app_schema.sh` (schema, migrations, sample workbook, AED formatting, tenant seed). `npm run demo:seed` adds the Al Dhabi demo scenarios (and related demo data the seed script defines). `db/dwan_schema.sql` stays in the repo for reference and is not applied by Compose.
 
-1. `db/schema.sql` — MVP tables, including `business_impact_assessments.financial_exposure_aed`
-2. `db/migrations/001`–`008` — `business_units.code` (001) and scenario AED columns (004)
-3. `reference/CyberCommandCenter_Sample_Data.xlsx` — findings, impacts, decisions, reports
-4. `db/docker-init/04_format_aed_impact_summaries.sql` — compact AED chip text
-5. `db/docker-init/03_seed_tenants.sql` — Al Dhabi + Falcon personas in `user_roles`
-
-`npm run demo:seed` then creates the four Al Dhabi demo scenarios. `db/dwan_schema.sql` stays in the repo and is not applied by compose.
-
-**Fresh DB only:** Postgres init scripts run when the volume is empty. To re-seed from scratch:
+**Reset the database:**
 
 ```bash
 docker compose down -v
 docker compose up -d db
-cd server && npm run demo:seed && npm run dev
+cd server && npm run demo:seed && npm run auth:seed && npm run dev
 ```
 
-### One-command helper
+Optional one-command helper (starts `db`, then API + Vite):
 
 ```bash
 chmod +x scripts/dev-up.sh
-./scripts/dev-up.sh          # starts `db`, then API + Vite (logs in /tmp)
+./scripts/dev-up.sh
 ```
 
-Optional Excel → scores seed (Python):
+## Environment
 
-```bash
-python3 -m venv .venv-ecc
-.venv-ecc/bin/pip install psycopg2-binary openpyxl
-DATABASE_URL=postgresql://ecc:ecc_dev_password@localhost:5433/cyber_command_center \
-  .venv-ecc/bin/python db/seed_dwan_aldhabi.py
-```
+Copy `.env.example` to `.env`. Important variables:
 
-SQL regression suite:
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Postgres connection string (Compose default uses host port **5433**) |
+| `PORT` | API port (default **4000**) |
+| `CORS_ORIGIN` | Browser origin (default `http://localhost:5173`) |
+| `DEMO_AUTH` | `true` only for local QA that may send `X-Org-Id` / `X-User-Id`; use `false` otherwise. A session cookie always wins over headers. |
+| `ECC_DEMO_LOGINS_FILE` | Path to a gitignored `email,password` CSV for `npm run auth:seed` |
+| `ECC_DEMO_PASSWORD` | Fallback: one local password for every role login when the CSV is unset |
+| `TRUST_PROXY` | Hop count for login rate-limit IP (see below) |
 
-```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/dwan_tests.sql
-```
+### `TRUST_PROXY`
 
-### Supabase (optional)
+Used only when deriving the client IP for **failed sign-in throttling** (same idea as Express `trust proxy` = N). It does **not** turn on Fastify’s `trustProxy`.
 
-1. Project Settings → Database → Connection string → URI  
-2. Set `DATABASE_URL` in `.env` (`?sslmode=require` if needed)  
-3. Apply `db/dwan_schema.sql` (or legacy `db/migrate_to_supabase.py` for the older migration chain)
+- Unset, `0`, `false`, `off`, `no`, or any non-integer → use the TCP socket address and ignore `X-Forwarded-For`.
+- A positive integer → walk that many hops from the **right** of `X-Forwarded-For` (the socket is hop 0), so a spoofed leftmost address does not change the per-IP key.
 
-## Demo auth and tenants
+Set it when the API sits behind a reverse proxy that appends `X-Forwarded-For` and you want throttle keys to reflect the real client. Leave it unset for direct local access.
 
-The product UI signs in with email and password. Passwords are bcrypt hashes in `auth_accounts`. There is no public signup: an org Admin invites someone, and the invite link lets that person set a password.
+## Auth and demo logins
 
-Seed local demo passwords (nothing real is committed):
+The UI signs in with email and password (bcrypt hashes in `auth_accounts`). There is no public signup: an org Admin invites someone; the invite link lets them set a password.
 
 ```bash
 cd server
-# Preferred: copy ../logins.example.csv to ../logins.csv and replace the placeholders.
+# Preferred
+cp ../logins.example.csv ../logins.csv    # edit locally; gitignored
 ECC_DEMO_LOGINS_FILE=../logins.csv npm run auth:seed
-# Fallback when that file is unset: one password for every role login.
+# Fallback
 ECC_DEMO_PASSWORD='replace-with-a-local-password' npm run auth:seed
 ```
 
-There is one login per role, `firstname@<role domain>`. Layla (`layla@ciso.com`, CISO, Al Dhabi) is also a member of Falcon National Bank, so the sidebar org switcher appears for her. A missing line in the logins file fails the seed. `logins.csv` is gitignored. `logins.example.csv` has placeholders only.
-
-Those role domains are real public domains. The app has no mail transport. Invites and any other outbound message stay log-only, and messages to `ciso.com`, `cxo.com`, `board.com`, `risklead.com`, `domainanalyst.com`, `auditor.com`, `programoffice.com`, and `admin.com` stay log-only even if a transport is added later. Email and password open the role home directly. `verifySecondFactor` runs after the password check and currently accepts the sign-in; it is the seam for a later emailed OTP.
+Never commit `logins.csv` or a filled-in `.env`. `logins.example.csv` contains placeholders only.
 
 | Login | Role | Org | Home |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `layla@ciso.com` | CISO | Al Dhabi (also Falcon) | `/c/posture` |
 | `mariam@cxo.com` | CxO | Al Dhabi | `/c/headline` |
 | `hessa@board.com` | Board | Al Dhabi | `/c/headline` |
@@ -120,62 +153,51 @@ Those role domains are real public domains. The app has no mail transport. Invit
 | `sara@programoffice.com` | Program Office | Al Dhabi | `/c/pack` |
 | `nadia@admin.com` | Admin | Al Dhabi | `/admin` |
 
-Set `DEMO_AUTH=false` outside local QA. When it is `true`, the existing test harness may still pass `X-Org-Id` and `X-User-Id`. The browser does not send those headers. A session cookie always wins over headers, and a session cannot read another org by guessing ids.
+Role domains above are public DNS names used only as demo addresses. The app has no mail transport; invites stay log-only.
 
-The platform risk policies `ecc_default` 1.0.0 and 1.1.0 are copied onto every organization. A new organization, and an invite into an organization that does not have them yet, receives the same two rows. `risk_policies.org_id` is required.
+Failed sign-ins are throttled per IP (30) and per email (8) for 15 minutes, in memory on that API process. A successful sign-in clears that email’s failures. Session cookie: `HttpOnly`, `SameSite=Lax`, and `Secure` when `NODE_ENV=production`.
 
-`GET /api/ecc/organizations` and `GET /api/ecc/organizations/:orgId/users` require that session. The organization list is only the orgs the user belongs to. The user list is the session org, and only an Admin can read it. Failed sign-ins are throttled per IP (30) and per email (8) for 15 minutes, in memory on that API process only — a second instance does not share the counters. A successful sign-in clears that email's failures and does not count toward the limit. A key that is already blocked stays blocked until the window ends. `TRUST_PROXY` is a hop count, the same as Express `trust proxy` = N. Unset, `0`, `false`, `off`, `no`, and any non-integer keep the socket address and ignore `X-Forwarded-For`. A positive integer walks that many hops from the right of the header (the socket is the first hop), so a spoofed leftmost address does not change the per-IP key. The session cookie is `HttpOnly` and `SameSite=Lax`, and `Secure` when `NODE_ENV=production`.
+**Tenant isolation** is enforced in the API and in Postgres (`app.current_org_id` / RLS). Cross-tenant spoofing returns **403**.
 
-App roles match the schema’s eight `user_role_name` values exactly: `board_member`, `cxo`, `ciso`, `risk_lead`, `domain_analyst`, `program_office`, `auditor`, `admin`.
+## Project structure
 
-**Tenant isolation** is enforced in the API (user must belong to the org) and in Postgres (`SET app.current_org_id` / RLS on DWAN tables). Cross-tenant header spoofing returns **403**. Authorization is checked before input validation on mutating endpoints (unauthorized → **403**, not **400**).
+```
+.
+├── web/                 # React + Vite UI (:5173)
+├── server/              # Fastify API (:4000)
+├── db/                  # schema, migrations, docker init, seeds
+├── docs/                # architecture, API, scoring, RBAC
+├── reference/           # sample workbook and fixtures
+├── scripts/             # local helpers (dev-up, clean-install checks)
+├── docker-compose.yml   # Postgres 16 on host port 5433
+├── .env.example
+└── logins.example.csv
+```
 
-### Tenant A — Al Dhabi Holdings
+## Tests
 
-| Persona | Role | Notes |
-|---|---|---|
-| Omar Al Mansoori, Fatima Al Nuaimi, Khalid Al Suwaidi, Mariam Al Dhaheri | `cxo` | Decision queue, accept risk, financials; **no** findings/technical evidence |
-| Layla Al Hashimi | `ciso` | Propose scoring policy / appetite; full ops |
-| Hessa Al Ketbi | `board_member` | Approve & lock policy; no queue approve |
-| Yusuf Rahman, Aisha Khan | `domain_analyst` | Domain evidence / SOC; no financials |
-| Rashid Al Maktoum | `risk_lead` | Accept risk, register |
-| Nadia Farouk | `admin` | Users / roles |
-| Sara Ibrahim | `program_office` | Framework posture / pack prep |
-| James Okoye | `auditor` | Read-only pack, audit, **findings**, **connectors** |
+```bash
+./scripts/verify-clean-install.sh   # required clean Docker install check
+cd server && npm test
+cd web && npm run build
+# Schema-only probe against a running Postgres:
+./scripts/verify-empty-db-init.sh
+```
 
-### Tenant B — Falcon National Bank (isolation tests)
-
-| Persona | Role |
-|---|---|
-| Nora Al Falasi | CISO |
-| Tariq Hassan | Board Member |
-| Samira Qureshi | CxO (CEO) |
-
-## Policy / appetite
-
-- **CISO** proposes scoring policy and risk appetite  
-- **Board** approves and locks the version (`proposed_by ≠ approved_by`)  
-- Approval makes that version immutable (DB triggers + API)
-
-Risk acceptance is allowed for **CxO** and **Risk Lead** (`role_capabilities.accept_risk` + API).
+GitHub Actions runs the clean-install check on pull requests (`.github/workflows/clean-install.yml`).
 
 ## Documentation
 
 | Doc | Purpose |
-|-----|---------|
+| --- | --- |
 | `docs/PEP_RBAC_TEST_MATRIX.md` | Role × capability matrix |
-| `docs/ecc-architecture.md` | Stack & tenancy |
+| `docs/ecc-architecture.md` | Stack and tenancy |
 | `docs/ecc-api-design.md` | API contract |
 | `docs/ecc-risk-scoring.md` | KPI / scoring model |
-| `db/dwan_schema.sql` | Authoritative schema |
+| `db/dwan_schema.sql` | Reference schema |
 
-## Tests
+## Security
 
-The clean-install check is required. It destroys the compose volume, boots an empty database, seeds the demo, starts the API, and exits non-zero unless the CISO headline is 50.8, there are 4 open decisions, and `activeScenarios` equals both scenario lists. GitHub Actions runs it on every pull request (`.github/workflows/clean-install.yml`).
-
-```bash
-./scripts/verify-clean-install.sh
-cd server && npm test
-# Schema-only probe against an already running Postgres:
-./scripts/verify-empty-db-init.sh
-```
+- Do not commit `.env`, `logins.csv`, or any real passwords.
+- Keep `DEMO_AUTH=false` outside local automated tests.
+- NIST CSF 2.0 in the product is mapping coverage only — not a certification claim.

@@ -1,4 +1,4 @@
-# Canonical ECC demo values (Vinga)
+# Canonical ECC demo values
 
 Sources: DWAN Command Center Explanation PDF + HTML. See also the extracted
 copy used for agent tasks. All values recomputed from HTML data with HTML/schema
