@@ -31,7 +31,7 @@ function payloadHasAed(value: unknown): boolean {
   return /\bAED\b|\bP9[05]\b/i.test(JSON.stringify(value));
 }
 
-describe("cross-screen canonical consistency (Vinga PDF/HTML)", () => {
+describe("cross-screen canonical consistency (DWAN PDF/HTML)", () => {
   it("enterprise headline is 50.8 High with floor; plain raw average is 42.8", () => {
     assert.equal(format1(BASELINE.arithmetic), CANONICAL.headlineScore);
     assert.equal(bandOf(BASELINE.arithmetic), CANONICAL.arithmeticBand);
