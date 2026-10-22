@@ -106,26 +106,35 @@ chmod +x scripts/dev-up.sh
 
 ## Environment
 
-Copy `.env.example` to `.env`. Important variables:
+Copy `.env.example` to `.env`. Every variable below is read by the listed file (see also commented optionals in `.env.example`).
 
-| Variable | Purpose |
-| --- | --- |
-| `DATABASE_URL` | Postgres connection string (Compose default uses host port **5433**) |
-| `PORT` | API port (default **4000**) |
-| `CORS_ORIGIN` | Browser origin (default `http://localhost:5173`) |
-| `DEMO_AUTH` | `true` only for local QA that may send `X-Org-Id` / `X-User-Id`; use `false` otherwise. A session cookie always wins over headers. |
-| `ECC_DEMO_LOGINS_FILE` | Path to a gitignored `email,password` CSV for `npm run auth:seed` |
-| `ECC_DEMO_PASSWORD` | Fallback: one local password for every role login when the CSV is unset |
-| `TRUST_PROXY` | Hop count for login rate-limit IP (see below) |
+| Variable | Read by | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | `server/src/db.ts` | Postgres connection string (Compose default uses host port **5433**) |
+| `SUPABASE_DB_URL` | `server/src/db.ts` | Optional alias if you point the API at Supabase |
+| `PORT` | `server/src/index.ts` | API port (default **4000**) |
+| `HOST` | `server/src/index.ts` | API bind address (default `0.0.0.0`) |
+| `CORS_ORIGIN` | `server/src/index.ts` | Browser origin(s), comma-separated (default `http://localhost:5173`) |
+| `DEMO_AUTH` | `server/src/middleware/tenant.ts` | `true` only for local QA that may send `X-Org-Id` / `X-User-Id`; use `false` otherwise. A session cookie always wins over headers. |
+| `ECC_DEMO_LOGINS_FILE` | `server/scripts/seed_auth.ts` | Path to a gitignored `email,password` CSV for `npm run auth:seed` |
+| `ECC_DEMO_PASSWORD` | `server/scripts/seed_auth.ts` | Fallback: one local password for every role login when the CSV is unset |
+| `LOGIN_THROTTLE_EMAIL` | `server/src/auth/loginThrottle.ts` | Max failed sign-ins per email in the window (default 8) |
+| `LOGIN_THROTTLE_IP` | `server/src/auth/loginThrottle.ts` | Max failed sign-ins per IP in the window (default 30) |
+| `TRUST_PROXY` | `server/src/auth/loginThrottle.ts` | Exact reverse-proxy hop count for login throttle IP (see below) |
+| `DEFAULT_RISK_APPETITE` | `server/src/services/overview.ts` | Default appetite percent when none is stored (default 50) |
+| `DEFAULT_ORG_ID` | `server/scripts/ecc_demo.ts` | Org for `npm run demo:seed` / demo CLI |
+| `DEMO_ORG_ID` | `server/scripts/ecc_demo.ts` | Optional alias; wins over `DEFAULT_ORG_ID` when set |
+| `ECC_ENABLE_SAMPLE_INGESTION` | `server/src/index.ts`, `server/src/services/sampleWorkbookIngestion.ts` | Set to `false` to disable sample workbook ingestion |
+| `PG_POOL_MAX` | `server/src/db.ts` | Postgres pool size (default 20) |
+| `ACCEPT_RISK_ROLES` | `server/src/command/rbac.ts` | Optional comma-separated role codes allowed to accept risk |
 
 ### `TRUST_PROXY`
 
-Used only when deriving the client IP for **failed sign-in throttling** (same idea as Express `trust proxy` = N). It does **not** turn on Fastify’s `trustProxy`.
+Used only when deriving the client IP for **failed sign-in throttling**. It does **not** enable Fastify’s `trustProxy`.
 
-- Unset, `0`, `false`, `off`, `no`, or any non-integer → use the TCP socket address and ignore `X-Forwarded-For`.
-- A positive integer → walk that many hops from the **right** of `X-Forwarded-For` (the socket is hop 0), so a spoofed leftmost address does not change the per-IP key.
+Set it to the **exact number of reverse proxies** in front of the API (for example `1` behind a single load balancer). Leave it **unset or `0`** when clients reach the API directly.
 
-Set it when the API sits behind a reverse proxy that appends `X-Forwarded-For` and you want throttle keys to reflect the real client. Leave it unset for direct local access.
+The code accepts only a positive integer hop count (`1`, `2`, …). Never set it to `true`: non-integers (including `true`) trust **zero** hops in this codebase, but treating “true” as “trust the whole chain” in other stacks is what lets a client spoof `X-Forwarded-For` and bypass the login rate limit — so do not use that pattern here either.
 
 ## Auth and demo logins
 
