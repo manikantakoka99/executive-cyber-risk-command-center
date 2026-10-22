@@ -126,15 +126,16 @@ describe("headline loss, confidence and decisions are scoped to the session org"
     };
 
     function assertNoAlDhabi(body: Body, label: string) {
-      assert.equal(body.headline.loss, null, `${label} loss`);
+      const loss = body.headline.loss;
+      if (loss !== null) {
+        assert.notEqual(Number(loss.ale.toFixed(2)), CANONICAL.ale, `${label} ale`);
+      }
+      assert.equal(loss, null, `${label} loss`);
       assert.equal(body.headline.confidencePct, null, `${label} confidence`);
       assert.equal(body.openDecisions, null, `${label} openDecisions`);
       assert.equal(body.headline.acceptanceCount, null, `${label} acceptanceCount`);
       assert.notEqual(body.headline.confidencePct, CANONICAL.confidencePct, label);
       assert.notEqual(body.openDecisions, CANONICAL.openDecisions, label);
-      if (body.headline.loss) {
-        assert.notEqual(Number(body.headline.loss.ale.toFixed(2)), CANONICAL.ale, label);
-      }
     }
 
     for (const key of ["orgId", "org_id", "org", "tenant"]) {

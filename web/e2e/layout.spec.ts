@@ -457,6 +457,213 @@ test("headline empty org uses muted dashes and one No evidence yet caption", asy
   expect(Math.abs((report.captionLeft ?? 0) - (report.firstEvidenceCardLeft ?? 0))).toBeLessThanOrEqual(2);
 });
 
+test("headline KPI cards match height across orgs; loss stays one line without overflow", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const MERIDIAN = "0e8b2590-db5b-43e7-89e6-1db5c89cd4e2";
+
+  async function measureHeadline(width: number, height = 800) {
+    await page.setViewportSize({ width, height });
+    await openApp(page, "/c/headline");
+    await page.locator(".kpi-row-headline .kpi").first().waitFor();
+    return page.evaluate(() => {
+      const cards = [...document.querySelectorAll(".kpi-row-headline > .kpi")] as HTMLElement[];
+      const loss = cards.find((card) =>
+        (card.querySelector(".lbl")?.textContent || "").toLowerCase().includes("expected annual loss"),
+      );
+      const big = loss?.querySelector(".big") as HTMLElement | null;
+      const note = loss?.querySelector(".note") as HTMLElement | null;
+      const cardBox = loss?.getBoundingClientRect();
+      const bigBox = big?.getBoundingClientRect();
+      const noteBox = note?.getBoundingClientRect();
+      const heights = cards.map((card) => Math.round(card.getBoundingClientRect().height * 10) / 10);
+      const widths = cards.map((card) => Math.round(card.getBoundingClientRect().width * 10) / 10);
+      const tops = cards.map((card) => Math.round(card.getBoundingClientRect().top * 10) / 10);
+      const valueTops = cards.map((card) => {
+        const value = card.querySelector(".big, .kpi-empty-value") as HTMLElement | null;
+        return value ? Math.round(value.getBoundingClientRect().top * 10) / 10 : null;
+      });
+      const uniqueTops = [...new Set(tops.map((top) => Math.round(top)))];
+      const rowGroups = uniqueTops.map((rowTop) =>
+        cards
+          .map((card, index) => ({ card, index, top: tops[index]! }))
+          .filter((entry) => Math.abs(entry.top - rowTop) <= 1),
+      );
+      const valuesAlignedInRows = rowGroups.every((group) => {
+        const rowValueTops = group
+          .map((entry) => valueTops[entry.index])
+          .filter((top): top is number => top != null);
+        if (rowValueTops.length < 2) return true;
+        const first = rowValueTops[0]!;
+        return rowValueTops.every((top) => Math.abs(top - first) <= 1);
+      });
+      const noOverflow = cards.every((card) => {
+        const value = card.querySelector(".big, .kpi-empty-value") as HTMLElement | null;
+        const p90 = card.querySelector(".note") as HTMLElement | null;
+        const box = card.getBoundingClientRect();
+        const valueOk =
+          !value ||
+          (value.scrollWidth <= value.clientWidth + 0.5 &&
+            value.getBoundingClientRect().right <= box.right + 0.5 &&
+            value.getBoundingClientRect().left >= box.left - 0.5);
+        const noteOk =
+          !p90 ||
+          (p90.scrollWidth <= p90.clientWidth + 0.5 &&
+            p90.getBoundingClientRect().right <= box.right + 0.5 &&
+            p90.getBoundingClientRect().left >= box.left - 0.5);
+        return valueOk && noteOk;
+      });
+      return {
+        heights,
+        widths,
+        tops,
+        valueTops,
+        cardsPerRow: rowGroups.map((group) => group.length),
+        valuesAlignedInRows,
+        noOverflow,
+        lossValue: big?.textContent?.trim() ?? null,
+        lossLineHeight: big ? Math.round(big.getBoundingClientRect().height) : null,
+        lossScrollWidth: big?.scrollWidth ?? null,
+        lossClientWidth: big?.clientWidth ?? null,
+        lossFits:
+          !!big &&
+          !!cardBox &&
+          !!bigBox &&
+          big.scrollWidth <= big.clientWidth + 0.5 &&
+          bigBox.left >= cardBox.left - 0.5 &&
+          bigBox.right <= cardBox.right + 0.5,
+        p90Text: note?.textContent?.trim() ?? null,
+        p90ScrollWidth: note?.scrollWidth ?? null,
+        p90ClientWidth: note?.clientWidth ?? null,
+        p90Fits:
+          !note ||
+          (!!cardBox &&
+            !!noteBox &&
+            note.scrollWidth <= note.clientWidth + 0.5 &&
+            noteBox.left >= cardBox.left - 0.5 &&
+            noteBox.right <= cardBox.right + 0.5),
+      };
+    });
+  }
+
+  // Layla is Al Dhabi + Falcon; attach Meridian for this assertion only, then remove.
+  const { execFileSync } = await import("node:child_process");
+  const dbEnv = {
+    ...process.env,
+    DATABASE_URL:
+      process.env.DATABASE_URL ??
+      "postgresql://ecc:ecc_dev_password@127.0.0.1:5433/cyber_command_center",
+  };
+  const serverCwd = new URL("../../server", import.meta.url).pathname;
+  function runDb(script: string) {
+    execFileSync(process.execPath, ["--import", "tsx", "-e", script], {
+      cwd: serverCwd,
+      env: dbEnv,
+    });
+  }
+
+  runDb(`
+      import { query } from "./src/db.ts";
+      const MERIDIAN = "${MERIDIAN}";
+      const layla = await query(
+        \`SELECT account_id FROM auth_accounts WHERE lower(email) = 'layla@ciso.com' LIMIT 1\`,
+      );
+      const accountId = layla.rows[0]?.account_id;
+      if (!accountId) throw new Error("layla account missing");
+      const meridianUser = await query(
+        \`SELECT u.user_id, r.code AS role
+         FROM users u
+         JOIN user_roles ur ON ur.user_id = u.user_id AND ur.is_primary
+         JOIN roles r ON r.role_id = ur.role_id
+         WHERE u.org_id = $1
+         ORDER BY CASE r.code WHEN 'ciso' THEN 0 WHEN 'cxo' THEN 1 ELSE 2 END
+         LIMIT 1\`,
+        [MERIDIAN],
+      );
+      const user = meridianUser.rows[0];
+      if (!user) throw new Error("meridian user missing");
+      await query(
+        \`INSERT INTO org_memberships (account_id, org_id, user_id, role_code, status)
+         VALUES ($1, $2, $3, $4, 'active')
+         ON CONFLICT (account_id, org_id) DO UPDATE
+           SET user_id = EXCLUDED.user_id, role_code = EXCLUDED.role_code, status = 'active'\`,
+        [accountId, MERIDIAN, user.user_id, user.role],
+      );
+      `);
+
+  try {
+    await signIn(page, PERSONAS[0].id);
+    const al1280 = await measureHeadline(1280);
+    expect(al1280.lossValue).toMatch(/AED/);
+    expect(al1280.lossLineHeight).toBeLessThanOrEqual(41);
+    expect(al1280.lossFits).toBe(true);
+    expect(al1280.p90Fits).toBe(true);
+    expect(al1280.heights.every((height) => Math.abs(height - al1280.heights[0]!) <= 0.5)).toBe(true);
+
+    await page.locator(".org-switch button", { hasText: "Falcon" }).click();
+    const falcon1280 = await measureHeadline(1280);
+
+    await page.locator(".org-switch button", { hasText: /Meridian/ }).click();
+    const meridian1280 = await measureHeadline(1280);
+
+    const heightAl = al1280.heights[0]!;
+    const heightFalcon = falcon1280.heights[0]!;
+    const heightMeridian = meridian1280.heights[0]!;
+    expect(Math.abs(heightAl - heightFalcon)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(heightAl - heightMeridian)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(heightAl - 156.4)).toBeLessThanOrEqual(0.6);
+
+    await page.locator(".org-switch button", { hasText: "Al Dhabi" }).click();
+    const al1024 = await measureHeadline(1024, 768);
+    expect(al1024.lossFits).toBe(true);
+    expect(al1024.p90Fits).toBe(true);
+    expect(al1024.lossLineHeight).toBeLessThanOrEqual(41);
+    // 1024x768: two cards per row (not four ~166px cards), values aligned, no overflow.
+    expect(al1024.cardsPerRow).toEqual([2, 2]);
+    expect(al1024.valuesAlignedInRows).toBe(true);
+    expect(al1024.noOverflow).toBe(true);
+    expect(al1024.widths.every((width) => width >= 300)).toBe(true);
+
+    console.log(
+      JSON.stringify({
+        al1280: {
+          height: heightAl,
+          widths: al1280.widths,
+          cardsPerRow: al1280.cardsPerRow,
+          loss: { sw: al1280.lossScrollWidth, cw: al1280.lossClientWidth, value: al1280.lossValue },
+          p90: { sw: al1280.p90ScrollWidth, cw: al1280.p90ClientWidth, text: al1280.p90Text },
+        },
+        falcon1280: { height: heightFalcon, widths: falcon1280.widths },
+        meridian1280: { height: heightMeridian, widths: meridian1280.widths },
+        al1024: {
+          height: al1024.heights[0],
+          widths: al1024.widths,
+          cardsPerRow: al1024.cardsPerRow,
+          valueTops: al1024.valueTops,
+          loss: { sw: al1024.lossScrollWidth, cw: al1024.lossClientWidth, value: al1024.lossValue },
+          p90: { sw: al1024.p90ScrollWidth, cw: al1024.p90ClientWidth, text: al1024.p90Text },
+        },
+      }),
+    );
+  } finally {
+    runDb(`
+      import { query } from "./src/db.ts";
+      const MERIDIAN = "${MERIDIAN}";
+      const layla = await query(
+        \`SELECT account_id FROM auth_accounts WHERE lower(email) = 'layla@ciso.com' LIMIT 1\`,
+      );
+      const accountId = layla.rows[0]?.account_id;
+      if (accountId) {
+        await query(
+          \`DELETE FROM org_memberships WHERE account_id = $1 AND org_id = $2\`,
+          [accountId, MERIDIAN],
+        );
+      }
+      `);
+  }
+});
+
 test("compliance load error keeps card height and shows muted retry caption", async ({ page }) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 1280, height: 800 });
