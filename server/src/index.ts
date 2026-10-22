@@ -39,6 +39,7 @@ import {
   getActivity,
   getAudit,
   getCompliance,
+  persistNistCompliance,
   getDomain,
   getFinding,
   listDomains,
@@ -342,7 +343,27 @@ app.post(
   decisionActionHandler("close"),
 );
 
-app.get("/api/ecc/compliance", async (req) => getCompliance(req.tenant.orgId));
+app.get("/api/ecc/compliance", async (req) => {
+  try {
+    return await getCompliance();
+  } catch (err) {
+    req.log.error({ err }, "compliance read failed");
+    throw err;
+  }
+});
+
+app.post(
+  "/api/ecc/compliance/recompute",
+  { preHandler: requireRoles("admin", "ciso", "program_office") },
+  async (req) => {
+    try {
+      return await persistNistCompliance(req.tenant.orgId);
+    } catch (err) {
+      req.log.error({ err }, "NIST recompute failed");
+      throw err;
+    }
+  },
+);
 app.get("/api/ecc/activity", async (req) => ({
   activity: await getActivity(req.tenant.orgId),
 }));

@@ -8,7 +8,7 @@ export const CANONICAL = {
   /** Arithmetic band before floor. */
   arithmeticBand: "Medium" as const,
   /** Displayed headline after floor rule. */
-  headlineBand: "High" as const,
+  headlineBand: "Critical" as const,
   floored: true,
   criticalDomains: 2,
   /** Plain average of the 12 RAW domain scores (display f1). Distinct from OT/ICS adjusted. */

@@ -97,6 +97,8 @@ export interface Scorecard {
   plain: number;
   headline: Band;
   floored: boolean;
+  /** Domain that set the floor, when the arithmetic band is better than that domain. */
+  floorDomain: ScoredDomain | null;
   counts: Record<Band, number>;
   confidence: number;
 }
@@ -165,22 +167,47 @@ export function compute(
     counts[row.band] += 1;
   }
   const arithmetic = weighted / weight;
-  let headline = bandOf(arithmetic);
-  let floored = false;
-  if (counts.Critical > 0 && (headline === "Medium" || headline === "Low")) {
-    headline = FLOOR_BAND;
-    floored = true;
-  }
+  const arithmeticBand = bandOf(arithmetic);
+  const floor = applyFloor(rows, arithmeticBand);
   const plain = rows.reduce((sum, row) => sum + row.raw, 0) / rows.length;
   return {
     rows,
     arithmetic,
     plain,
-    headline,
-    floored,
+    headline: floor.headline,
+    floored: floor.floored,
+    floorDomain: floor.floorDomain,
     counts,
     confidence: confidenceWeighted / weight,
   };
+}
+
+const BAND_RANK: Record<Band, number> = { Low: 0, Medium: 1, High: 2, Critical: 3 };
+
+/**
+ * The org band cannot read better than its worst High or Critical domain.
+ * Medium and Low domains do not raise the floor. The number itself is unchanged.
+ * Ties pick the higher adjusted score, then the earlier row.
+ */
+export function applyFloor(
+  rows: ScoredDomain[],
+  arithmeticBand: Band,
+): { headline: Band; floored: boolean; floorDomain: ScoredDomain | null } {
+  const eligible = rows.filter((row) => BAND_RANK[row.band] >= BAND_RANK[FLOOR_BAND]);
+  if (eligible.length === 0) {
+    return { headline: arithmeticBand, floored: false, floorDomain: null };
+  }
+  const worstRank = Math.max(...eligible.map((row) => BAND_RANK[row.band]));
+  const atWorst = eligible.filter((row) => BAND_RANK[row.band] === worstRank);
+  atWorst.sort((a, b) => {
+    if (b.adjusted !== a.adjusted) return b.adjusted - a.adjusted;
+    return rows.indexOf(a) - rows.indexOf(b);
+  });
+  const floorDomain = atWorst[0]!;
+  if (BAND_RANK[arithmeticBand] >= worstRank) {
+    return { headline: arithmeticBand, floored: false, floorDomain: null };
+  }
+  return { headline: floorDomain.band, floored: true, floorDomain };
 }
 
 export const BASELINE = compute();

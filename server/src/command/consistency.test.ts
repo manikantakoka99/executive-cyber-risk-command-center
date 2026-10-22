@@ -32,7 +32,7 @@ function payloadHasAed(value: unknown): boolean {
 }
 
 describe("cross-screen canonical consistency (DWAN PDF/HTML)", () => {
-  it("enterprise headline is 50.8 High with floor; plain raw average is 42.8", () => {
+  it("enterprise headline is 50.8 Critical with floor; plain raw average is 42.8", () => {
     assert.equal(format1(BASELINE.arithmetic), CANONICAL.headlineScore);
     assert.equal(bandOf(BASELINE.arithmetic), CANONICAL.arithmeticBand);
     assert.equal(BASELINE.headline, CANONICAL.headlineBand);
@@ -73,7 +73,7 @@ describe("cross-screen canonical consistency (DWAN PDF/HTML)", () => {
     assert.equal(format1(ws.headline!.arithmetic), CANONICAL.headlineScore);
     assert.equal(ws.headline!.band, CANONICAL.headlineBand);
     assert.equal(ws.headline!.floored, true);
-    assert.ok(ws.headline!.floorNote?.toLowerCase().includes("floor"));
+    assert.equal(ws.headline!.floorNote, "Held at Critical by Attack Surface & VAPT");
     assert.equal(format1(ws.headline!.plain), CANONICAL.plainRawAverage);
     assert.equal(ws.headline!.confidencePct, CANONICAL.confidencePct);
     assert.equal(ws.headline!.outsideAppetite, CANONICAL.outsideAppetite);
@@ -85,7 +85,7 @@ describe("cross-screen canonical consistency (DWAN PDF/HTML)", () => {
     assert.equal(ws.trust!.weightedCoveragePct, CANONICAL.weightedCoveragePct);
     assert.equal(format1(ws.headline!.loss!.ale), CANONICAL.aleDisplay);
     assert.equal(ws.headline!.loss!.p90, CANONICAL.p90);
-    assert.equal(ws.pack!.heading.includes("High"), true);
+    assert.equal(ws.pack!.heading.includes(CANONICAL.headlineBand), true);
     assert.ok(ws.pack!.blocks.some((b) => b.text?.includes(CANONICAL.headlineScore)));
     // Board / exec screens show the approved policy version (not draft).
     assert.match(ws.headline!.policyVersion, /v1 \(approved\)/i);
@@ -149,7 +149,7 @@ describe("cross-screen canonical consistency (DWAN PDF/HTML)", () => {
   it("Operations + Intelligence overlays match Headline canonical numbers", () => {
     const loss = canonicalLossAbsolute();
     const overview = overlayOverview(DEMO_ORG_ID, {
-      enterpriseRisk: { score: 43, severity: "medium" },
+      enterpriseRisk: { score: Number(CANONICAL.headlineScore), severity: CANONICAL.headlineBand.toLowerCase() },
       businessImpactExposureAed: 5_100_000,
       decisionsAwaitingCxo: 0,
       domainsMonitored: 9,

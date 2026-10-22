@@ -1,36 +1,80 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const ORG = "2accc7de-f693-4b19-8fe8-6db501be05e2";
 const PERSONAS = [
   { name: "ciso", id: "c1500001-a090-41a0-8ecc-000000000001" },
   { name: "cxo", id: "c1500001-a090-41a0-8ecc-000000000002" },
   { name: "board", id: "c1500001-a090-41a0-8ecc-000000000006" },
 ] as const;
 
+const LOGIN_EMAIL: Record<string, string> = {
+  "c1500001-a090-41a0-8ecc-000000000001": "layla@ciso.com",
+  "c1500001-a090-41a0-8ecc-000000000002": "mariam@cxo.com",
+  "c1500001-a090-41a0-8ecc-000000000005": "mariam@cxo.com",
+  "c1500001-a090-41a0-8ecc-000000000006": "hessa@board.com",
+  "c1500001-a090-41a0-8ecc-000000000007": "yusuf@domainanalyst.com",
+};
+const LOGIN_PASSWORD = "role-login-test-password";
+
 async function signIn(page: Page, userId: string) {
-  await page.addInitScript(
-    ({ org, user }) => {
-      localStorage.setItem("ecc.orgId", org);
-      localStorage.setItem("ecc.userId", user);
-      localStorage.setItem("ecc.sidebar", "open");
-    },
-    { org: ORG, user: userId },
-  );
+  const email = LOGIN_EMAIL[userId];
+  if (!email) throw new Error(`No role login for ${userId}`);
+  await page.context().clearCookies();
+  const emailInput = page.locator('input[type="email"]');
+  const blocked = page.getByRole("heading", { name: "Could not load Command Center" });
+  for (let attempt = 0; attempt < 8; attempt++) {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    const which = await Promise.race([
+      emailInput.waitFor({ state: "visible", timeout: 20_000 }).then(() => "login" as const),
+      blocked.waitFor({ state: "visible", timeout: 20_000 }).then(() => "limited" as const),
+    ]).catch(() => "missing" as const);
+    if (which === "login") break;
+    await page.waitForTimeout(20_000);
+  }
+  await emailInput.fill(email);
+  await page.locator('input[type="password"]').fill(LOGIN_PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.locator("aside.sidebar nav a").first().waitFor();
 }
 
 async function openApp(page: Page, path = "/register") {
-  for (let attempt = 0; attempt < 6; attempt++) {
+  const limited = page.getByRole("alert").filter({ hasText: "Too Many Requests" });
+  for (let attempt = 0; attempt < 8; attempt++) {
     await page.goto(path, { waitUntil: "domcontentloaded" });
     const shell = page.locator("aside.sidebar nav a").first();
-    const limited = page.getByText("Too Many Requests");
     const which = await Promise.race([
       shell.waitFor({ state: "visible", timeout: 20_000 }).then(() => "shell" as const),
       limited.waitFor({ state: "visible", timeout: 20_000 }).then(() => "limited" as const),
     ]).catch(() => "missing" as const);
-    if (which === "shell") return;
+    // The sidebar stays mounted across client navigations, so a 429 can sit under a visible shell.
+    if (which === "shell" && !(await limited.isVisible().catch(() => false))) return;
     await page.waitForTimeout(20_000);
   }
   await page.locator("aside.sidebar nav a").first().waitFor();
+}
+
+/** Page bodies keep a 429 on screen until the next load. Wait out the one-minute window, then reload. */
+async function waitForMain(page: Page) {
+  const deadline = Date.now() + 180_000;
+  while (Date.now() < deadline) {
+    const state = await page.evaluate(() => {
+      const main = document.querySelector("main");
+      if (!main) return "missing";
+      const text = main.textContent ?? "";
+      if (/Too Many Requests/.test(text)) return "limited";
+      if (/\bLoading\b|Could not load/.test(text)) return "loading";
+      if (main.querySelector(".skeleton-stack")) return "loading";
+      if (text.trim().length > 40) return "ready";
+      return "loading";
+    });
+    if (state === "ready") return;
+    if (state === "limited") {
+      await page.waitForTimeout(20_000);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      continue;
+    }
+    await page.waitForTimeout(200);
+  }
+  throw new Error("main content did not finish loading");
 }
 
 test.describe("sidebar", () => {
@@ -133,14 +177,7 @@ test.describe("stat rows, borders, width, overflow", () => {
         expect(hrefs.length).toBeGreaterThan(0);
         for (const href of hrefs) {
           await openApp(page, href!);
-          await page.waitForFunction(() => {
-            const main = document.querySelector("main");
-            if (!main) return false;
-            const text = main.textContent ?? "";
-            if (/\bLoading\b|Too Many Requests|Could not load/.test(text)) return false;
-            if (main.querySelector(".skeleton-stack")) return false;
-            return text.trim().length > 40;
-          });
+          await waitForMain(page);
           if (href === "/c/changed") await page.locator("main .kv-pair").first().waitFor();
           const report = await page.evaluate(() => {
             const doc = document.documentElement;
@@ -247,7 +284,7 @@ test("top bar stays one row at 1024x585", async ({ page }) => {
   const metrics = await page.evaluate(() => {
     const nodes = [
       ...document.querySelectorAll(
-        ".workspace-bar .search-trigger, .workspace-bar .org-select, .workspace-bar .role-chip, .workspace-bar .icon-btn, .workspace-bar .sign-out, .workspace-bar .avatar",
+        ".workspace-bar .search-trigger, .workspace-bar .icon-btn, .workspace-bar .account-chip",
       ),
     ] as HTMLElement[];
     return nodes.map((el) => {
@@ -257,31 +294,428 @@ test("top bar stays one row at 1024x585", async ({ page }) => {
         top: rect.top,
         width: rect.width,
         height: rect.height,
-        label: el.getAttribute("aria-label"),
-        title: el.getAttribute("title"),
       };
     });
   });
-  expect(metrics.length).toBeGreaterThanOrEqual(6);
+  expect(metrics.length).toBe(3);
   const tops = metrics.map((item) => item.top);
   expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
   for (const item of metrics) {
-    const isControl =
-      item.cls.includes("search-trigger") ||
-      item.cls.includes("org-select") ||
-      item.cls.includes("icon-btn") ||
-      item.cls.includes("sign-out");
-    if (!isControl) continue;
-    expect(item.width).toBeGreaterThanOrEqual(32);
-    expect(item.height).toBeGreaterThanOrEqual(32);
+    expect(item.width, item.cls).toBeGreaterThanOrEqual(32);
+    expect(item.height, item.cls).toBeGreaterThanOrEqual(32);
   }
-  const signOut = metrics.find((item) => item.cls.includes("sign-out"));
-  expect(signOut?.label).toBe("Sign out");
-  expect(signOut?.title).toBe("Sign out");
-  const labelHidden = await page.locator(".sign-out-label").evaluate((el) => getComputedStyle(el).display === "none");
-  expect(labelHidden).toBe(true);
   const searchTextHidden = await page
     .locator(".search-trigger span")
     .evaluate((el) => getComputedStyle(el).display === "none");
   expect(searchTextHidden).toBe(true);
+  await page.locator(".workspace-bar .account-chip").click();
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+});
+
+test.describe("ingestion tiles", () => {
+  test.beforeEach(async ({ page }) => {
+    await signIn(page, PERSONAS[0].id);
+  });
+
+  for (const width of [1280, 1440, 1920]) {
+    test(`source filename stays inside its tile at ${width}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 727 });
+      await openApp(page, "/ingestion");
+      await page.locator(".ingest-summary .exec-body").first().waitFor();
+      const title = await page.locator(".ingest-summary .exec-body").first().getAttribute("title");
+      expect(title).toBe("CyberCommandCenter_Tool_To_Risk_Domain_Solution.xlsx");
+      const overlap = await page.evaluate(() => {
+        const tiles = [...document.querySelectorAll(".ingest-summary .exec-grid > div")] as HTMLElement[];
+        const boxes = tiles.map((tile) => tile.getBoundingClientRect());
+        const hits: string[] = [];
+        for (let i = 0; i < tiles.length; i++) {
+          const value = tiles[i]!.querySelector(".exec-body, .risk-number") as HTMLElement | null;
+          if (value && value.scrollWidth > tiles[i]!.clientWidth) {
+            hits.push(`value ${value.scrollWidth} > tile ${tiles[i]!.clientWidth}`);
+          }
+          for (let j = i + 1; j < boxes.length; j++) {
+            const a = boxes[i]!;
+            const b = boxes[j]!;
+            const x = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+            const y = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+            if (x > 1 && y > 1) hits.push(`tiles ${i} and ${j} intersect`);
+          }
+        }
+        return hits;
+      });
+      expect(overlap).toEqual([]);
+    });
+  }
+});
+
+test("NIST CSF 2.0 card follows compliance permission", async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page, PERSONAS[0].id);
+  await openApp(page, "/compliance");
+  await page.getByRole("button", { name: "NIST CSF 2.0" }).waitFor();
+  await page.getByRole("button", { name: "NIST CSF 2.0" }).click();
+  await expect(page.getByText("Govern")).toBeVisible();
+  await expect(page.getByText(/gap RS\.CO/)).toBeVisible();
+  await expect(page.getByText(/gap RC\.CO/)).toBeVisible();
+  await expect(page.getByText(/certified/i)).toHaveCount(0);
+
+  await signIn(page, "c1500001-a090-41a0-8ecc-000000000007");
+  await openApp(page, "/compliance");
+  await expect(page.getByText("Outside this role")).toBeVisible();
+  await expect(page.getByRole("button", { name: "NIST CSF 2.0" })).toHaveCount(0);
+});
+
+for (const width of [1280, 1440, 1920]) {
+  test(`NIST row matches its siblings at ${width}`, async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width, height: 900 });
+    await signIn(page, PERSONAS[0].id);
+    await openApp(page, "/compliance");
+    await page.locator(".comp-row", { hasText: "NIST CSF 2.0" }).waitFor();
+    const compliance = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll(".comp-row")] as HTMLElement[];
+      const nist = rows.find((row) => row.innerText.includes("NIST CSF 2.0"));
+      const other = rows.find((row) => !row.innerText.includes("NIST CSF 2.0"));
+      const button = nist?.querySelector("button.nist-label");
+      const style = button ? getComputedStyle(button) : null;
+      return {
+        nist: nist?.getBoundingClientRect().height ?? null,
+        other: other?.getBoundingClientRect().height ?? null,
+        background: style?.backgroundColor ?? "",
+        borderTop: style?.borderTopWidth ?? "",
+      };
+    });
+    expect(compliance.nist).toBeCloseTo(52.4, 0);
+    expect(compliance.other).toBeCloseTo(52.4, 0);
+    expect(Math.abs((compliance.nist ?? 0) - (compliance.other ?? 0))).toBeLessThanOrEqual(0.5);
+    expect(compliance.borderTop).toBe("0px");
+    expect(compliance.background === "rgba(0, 0, 0, 0)" || compliance.background === "transparent").toBe(true);
+
+    await openApp(page, "/c/headline");
+    await page.locator(".frameworks li", { hasText: "NIST CSF 2.0" }).waitFor();
+    const headline = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll(".frameworks li")] as HTMLElement[];
+      const nist = rows.find((row) => row.innerText.includes("NIST CSF 2.0"));
+      const other = rows.find((row) => !row.innerText.includes("NIST CSF 2.0"));
+      return {
+        nist: nist?.getBoundingClientRect().height ?? null,
+        other: other?.getBoundingClientRect().height ?? null,
+      };
+    });
+    expect(headline.nist).toBeCloseTo(21, 0);
+    expect(headline.other).toBeCloseTo(21, 0);
+    expect(Math.abs((headline.nist ?? 0) - (headline.other ?? 0))).toBeLessThanOrEqual(0.5);
+  });
+}
+
+test("headline empty org uses muted dashes and one No evidence yet caption", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page, PERSONAS[0].id);
+  await openApp(page, "/c/headline");
+  await page.locator(".org-switch button", { hasText: "Falcon" }).click();
+  // Org switch lands on the role home (posture); open headline for the empty KPIs.
+  await openApp(page, "/c/headline");
+  await page.getByTestId("kpi-group-empty").waitFor();
+
+  const report = await page.evaluate(() => {
+    const empties = [...document.querySelectorAll(".kpi-row-headline .kpi-empty-value")] as HTMLElement[];
+    const caption = document.querySelector(".kpi-group-empty") as HTMLElement | null;
+    const notes = [...document.querySelectorAll(".kpi-row-headline .kpi .note")]
+      .map((el) => (el.textContent || "").trim())
+      .filter((text) => /No (loss|decision|feed)/i.test(text));
+    const captionCs = caption ? getComputedStyle(caption) : null;
+    const cards = [...document.querySelectorAll(".kpi-row-headline > .kpi")] as HTMLElement[];
+    const lossCard = cards[1] ?? null;
+    return {
+      dashCount: empties.length,
+      dashTexts: empties.map((el) => el.textContent?.trim()),
+      dashColors: empties.map((el) => getComputedStyle(el).color),
+      dashSizes: empties.map((el) => getComputedStyle(el).fontSize),
+      caption: caption?.textContent?.trim() ?? null,
+      captionSize: captionCs?.fontSize ?? null,
+      captionColor: captionCs?.color ?? null,
+      captionLeft: caption ? Math.round(caption.getBoundingClientRect().left) : null,
+      firstEvidenceCardLeft: lossCard ? Math.round(lossCard.getBoundingClientRect().left) : null,
+      perCardNotes: notes,
+    };
+  });
+
+  expect(report.dashCount).toBe(3);
+  expect(report.dashTexts).toEqual(["—", "—", "—"]);
+  for (const color of report.dashColors) {
+    expect(color).toBe("rgb(94, 107, 99)");
+  }
+  for (const size of report.dashSizes) {
+    expect(size).toBe("40px");
+  }
+  expect(report.caption).toBe("No evidence yet");
+  expect(report.captionSize).toBe("14px");
+  expect(report.captionColor).toBe("rgb(94, 107, 99)");
+  expect(report.perCardNotes).toEqual([]);
+  expect(Math.abs((report.captionLeft ?? 0) - (report.firstEvidenceCardLeft ?? 0))).toBeLessThanOrEqual(2);
+});
+
+test("headline KPI cards match height across orgs; loss stays one line without overflow", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const MERIDIAN = "0e8b2590-db5b-43e7-89e6-1db5c89cd4e2";
+
+  async function measureHeadline(width: number, height = 800) {
+    await page.setViewportSize({ width, height });
+    await openApp(page, "/c/headline");
+    await page.locator(".kpi-row-headline .kpi").first().waitFor();
+    return page.evaluate(() => {
+      const cards = [...document.querySelectorAll(".kpi-row-headline > .kpi")] as HTMLElement[];
+      const loss = cards.find((card) =>
+        (card.querySelector(".lbl")?.textContent || "").toLowerCase().includes("expected annual loss"),
+      );
+      const big = loss?.querySelector(".big") as HTMLElement | null;
+      const note = loss?.querySelector(".note") as HTMLElement | null;
+      const cardBox = loss?.getBoundingClientRect();
+      const bigBox = big?.getBoundingClientRect();
+      const noteBox = note?.getBoundingClientRect();
+      const heights = cards.map((card) => Math.round(card.getBoundingClientRect().height * 10) / 10);
+      const widths = cards.map((card) => Math.round(card.getBoundingClientRect().width * 10) / 10);
+      const tops = cards.map((card) => Math.round(card.getBoundingClientRect().top * 10) / 10);
+      const valueTops = cards.map((card) => {
+        const value = card.querySelector(".big, .kpi-empty-value") as HTMLElement | null;
+        return value ? Math.round(value.getBoundingClientRect().top * 10) / 10 : null;
+      });
+      const uniqueTops = [...new Set(tops.map((top) => Math.round(top)))];
+      const rowGroups = uniqueTops.map((rowTop) =>
+        cards
+          .map((card, index) => ({ card, index, top: tops[index]! }))
+          .filter((entry) => Math.abs(entry.top - rowTop) <= 1),
+      );
+      const valuesAlignedInRows = rowGroups.every((group) => {
+        const rowValueTops = group
+          .map((entry) => valueTops[entry.index])
+          .filter((top): top is number => top != null);
+        if (rowValueTops.length < 2) return true;
+        const first = rowValueTops[0]!;
+        return rowValueTops.every((top) => Math.abs(top - first) <= 1);
+      });
+      const noOverflow = cards.every((card) => {
+        const value = card.querySelector(".big, .kpi-empty-value") as HTMLElement | null;
+        const p90 = card.querySelector(".note") as HTMLElement | null;
+        const box = card.getBoundingClientRect();
+        const valueOk =
+          !value ||
+          (value.scrollWidth <= value.clientWidth + 0.5 &&
+            value.getBoundingClientRect().right <= box.right + 0.5 &&
+            value.getBoundingClientRect().left >= box.left - 0.5);
+        const noteOk =
+          !p90 ||
+          (p90.scrollWidth <= p90.clientWidth + 0.5 &&
+            p90.getBoundingClientRect().right <= box.right + 0.5 &&
+            p90.getBoundingClientRect().left >= box.left - 0.5);
+        return valueOk && noteOk;
+      });
+      return {
+        heights,
+        widths,
+        tops,
+        valueTops,
+        cardsPerRow: rowGroups.map((group) => group.length),
+        valuesAlignedInRows,
+        noOverflow,
+        lossValue: big?.textContent?.trim() ?? null,
+        lossLineHeight: big ? Math.round(big.getBoundingClientRect().height) : null,
+        lossScrollWidth: big?.scrollWidth ?? null,
+        lossClientWidth: big?.clientWidth ?? null,
+        lossFits:
+          !!big &&
+          !!cardBox &&
+          !!bigBox &&
+          big.scrollWidth <= big.clientWidth + 0.5 &&
+          bigBox.left >= cardBox.left - 0.5 &&
+          bigBox.right <= cardBox.right + 0.5,
+        p90Text: note?.textContent?.trim() ?? null,
+        p90ScrollWidth: note?.scrollWidth ?? null,
+        p90ClientWidth: note?.clientWidth ?? null,
+        p90Fits:
+          !note ||
+          (!!cardBox &&
+            !!noteBox &&
+            note.scrollWidth <= note.clientWidth + 0.5 &&
+            noteBox.left >= cardBox.left - 0.5 &&
+            noteBox.right <= cardBox.right + 0.5),
+      };
+    });
+  }
+
+  // Layla is Al Dhabi + Falcon; attach Meridian for this assertion only, then remove.
+  const { execFileSync } = await import("node:child_process");
+  const dbEnv = {
+    ...process.env,
+    DATABASE_URL:
+      process.env.DATABASE_URL ??
+      "postgresql://ecc:ecc_dev_password@127.0.0.1:5433/cyber_command_center",
+  };
+  const serverCwd = new URL("../../server", import.meta.url).pathname;
+  function runDb(script: string) {
+    execFileSync(process.execPath, ["--import", "tsx", "-e", script], {
+      cwd: serverCwd,
+      env: dbEnv,
+    });
+  }
+
+  runDb(`
+      import { query } from "./src/db.ts";
+      const MERIDIAN = "${MERIDIAN}";
+      const layla = await query(
+        \`SELECT account_id FROM auth_accounts WHERE lower(email) = 'layla@ciso.com' LIMIT 1\`,
+      );
+      const accountId = layla.rows[0]?.account_id;
+      if (!accountId) throw new Error("layla account missing");
+      const meridianUser = await query(
+        \`SELECT u.user_id, r.code AS role
+         FROM users u
+         JOIN user_roles ur ON ur.user_id = u.user_id AND ur.is_primary
+         JOIN roles r ON r.role_id = ur.role_id
+         WHERE u.org_id = $1
+         ORDER BY CASE r.code WHEN 'ciso' THEN 0 WHEN 'cxo' THEN 1 ELSE 2 END
+         LIMIT 1\`,
+        [MERIDIAN],
+      );
+      const user = meridianUser.rows[0];
+      if (!user) throw new Error("meridian user missing");
+      await query(
+        \`INSERT INTO org_memberships (account_id, org_id, user_id, role_code, status)
+         VALUES ($1, $2, $3, $4, 'active')
+         ON CONFLICT (account_id, org_id) DO UPDATE
+           SET user_id = EXCLUDED.user_id, role_code = EXCLUDED.role_code, status = 'active'\`,
+        [accountId, MERIDIAN, user.user_id, user.role],
+      );
+      `);
+
+  try {
+    await signIn(page, PERSONAS[0].id);
+    const al1280 = await measureHeadline(1280);
+    expect(al1280.lossValue).toMatch(/AED/);
+    expect(al1280.lossLineHeight).toBeLessThanOrEqual(41);
+    expect(al1280.lossFits).toBe(true);
+    expect(al1280.p90Fits).toBe(true);
+    expect(al1280.heights.every((height) => Math.abs(height - al1280.heights[0]!) <= 0.5)).toBe(true);
+
+    await page.locator(".org-switch button", { hasText: "Falcon" }).click();
+    const falcon1280 = await measureHeadline(1280);
+
+    await page.locator(".org-switch button", { hasText: /Meridian/ }).click();
+    const meridian1280 = await measureHeadline(1280);
+
+    const heightAl = al1280.heights[0]!;
+    const heightFalcon = falcon1280.heights[0]!;
+    const heightMeridian = meridian1280.heights[0]!;
+    expect(Math.abs(heightAl - heightFalcon)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(heightAl - heightMeridian)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(heightAl - 156.4)).toBeLessThanOrEqual(0.6);
+
+    await page.locator(".org-switch button", { hasText: "Al Dhabi" }).click();
+    const al1024 = await measureHeadline(1024, 768);
+    expect(al1024.lossFits).toBe(true);
+    expect(al1024.p90Fits).toBe(true);
+    expect(al1024.lossLineHeight).toBeLessThanOrEqual(41);
+    // 1024x768: two cards per row (not four ~166px cards), values aligned, no overflow.
+    expect(al1024.cardsPerRow).toEqual([2, 2]);
+    expect(al1024.valuesAlignedInRows).toBe(true);
+    expect(al1024.noOverflow).toBe(true);
+    expect(al1024.widths.every((width) => width >= 300)).toBe(true);
+
+    console.log(
+      JSON.stringify({
+        al1280: {
+          height: heightAl,
+          widths: al1280.widths,
+          cardsPerRow: al1280.cardsPerRow,
+          loss: { sw: al1280.lossScrollWidth, cw: al1280.lossClientWidth, value: al1280.lossValue },
+          p90: { sw: al1280.p90ScrollWidth, cw: al1280.p90ClientWidth, text: al1280.p90Text },
+        },
+        falcon1280: { height: heightFalcon, widths: falcon1280.widths },
+        meridian1280: { height: heightMeridian, widths: meridian1280.widths },
+        al1024: {
+          height: al1024.heights[0],
+          widths: al1024.widths,
+          cardsPerRow: al1024.cardsPerRow,
+          valueTops: al1024.valueTops,
+          loss: { sw: al1024.lossScrollWidth, cw: al1024.lossClientWidth, value: al1024.lossValue },
+          p90: { sw: al1024.p90ScrollWidth, cw: al1024.p90ClientWidth, text: al1024.p90Text },
+        },
+      }),
+    );
+  } finally {
+    runDb(`
+      import { query } from "./src/db.ts";
+      const MERIDIAN = "${MERIDIAN}";
+      const layla = await query(
+        \`SELECT account_id FROM auth_accounts WHERE lower(email) = 'layla@ciso.com' LIMIT 1\`,
+      );
+      const accountId = layla.rows[0]?.account_id;
+      if (accountId) {
+        await query(
+          \`DELETE FROM org_memberships WHERE account_id = $1 AND org_id = $2\`,
+          [accountId, MERIDIAN],
+        );
+      }
+      `);
+  }
+});
+
+test("compliance load error keeps card height and shows muted retry caption", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await signIn(page, PERSONAS[0].id);
+
+  await page.route("**/api/ecc/command/workspace**", async (route) => {
+    const response = await route.fetch();
+    const json = (await response.json()) as {
+      complianceLive?: Record<string, unknown> | null;
+    };
+    json.complianceLive = {
+      posturePct: null,
+      frameworks: [],
+      nist: null,
+      loadError: true,
+    };
+    await route.fulfill({
+      status: response.status(),
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(json),
+    });
+  });
+
+  await openApp(page, "/c/headline");
+  const card = page.getByTestId("compliance-load-error");
+  await card.waitFor();
+
+  const report = await page.evaluate(() => {
+    const cardEl = document.querySelector('[data-testid="compliance-load-error"]') as HTMLElement | null;
+    const dash = cardEl?.querySelector(".kpi-empty-value") as HTMLElement | null;
+    const caption = cardEl?.querySelector(".compliance-load-caption") as HTMLElement | null;
+    const body = (cardEl?.textContent || "").replace(/\s+/g, " ");
+    return {
+      height: cardEl ? Math.round(cardEl.getBoundingClientRect().height) : null,
+      dash: dash?.textContent?.trim() ?? null,
+      dashColor: dash ? getComputedStyle(dash).color : null,
+      dashSize: dash ? getComputedStyle(dash).fontSize : null,
+      caption: caption?.textContent?.trim() ?? null,
+      captionColor: caption ? getComputedStyle(caption).color : null,
+      captionSize: caption ? getComputedStyle(caption).fontSize : null,
+      hasFrameworkRollup: /Framework rollup is not connected/i.test(body),
+      hasNoComplianceData: /No compliance data/i.test(body),
+    };
+  });
+
+  expect(report.height).toBeGreaterThanOrEqual(246);
+  expect(report.dash).toBe("—");
+  expect(report.dashColor).toBe("rgb(94, 107, 99)");
+  expect(report.dashSize).toBe("40px");
+  expect(report.caption).toBe("Couldn't load. Refresh to retry");
+  expect(report.captionColor).toBe("rgb(94, 107, 99)");
+  expect(report.captionSize).toBe("14px");
+  expect(report.hasFrameworkRollup).toBe(false);
+  expect(report.hasNoComplianceData).toBe(false);
 });

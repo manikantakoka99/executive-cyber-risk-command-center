@@ -1,8 +1,8 @@
 #!/bin/sh
 # Apply the app schema to an empty database.
-# Order: schema.sql, migrations 001–011, clear the bootstrap catalog,
+# Order: schema.sql, migrations 001–013, clear the bootstrap catalog,
 # import the sample workbook, format AED impact summaries, then seed tenants.
-# npm run demo:seed then creates the Al Dhabi scenarios.
+# npm run demo:seed then creates the Al Dhabi scenarios and records NIST domain evidence.
 #
 # Docker compose mounts this as /docker-entrypoint-initdb.d/10_apply_app_schema.sh
 # and the repo at /ecc-src. A host or CI run can point ECC_SQL_ROOT at db/.
@@ -67,7 +67,8 @@ for name in \
   009_ecc_auth.sql \
   010_decision_log_org.sql \
   011_org_id_not_null.sql \
-  012_audit_log_org_restrict.sql
+  012_audit_log_org_restrict.sql \
+  013_nist_csf_2.sql
 do
   run_sql "$ROOT/migrations/$name"
 done

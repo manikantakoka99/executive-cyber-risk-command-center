@@ -1,5 +1,8 @@
 import { filterPresentationNoise, overlayOverview } from "../command/demoOverlay.js";
+import { scorecardFromCodeScores } from "../command/orgFloor.js";
+import { floorHoldLine } from "../command/present.js";
 import { sqlExcludeTestScenario, sqlExcludeTestText } from "../command/testFixtures.js";
+import { round1 } from "../command/model.js";
 import { formatImpactSummary, reformatAedInText } from "../lib/money.js";
 import { priorityTierFromScore } from "../risk/bands.js";
 import { query } from "../db.js";
@@ -111,6 +114,16 @@ export async function getOverview(orgId: string) {
      ORDER BY s.risk_domain_id, s.snapshot_at DESC`,
     [orgId],
   );
+
+  const rawByCode: Record<string, number> = {};
+  for (const domain of domains.rows) rawByCode[domain.code] = Number(domain.score);
+  const orgCard = scorecardFromCodeScores(rawByCode);
+  const flooredScore = orgCard ? round1(orgCard.arithmetic) : latestScore;
+  const flooredSeverity = orgCard ? orgCard.headline.toLowerCase() : latest?.severity ?? null;
+  const flooredDriver =
+    orgCard?.floored && orgCard.floorDomain
+      ? floorHoldLine(orgCard.headline, orgCard.floorDomain.domain.name)
+      : latest?.driver_summary ?? null;
 
   // MUST: queue matches Decisions Awaiting CxO KPI (awaiting_decision only).
   const pending = await query<{
@@ -294,14 +307,14 @@ export async function getOverview(orgId: string) {
     asOf: asOf.toISOString(),
     enterpriseRisk: latest
       ? {
-          score: latestScore,
-          severity: latest.severity,
-          driverSummary: latest.driver_summary,
+          score: flooredScore,
+          severity: flooredSeverity,
+          driverSummary: flooredDriver,
           snapshotAt: latest.snapshot_at.toISOString(),
           priorScore,
           deltaVsPrior:
-            latestScore != null && priorScore != null
-              ? Number((latestScore - priorScore).toFixed(2))
+            flooredScore != null && priorScore != null
+              ? Number((flooredScore - priorScore).toFixed(2))
               : null,
         }
       : null,

@@ -87,7 +87,7 @@ npm run dev
 | API | http://127.0.0.1:4000/health |
 | Postgres | `postgresql://ecc:ecc_dev_password@localhost:5433/cyber_command_center` |
 
-On an empty volume, Compose init runs `db/docker-init/apply_app_schema.sh` (schema, migrations, sample workbook, AED formatting, tenant seed). `npm run demo:seed` adds the Al Dhabi demo scenarios (and related demo data the seed script defines). `db/dwan_schema.sql` stays in the repo for reference and is not applied by Compose.
+On an empty volume, Compose init runs `db/docker-init/apply_app_schema.sh` (schema, migrations **001–013** including `013_nist_csf_2.sql` for the NIST CSF 2.0 framework catalog row, sample workbook, AED formatting, tenant seed). `npm run demo:seed` adds the Al Dhabi demo scenarios and runs sample workbook ingestion so per-domain NIST evidence is recorded (aligned/mapped coverage, never a certification claim). `db/dwan_schema.sql` stays in the repo for reference and is not applied by Compose.
 
 **Reset the database:**
 

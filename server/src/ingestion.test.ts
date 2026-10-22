@@ -291,34 +291,53 @@ describe("ingestion pipeline", () => {
   });
 
   it("rejects cross-tenant connector usage via org scoping", async () => {
-    // Connector belongs to Al Dhabi — Falcon (ORG) ingest must reject.
-    const alConn = await createConnector(AL, {
-      name: `Al Dhabi Generic ${Date.now()}`,
-      riskDomainId: socDomainId,
-      adapterKey: "generic_security_events",
-    });
-    const ctx = {
-      orgId: ORG,
-      connectorId: alConn!.connectorId as string,
-      connectorName: "x",
-      riskDomainId: socDomainId,
-      domainCode: "soc_mdr",
-      config: {},
-    };
-    const r = await ingestAndNormalize({
-      orgId: ORG,
-      connectorId: alConn!.connectorId as string,
-      events: [
-        {
-          externalEventId: `xorg-${Date.now()}`,
-          observedAt: new Date().toISOString(),
-          payload: { kind: "malware_detection", severity: "low", hostname: "x" },
-        },
-      ],
-      normalize: (raw) => genericSecurityEventsAdapter.normalize(raw, ctx),
-    });
-    assert.ok(r.errorCount >= 1);
-    assert.ok(r.errors.some((e) => e.reason.includes("cross-tenant")));
+    // Throwaway org so an unsynced connector cannot pollute Al Dhabi NIST evidence.
+    const other = await query<{ org_id: string }>(
+      `INSERT INTO organizations (name, industry)
+       VALUES ($1, 'Test') RETURNING org_id`,
+      [`Ingest XTenant ${Date.now()}`],
+    );
+    const otherOrgId = other.rows[0]!.org_id;
+    let connectorIdOther: string | null = null;
+    try {
+      const otherConn = await createConnector(otherOrgId, {
+        name: `XTenant Generic ${Date.now()}`,
+        riskDomainId: socDomainId,
+        adapterKey: "generic_security_events",
+      });
+      assert.ok(otherConn);
+      connectorIdOther = otherConn!.connectorId as string;
+      const ctx = {
+        orgId: ORG,
+        connectorId: connectorIdOther,
+        connectorName: "x",
+        riskDomainId: socDomainId,
+        domainCode: "soc_mdr",
+        config: {},
+      };
+      const r = await ingestAndNormalize({
+        orgId: ORG,
+        connectorId: connectorIdOther,
+        events: [
+          {
+            externalEventId: `xorg-${Date.now()}`,
+            observedAt: new Date().toISOString(),
+            payload: { kind: "malware_detection", severity: "low", hostname: "x" },
+          },
+        ],
+        normalize: (raw) => genericSecurityEventsAdapter.normalize(raw, ctx),
+      });
+      assert.ok(r.errorCount >= 1);
+      assert.ok(r.errors.some((e) => e.reason.includes("cross-tenant")));
+    } finally {
+      if (connectorIdOther) {
+        await query(`DELETE FROM security_signals WHERE connector_id = $1`, [connectorIdOther]);
+        await query(`DELETE FROM raw_events WHERE connector_id = $1`, [connectorIdOther]);
+        await query(`DELETE FROM connector_sync_runs WHERE connector_id = $1`, [connectorIdOther]);
+        await query(`DELETE FROM connectors WHERE connector_id = $1`, [connectorIdOther]);
+      }
+      await query(`DELETE FROM organizations WHERE org_id = $1`, [otherOrgId]);
+    }
   });
 });
 

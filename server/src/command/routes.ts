@@ -13,6 +13,7 @@ import {
   proposePolicy,
   withdrawPolicy,
 } from "./policyStore.js";
+import { loadSessionScorecard } from "./orgFloor.js";
 import { presentEvidence, presentWorkspace, type ComplianceLive } from "./present.js";
 import {
   canAcceptRisk,
@@ -57,32 +58,44 @@ function requirePermission(req: FastifyRequest, reply: FastifyReply, permission:
 
 async function workspaceFor(req: FastifyRequest) {
   const state = getState(req.tenant.orgId);
+  const scorecard = await loadSessionScorecard();
   const workspace = presentWorkspace(
     req.tenant.role,
     state,
     req.tenant.orgName,
     req.tenant.orgId,
+    scorecard,
   );
   if (hasPermission(req.tenant.role, "compliance.read")) {
-    workspace.complianceLive = await loadCompliance(req.tenant.orgId);
+    try {
+      workspace.complianceLive = await loadCompliance();
+    } catch (err) {
+      req.log.error({ err }, "compliance read failed");
+      // Explicit load-error payload so the UI can keep card size and avoid the
+      // "Framework rollup is not connected" fallback that needs complianceDomain.
+      workspace.complianceLive = {
+        posturePct: null,
+        frameworks: [],
+        nist: null,
+        loadError: true,
+      };
+    }
   }
   // Belt-and-suspenders: never emit AED / loss figures without command.loss.
   return redactFinancial(req.tenant.role, workspace);
 }
 
-async function loadCompliance(orgId: string): Promise<ComplianceLive | null> {
-  try {
-    const data = await getCompliance(orgId);
-    return {
-      posturePct: data.posturePct,
-      frameworks: data.frameworks.map((row) => ({
-        name: row.displayName,
-        coveragePct: row.coveragePct,
-      })),
-    };
-  } catch {
-    return null;
-  }
+async function loadCompliance(): Promise<ComplianceLive> {
+  const data = await getCompliance();
+  return {
+    posturePct: data.posturePct,
+    frameworks: data.frameworks.map((row) => ({
+      name: row.displayName,
+      code: row.code,
+      coveragePct: row.coveragePct,
+    })),
+    nist: data.nist,
+  };
 }
 
 function sendAction(reply: FastifyReply, result: ActionResult, workspace: unknown) {

@@ -248,6 +248,7 @@ export function KpiCard({
   sparkTone = "flat",
   tone,
   note,
+  emptyValue = false,
 }: {
   label: string;
   value: number;
@@ -262,12 +263,14 @@ export function KpiCard({
   sparkTone?: "up" | "down" | "flat";
   tone?: "crit" | "high" | "med" | "low" | "info";
   note?: string;
+  /** Muted em-dash placeholder at the normal value size (no height change). */
+  emptyValue?: boolean;
 }) {
   return (
     <article className={`card kpi${tone ? ` tone-${tone}` : ""}`}>
       <p className="lbl">{label}</p>
       <div className="kpi-main">
-        <p className="big mono">
+        <p className={`big mono${emptyValue ? " kpi-empty-value" : ""}`}>
           {display ?? (
             <>
               {prefix}

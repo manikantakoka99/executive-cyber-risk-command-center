@@ -1,6 +1,6 @@
 /**
  * Al Dhabi demo: force executive screens onto one canonical source of truth
- * (command Headline: 50.8 High, AED 2.9M, 4 open decisions, domain band spread).
+ * (command Headline: 50.8 Critical after the floor, AED 2.9M, 4 open decisions, domain band spread).
  */
 import { CANONICAL } from "./canonical.js";
 import { BASELINE, ENTERPRISE_LOSS, MONTHS, monthScorecards } from "./model.js";
@@ -69,13 +69,10 @@ export function overlayOverview<T extends Record<string, unknown>>(
   if (!data) return null;
   if (!isDemoOrg(orgId)) return data;
   const loss = canonicalLossAbsolute();
-  const score = Number(CANONICAL.headlineScore);
   return {
     ...data,
     enterpriseRisk: {
       ...((data.enterpriseRisk as object) ?? {}),
-      score,
-      severity: CANONICAL.headlineBand.toLowerCase(),
       driverSummary: `${CANONICAL.criticalDomains} Critical domains drive the floor to ${CANONICAL.headlineBand}`,
       deltaVsPrior: 0.1,
     },
