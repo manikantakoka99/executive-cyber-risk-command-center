@@ -5,6 +5,7 @@
 import { query } from "../db.js";
 import { seedDemoScenarios } from "./scenarios.js";
 import { detectMaterialChanges } from "./intelligence.js";
+import { runSampleWorkbookIngestion } from "./sampleWorkbookIngestion.js";
 import {
   DEMO_AS_OF,
   DEMO_DUE_DATE,
@@ -151,6 +152,8 @@ export async function seedDemo(orgId: string) {
   await ensureDemoBusinessContext(orgId);
   const seeded = await seedDemoScenarios(orgId);
   await detectMaterialChanges(orgId);
+  // Sample workbook sync stamps last_sync_at and per-domain evidence so NIST is 20/22.
+  const ingestion = await runSampleWorkbookIngestion(orgId, { correlate: false });
   return {
     ok: true,
     demoAsOf: DEMO_AS_OF,
@@ -159,8 +162,13 @@ export async function seedDemo(orgId: string) {
     heroTitle: HERO_SCENARIO_TITLE,
     heroScenarioId: seeded.heroScenarioId,
     scenarioIds: seeded.scenarioIds,
+    sampleIngestion: {
+      connectorId: ingestion.connectorId,
+      status: ingestion.status,
+      domainsEvidenced: ingestion.domainsEvidenced,
+    },
     message:
-      "Demo seeded. Hero scenario ready for live decision → action → verify walkthrough (not pre-closed).",
+      "Demo seeded. Hero scenario ready for live decision → action → verify walkthrough (not pre-closed). Sample workbook ingestion recorded NIST domain evidence.",
   };
 }
 

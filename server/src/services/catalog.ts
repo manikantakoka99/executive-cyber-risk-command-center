@@ -1,6 +1,15 @@
-import { query } from "../db.js";
+import { query, sessionOrgId, withTenant } from "../db.js";
 import { sqlExcludeTestFinding, sqlExcludeTestText } from "../command/testFixtures.js";
 import { formatAed, formatImpactSummary, reformatAedInText } from "../lib/money.js";
+import {
+  NIST_CSF_CODE,
+  NIST_CSF_LABEL,
+  emptyNist,
+  scoreNist,
+  type DomainEvidence,
+  type NistReading,
+  type NistScore,
+} from "../command/nistCsf.js";
 
 const OPEN = ["open", "acknowledged", "in_remediation"];
 
@@ -242,7 +251,85 @@ function mapFinding(r: Record<string, unknown>) {
   };
 }
 
-export async function getCompliance(orgId: string) {
+// Per-domain fresh/total for the session org. Coverage uses domainHasCurrentEvidence
+// (fresh > 0); unsynced rows raise total only. Unmapped is a real domain code here
+// but is never listed on NIST_CATEGORIES, so it cannot cover a NIST category.
+const EVIDENCE_SQL = `SELECT d.code,
+            COUNT(c.connector_id)::int AS total,
+            COUNT(c.connector_id) FILTER (
+              WHERE c.status = 'active' AND c.last_sync_at IS NOT NULL
+            )::int AS fresh,
+            EXISTS (
+              SELECT 1
+              FROM security_signals s
+              WHERE s.org_id = $1
+                AND s.risk_domain_id = d.risk_domain_id
+                AND s.event_type = 'evidence_expired'
+                AND s.lifecycle_status IS DISTINCT FROM 'resolved'
+            ) AS expired
+     FROM risk_domains d
+     JOIN connectors c
+       ON c.risk_domain_id = d.risk_domain_id
+      AND c.org_id = $1
+     GROUP BY d.risk_domain_id, d.code`;
+
+function evidenceFromRows(
+  rows: { code: string; fresh: number; total: number; expired: boolean }[],
+): Record<string, DomainEvidence> {
+  const evidence: Record<string, DomainEvidence> = {};
+  for (const row of rows) {
+    evidence[row.code] = {
+      fresh: Number(row.fresh),
+      total: Number(row.total),
+      evidenceExpired: Boolean(row.expired),
+    };
+  }
+  return evidence;
+}
+
+/**
+ * Per-domain connector feeds for one org. Null when that org has no connectors:
+ * there is nothing to score, and the command-model 90.91 is not borrowed.
+ * Sample workbook ingestion stamps last_sync_at and upserts one connector per
+ * domain it covered so those domains appear here (the unmapped parent alone does not).
+ */
+async function evidenceForOrg(orgId: string): Promise<Record<string, DomainEvidence> | null> {
+  const { rows: counted } = await query<{ n: number }>(
+    `SELECT COUNT(*)::int AS n FROM connectors WHERE org_id = $1`,
+    [orgId],
+  );
+  if (!Number(counted[0]?.n)) return null;
+  const { rows } = await query<{ code: string; fresh: number; total: number; expired: boolean }>(
+    EVIDENCE_SQL,
+    [orgId],
+  );
+  return evidenceFromRows(rows);
+}
+
+function nistFrameworkRow(nist: NistReading) {
+  const empty = nist.empty === true;
+  return {
+    statusId: null as string | null,
+    frameworkId: null as string | null,
+    code: NIST_CSF_CODE,
+    displayName: NIST_CSF_LABEL,
+    renewalCycleMonths: null as number | null,
+    coveragePct: empty ? null : nist.coveragePct,
+    controlsTotal: nist.total,
+    controlsEvidenced: empty ? 0 : nist.evidenced,
+    nextRenewalDate: null as string | null,
+    snapshotAt: null as string | null,
+  };
+}
+
+/** Read path. Computes NIST for the session org and does not write. */
+export async function getCompliance() {
+  const orgId = sessionOrgId();
+  if (!orgId) {
+    return { posturePct: null, frameworks: [], nist: null };
+  }
+  const evidence = await evidenceForOrg(orgId);
+  const nist: NistReading = evidence == null ? emptyNist() : scoreNist(evidence);
   const { rows } = await query(
     `SELECT DISTINCT ON (c.framework_id)
         c.status_id, c.framework_id, f.code, f.display_name, f.renewal_cycle_months,
@@ -254,27 +341,83 @@ export async function getCompliance(orgId: string) {
      ORDER BY c.framework_id, c.snapshot_at DESC`,
     [orgId],
   );
-  const items = rows.map((r) => ({
-    statusId: r.status_id,
-    frameworkId: r.framework_id,
-    code: r.code,
-    displayName: r.display_name,
-    renewalCycleMonths: r.renewal_cycle_months,
-    coveragePct: Number(r.coverage_pct),
-    controlsTotal: r.controls_total,
-    controlsEvidenced: r.controls_evidenced,
-    nextRenewalDate: r.next_renewal_date,
-    snapshotAt: r.snapshot_at.toISOString(),
-  }));
-  const avg =
-    items.length === 0
+  const stored = rows
+    .filter((r) => r.code !== NIST_CSF_CODE)
+    .map((r) => ({
+      statusId: r.status_id as string,
+      frameworkId: r.framework_id as string,
+      code: r.code as string,
+      displayName: r.display_name as string,
+      renewalCycleMonths: r.renewal_cycle_months as number | null,
+      coveragePct: Number(r.coverage_pct) as number | null,
+      controlsTotal: r.controls_total as number | null,
+      controlsEvidenced: r.controls_evidenced as number | null,
+      nextRenewalDate: r.next_renewal_date as string | null,
+      snapshotAt: (r.snapshot_at as Date).toISOString(),
+    }));
+  const items = [...stored, nistFrameworkRow(nist)];
+  const scored = items.filter((item) => item.coveragePct != null);
+  const posturePct =
+    scored.length === 0
       ? null
       : Number(
-          (
-            items.reduce((s, i) => s + i.coveragePct, 0) / items.length
-          ).toFixed(2),
+          (scored.reduce((sum, item) => sum + (item.coveragePct ?? 0), 0) / scored.length).toFixed(2),
         );
-  return { posturePct: avg, frameworks: items };
+  return { posturePct, frameworks: items, nist };
+}
+
+/**
+ * Write path. Called from ingestion and POST /api/ecc/compliance/recompute.
+ * orgId is the session org the caller already resolved. Never reads a request field.
+ * An org with no connectors is not given a borrowed score.
+ */
+export async function persistNistCompliance(orgId: string): Promise<{ written: boolean; coveragePct: number | null }> {
+  return withTenant(orgId, orgId, async (q) => {
+    const { rows: counted } = await q<{ n: number }>(
+      `SELECT COUNT(*)::int AS n FROM connectors WHERE org_id = $1`,
+      [orgId],
+    );
+    if (!Number(counted[0]?.n)) return { written: false, coveragePct: null };
+    const { rows } = await q<{ code: string; fresh: number; total: number; expired: boolean }>(
+      EVIDENCE_SQL,
+      [orgId],
+    );
+    const score = scoreNist(evidenceFromRows(rows));
+    const { rows: frameworks } = await q<{ framework_id: string }>(
+      `INSERT INTO compliance_frameworks (code, display_name, renewal_cycle_months)
+       VALUES ($1, $2, NULL)
+       ON CONFLICT (code) DO UPDATE SET display_name = EXCLUDED.display_name
+       RETURNING framework_id`,
+      [NIST_CSF_CODE, NIST_CSF_LABEL],
+    );
+    const frameworkId = frameworks[0]?.framework_id;
+    if (!frameworkId) {
+      throw new Error("NIST CSF 2.0 framework row was not stored");
+    }
+    const { rows: existing } = await q<{ coverage_pct: string; controls_evidenced: number }>(
+      `SELECT coverage_pct, controls_evidenced
+       FROM org_compliance_status
+       WHERE org_id = $1 AND framework_id = $2
+       ORDER BY snapshot_at DESC
+       LIMIT 1`,
+      [orgId, frameworkId],
+    );
+    const current = existing[0];
+    if (
+      current &&
+      Number(current.coverage_pct).toFixed(2) === score.coveragePct.toFixed(2) &&
+      Number(current.controls_evidenced) === score.evidenced
+    ) {
+      return { written: false, coveragePct: score.coveragePct };
+    }
+    await q(
+      `INSERT INTO org_compliance_status
+         (org_id, framework_id, coverage_pct, controls_total, controls_evidenced, snapshot_at)
+       VALUES ($1, $2, $3, $4, $5, now())`,
+      [orgId, frameworkId, score.coveragePct, score.total, score.evidenced],
+    );
+    return { written: true, coveragePct: score.coveragePct };
+  });
 }
 
 export async function getActivity(orgId: string, limit = 50) {

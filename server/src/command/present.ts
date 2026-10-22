@@ -1,4 +1,5 @@
 import { formatAedMillions } from "../lib/money.js";
+import type { NistReading } from "./nistCsf.js";
 import {
   BASELINE,
   DOMAINS,
@@ -25,7 +26,10 @@ import {
   weightedCoverage,
   type Band,
   type GapKey,
+  type Scorecard,
 } from "./model.js";
+import { isDemoOrg } from "./demoOverlay.js";
+import { matchesModelRaws } from "./orgFloor.js";
 import {
   CAPABILITY,
   ROLE_LABEL,
@@ -73,6 +77,11 @@ function sourceLabel(table: string): string {
   }
 }
 
+/** Pixel headline: "Held at Critical by Attack Surface & VAPT". */
+export function floorHoldLine(band: string, domainName: string): string {
+  return `Held at ${band} by ${domainName.replaceAll(" and ", " & ")}`;
+}
+
 export interface CommandWorkspace {
   asOf: string;
   snapshotLabel: string;
@@ -84,7 +93,7 @@ export interface CommandWorkspace {
   landing: ViewId;
   views: { id: ViewId; label: string }[];
   home: string;
-  openDecisions: number;
+  openDecisions: number | null;
   headline: HeadlineView | null;
   posture: PostureView | null;
   trust: TrustView | null;
@@ -98,7 +107,10 @@ export interface CommandWorkspace {
 
 export interface ComplianceLive {
   posturePct: number | null;
-  frameworks: { name: string; coveragePct: number | null }[];
+  frameworks: { name: string; code: string; coveragePct: number | null }[];
+  nist: NistReading | null;
+  /** Set when the compliance read throws; distinct from empty/no-evidence. */
+  loadError?: boolean;
 }
 
 interface HeadlineView {
@@ -110,6 +122,8 @@ interface HeadlineView {
   plain: number;
   floored: boolean;
   floorNote: string | null;
+  floorDomainId: string | null;
+  floorDomainName: string | null;
   counts: Record<Band, number>;
   confidencePct: number | null;
   confidenceLabel: string | null;
@@ -342,6 +356,7 @@ export function presentWorkspace(
   state: CommandState,
   orgName = "Al Dhabi Holdings",
   orgId?: string,
+  scorecard: Scorecard | null = BASELINE,
 ): CommandWorkspace {
   const known = isRoleCode(role);
   const views = viewsFor(role);
@@ -351,7 +366,11 @@ export function presentWorkspace(
   const outside = outsideCount();
   const expiring = state.accept.filter((item) => daysUntil(item.expires) <= 30).length;
   const policyVersion = activePolicyLabel(orgId);
-  const openDecisions = state.queue.filter((item) => item.state === "open").length;
+  // Demo-only command queue. Other orgs must not inherit Al Dhabi's open count.
+  const demoOrg = !orgId || isDemoOrg(orgId);
+  const openDecisions = demoOrg
+    ? state.queue.filter((item) => item.state === "open").length
+    : null;
 
   return {
     asOf: "2026-09-05T00:00:00.000Z",
@@ -366,7 +385,7 @@ export function presentWorkspace(
     home: homeFor(role),
     openDecisions,
     headline: allow("command.headline")
-      ? presentHeadline(state, loss, expiring, outside, policyVersion, openDecisions)
+      ? presentHeadline(state, loss, expiring, outside, policyVersion, openDecisions, scorecard, orgId)
       : null,
     posture: allow("command.posture") ? presentPosture(technical, outside) : null,
     trust: allow("command.trust") ? presentTrust() : null,
@@ -383,18 +402,49 @@ function presentHeadline(
   _state: CommandState,
   loss: boolean,
   expiring: number,
-  outside: number,
+  _outside: number,
   policyVersion: string,
-  openDecisions: number,
+  openDecisions: number | null,
+  card: Scorecard | null,
+  orgId?: string,
 ): HeadlineView {
-  const card = BASELINE;
+  if (!card) {
+    return {
+      question: "Are we OK?",
+      title: "No domain scores for this organization yet.",
+      lede: "This organization has no domain score snapshots, so there is no headline to floor.",
+      band: "Low",
+      arithmetic: 0,
+      plain: 0,
+      floored: false,
+      floorNote: null,
+      floorDomainId: null,
+      floorDomainName: null,
+      counts: { Critical: 0, High: 0, Medium: 0, Low: 0 },
+      confidencePct: null,
+      confidenceLabel: null,
+      policyVersion,
+      outsideAppetite: 0,
+      domainCount: 0,
+      expiringAcceptances: null,
+      acceptanceCount: null,
+      loss: null,
+      lookFirst: [],
+      trend: [],
+      complianceDomain: null,
+    };
+  }
+  const outside = card.rows.filter((row) => row.adjusted > row.domain.appetite).length;
   const critical = card.rows.filter((row) => row.band === "Critical").map((row) => row.domain.name);
   const title = critical.length
     ? critical.length === 1
       ? "One domain is Critical and needs a decision this week."
       : `${numWord(critical.length)} domains are Critical and need decisions this week.`
     : "No domain is Critical.";
-  const cmp = scoredById("cmp");
+  const cmp = card.rows.find((row) => row.domain.id === "cmp");
+  // Loss, model confidence, and the demo queue belong to Al Dhabi only.
+  const demoOrg = !orgId || isDemoOrg(orgId);
+  const modelConfidence = matchesModelRaws(card);
   return {
     question: "Are we OK?",
     title,
@@ -403,27 +453,31 @@ function presentHeadline(
     arithmetic: round1(card.arithmetic),
     plain: round1(card.plain),
     floored: card.floored,
-    floorNote: card.floored
-      ? `Floor rule applied. The coverage-adjusted average (${format1(card.arithmetic)}) is ${bandName(card.arithmetic)}, but ${card.counts.Critical} domain${card.counts.Critical > 1 ? "s are" : " is"} Critical, so the headline cannot read better than High.`
-      : null,
+    floorNote:
+      card.floored && card.floorDomain
+        ? floorHoldLine(card.headline, card.floorDomain.domain.name)
+        : null,
+    floorDomainId: card.floored ? card.floorDomain?.domain.id ?? null : null,
+    floorDomainName: card.floored ? card.floorDomain?.domain.name ?? null : null,
     counts: card.counts,
-    confidencePct: Math.round(card.confidence * 100),
-    confidenceLabel: confidenceLabel(card.confidence),
+    confidencePct: modelConfidence ? Math.round(card.confidence * 100) : null,
+    confidenceLabel: modelConfidence ? confidenceLabel(card.confidence) : null,
     policyVersion,
     outsideAppetite: outside,
-    domainCount: DOMAINS.length,
-    expiringAcceptances: expiring,
+    domainCount: card.rows.length,
+    expiringAcceptances: demoOrg ? expiring : null,
     // Same open-queue count as workspace.openDecisions (not accept-register size).
     acceptanceCount: openDecisions,
-    loss: loss
-      ? {
-          ale: ENTERPRISE_LOSS.ale,
-          p90: ENTERPRISE_LOSS.p90,
-          p95: ENTERPRISE_LOSS.p95,
-          note: `In most years no major event occurs; the range is driven by rare, large events. A bad year (1 in 10) is about ${formatAedMillions(ENTERPRISE_LOSS.p90)} and 1 in 20 about ${formatAedMillions(ENTERPRISE_LOSS.p95)}. Sum of three simulated scenarios, draw by draw.`,
-          drivers: Object.values(LOSS).map((item) => ({ name: item.name, ale: item.ale })),
-        }
-      : null,
+    loss:
+      loss && demoOrg
+        ? {
+            ale: ENTERPRISE_LOSS.ale,
+            p90: ENTERPRISE_LOSS.p90,
+            p95: ENTERPRISE_LOSS.p95,
+            note: `In most years no major event occurs; the range is driven by rare, large events. A bad year (1 in 10) is about ${formatAedMillions(ENTERPRISE_LOSS.p90)} and 1 in 20 about ${formatAedMillions(ENTERPRISE_LOSS.p95)}. Sum of three simulated scenarios, draw by draw.`,
+            drivers: Object.values(LOSS).map((item) => ({ name: item.name, ale: item.ale })),
+          }
+        : null,
     lookFirst: card.rows
       .filter((row) => row.band === "Critical" || row.band === "High")
       .sort((a, b) => b.adjusted - a.adjusted)
@@ -436,11 +490,13 @@ function presentHeadline(
         appetiteState: appetiteState(row.adjusted, row.domain.appetite),
         outside: row.adjusted > row.domain.appetite,
       })),
-    trend: monthScorecards().map(({ month, card: monthCard }) => ({
-      month,
-      score: round1(monthCard.arithmetic),
-      headline: monthCard.headline,
-    })),
+    trend: (matchesModelRaws(card) ? monthScorecards() : [{ month: MONTHS[MONTHS.length - 1]!, card }]).map(
+      ({ month, card: monthCard }) => ({
+        month,
+        score: round1(monthCard.arithmetic),
+        headline: monthCard.headline,
+      }),
+    ),
     complianceDomain: cmp
       ? {
           name: cmp.domain.name,
@@ -645,7 +701,7 @@ function presentWhatIf(role: string, state: CommandState, loss: boolean): WhatIf
         : null,
     floorNote:
       afterCard.floored || BASELINE.floored
-        ? "The headline stays High while any domain is Critical, so a ransomware investment alone does not change it. That is the floor rule working as designed."
+        ? `Org held at ${BASELINE.headline} because ${BASELINE.floorDomain?.domain.name ?? "a domain"} is ${BASELINE.floorDomain?.band ?? BASELINE.headline}. A single control investment does not lift that floor.`
         : null,
     canSeeLoss: loss,
     modelNote: loss
@@ -770,7 +826,7 @@ function presentPack(role: string, state: CommandState, orgName: string): PackVi
     blocks: [
       {
         heading: "Posture",
-        text: `The weighted, coverage-adjusted score is ${format1(card.arithmetic)} (${bandName(card.arithmetic)}); the floor rule raises the headline to ${card.headline} because ${critical.map((row) => row.domain.name).join(" and ")} ${critical.length > 1 ? "are" : "is"} Critical. Spread: ${card.counts.Critical} Critical, ${card.counts.High} High, ${card.counts.Medium} Medium, ${card.counts.Low} Low.`,
+        text: `The weighted, coverage-adjusted score is ${format1(card.arithmetic)} (${bandName(card.arithmetic)}); the floor rule holds the headline at ${card.headline} because ${card.floorDomain?.domain.name ?? critical.map((row) => row.domain.name).join(" and ")} is ${card.floorDomain?.band ?? "Critical"}. Spread: ${card.counts.Critical} Critical, ${card.counts.High} High, ${card.counts.Medium} Medium, ${card.counts.Low} Low.`,
         items: [{ text: "Enterprise score", source: sourceLabel("enterprise_scores_v2") }],
       },
       ...(lossAllowed

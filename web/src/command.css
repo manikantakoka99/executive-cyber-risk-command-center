@@ -1296,6 +1296,62 @@ select.role-select { min-height: 44px; padding: 0 10px; }
 .hero-score-line .hero-kpi,
 .hero-score-line .word { font-family: var(--font); font-size:48px; font-weight:600; line-height:1.1; letter-spacing:normal; }
 .hero-score-line .hero-kpi { font-variant-numeric: tabular-nums; }
+.hero-score-line .word.tone-crit { color: var(--crit); }
+.hero-score-line .word.tone-high { color: var(--high); }
+.floor-hold {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+.floor-hold .text-link {
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+button.nist-label {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: inline;
+}
+button.nist-label:hover,
+button.nist-label:focus,
+button.nist-label:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.nist-empty {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.nist-empty-mark {
+  color: var(--muted);
+}
+.nist-empty small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.2;
+}
 .hero-score-chips { display:flex; align-items:center; gap:8px; margin-top:8px; }
 .hero-score-chips > * { min-height:24px; display:inline-flex; align-items:center; }
 @media (max-width: 720px) { .hero-score-line .hero-kpi, .hero-score-line .word { font-size:36px; } }
@@ -1310,6 +1366,95 @@ select.role-select { min-height: 44px; padding: 0 10px; }
   flex-direction: column;
   min-width: 0;
   height: 100%;
+}
+
+/* Empty headline KPIs: same 40px value size as real figures, muted token. */
+.kpi-empty-value {
+  color: var(--muted);
+  font-size: 40px;
+  line-height: 1;
+  font-weight: 750;
+}
+
+/* Headline KPI block: one muted caption under loss/confidence/decisions. */
+.kpi-headline-block {
+  margin-bottom: 16px;
+}
+.kpi-headline-block > .kpi-row {
+  margin-bottom: 0;
+}
+.kpi-row-headline {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+/* Keep headline KPI values on one line so Al Dhabi matches Falcon/Meridian height. */
+.kpi-row-headline .kpi .big {
+  white-space: nowrap;
+  line-height: 1;
+}
+.kpi-row-headline .kpi .note {
+  white-space: nowrap;
+}
+/* After the 4-col rule so ≤1100px (incl. 1024) is two per row again, matching .kpi-row. */
+@media (max-width: 1100px) {
+  .kpi-row-headline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .kpi-row-headline .kpi .big {
+    font-size: clamp(20px, 2.15vw, 34px);
+  }
+  .kpi-row-headline .kpi .kpi-empty-value {
+    font-size: clamp(20px, 2.15vw, 34px);
+  }
+  .kpi-row-headline .kpi .note {
+    font-size: 9px;
+  }
+}
+.kpi-group-empty-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+.kpi-group-empty-row > .kpi-group-empty {
+  grid-column: 2 / span 3;
+  margin: 0;
+  padding: 0;
+  font: 400 14px/1.4 var(--body);
+  color: var(--muted);
+  text-align: left;
+}
+@media (max-width: 1100px) {
+  .kpi-group-empty-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .kpi-group-empty-row > .kpi-group-empty {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 900px) {
+  .kpi-row-headline,
+  .kpi-group-empty-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .kpi-group-empty-row > .kpi-group-empty {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Compliance read failure: keep the full score-card height; muted, not red. */
+.compliance-load-error {
+  align-self: stretch;
+  min-height: 246px;
+  display: flex;
+  flex-direction: column;
+}
+.compliance-load-error .kpi-empty-value {
+  margin: 8px 0 0;
+}
+.compliance-load-caption {
+  margin: 10px 0 0;
+  font: 400 14px/1.4 var(--body);
+  color: var(--muted);
 }
 .kpi-row .kpi-label,
 .exec-hero .exec-grid .kpi-label {
@@ -1329,6 +1474,22 @@ select.role-select { min-height: 44px; padding: 0 10px; }
 
 @media (max-width: 800px) {
   .exec-hero .exec-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.ingest-summary .exec-grid > div {
+  min-width: 0;
+}
+.ingest-summary .exec-body {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+}
+.ingest-summary .exec-body > span,
+.ingest-summary .risk-number {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Below 1200px the workspace bar stays one row. */
