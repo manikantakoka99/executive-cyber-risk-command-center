@@ -32,16 +32,19 @@ const UUID_RE =
 
 /** Header impersonation is local QA only. The product UI uses the session cookie. */
 export function demoHeaderAuthEnabled(): boolean {
+  if (process.env.NODE_ENV === "production") return false;
   return process.env.DEMO_AUTH === "true";
 }
 
 export function isPublicEccPath(url: string): boolean {
   const path = url.split("?")[0] ?? url;
   if (path === "/health") return true;
-  // Login, logout, and invite acceptance are public. Any other /auth path
-  // (including a signup URL) is also unauthenticated so a missing route is 404.
-  // Switching org still requires a session.
-  if (path.startsWith("/api/ecc/auth/") && path !== "/api/ecc/auth/switch-org") return true;
+  // Authenticated auth routes that require a session:
+  if (path === "/api/ecc/auth/switch-org") return false;
+  if (path.startsWith("/api/ecc/auth/mfa/") && path !== "/api/ecc/auth/mfa/verify") return false;
+  // Login, logout, invite preview/acceptance, and mfa verification are unauthenticated/public.
+  // Any other /auth path (including a signup URL) is unauthenticated so a missing route is 404.
+  if (path.startsWith("/api/ecc/auth/")) return true;
   return false;
 }
 

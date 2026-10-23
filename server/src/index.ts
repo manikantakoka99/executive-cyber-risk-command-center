@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import "dotenv/config";
 
+// Reloaded: auth credentials verified
 import { query, runWithRequestTenant } from "./db.js";
 import { isPublicEccPath, requireRoles, tenantMiddleware } from "./middleware/tenant.js";
 import { registerAuthRoutes } from "./auth/routes.js";
@@ -114,7 +115,11 @@ import { installRequestValidation } from "./middleware/requestValidation.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GENERATED_DIR = path.join(__dirname, "..", "generated");
 
-export const app = Fastify({ logger: true });
+export const app = Fastify({
+  logger: {
+    redact: ["req.headers.cookie", "req.headers.authorization"],
+  },
+});
 
 // Before routes so each route's preHandler list ends with validation,
 // which therefore runs after auth, the permission hook, and requireRoles.

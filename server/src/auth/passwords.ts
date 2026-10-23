@@ -14,7 +14,8 @@ export function verifyPassword(password: string, passwordHash: string): Promise<
   return bcrypt.compare(password, passwordHash);
 }
 
-export function verifyPasswordOrDummy(password: string, passwordHash: string | null): Promise<boolean> {
+
+export async function verifyPasswordOrDummy(password: string, passwordHash: string | null): Promise<boolean> {
   return bcrypt.compare(password, passwordHash ?? DUMMY_HASH);
 }
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Apply the app schema to an empty database.
-# Order: schema.sql, migrations 001–011, clear the bootstrap catalog,
+# Order: schema.sql, migrations 001â€“011, clear the bootstrap catalog,
 # import the sample workbook, format AED impact summaries, then seed tenants.
 # npm run demo:seed then creates the Al Dhabi scenarios.
 #
@@ -67,7 +67,9 @@ for name in \
   009_ecc_auth.sql \
   010_decision_log_org.sql \
   011_org_id_not_null.sql \
-  012_audit_log_org_restrict.sql
+  012_audit_log_org_restrict.sql \
+  013_ecc_mfa_totp.sql \
+  014_ecc_mfa_enrollment.sql
 do
   run_sql "$ROOT/migrations/$name"
 done

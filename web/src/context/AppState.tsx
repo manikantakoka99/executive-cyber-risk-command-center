@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ApiError, api, type SessionUser } from "../lib/api";
+import { ApiError, api, type LoginResult, type SessionUser } from "../lib/api";
 
 export interface Membership {
   orgId: string;
@@ -36,7 +36,8 @@ interface AppContextValue {
   orgId: string;
   userId: string;
   me: Me | null;
-  signIn: (email: string, password: string) => Promise<Me>;
+  signIn: (email: string, password: string) => Promise<LoginResult | Me>;
+  completeMfaSignIn: (user: SessionUser) => Promise<Me>;
   applySession: (user: SessionUser) => void;
   switchOrg: (orgId: string) => Promise<void>;
   signOut: () => void;
@@ -105,8 +106,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [boot]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const { user } = await api.login(email, password);
+  const signIn = useCallback(async (email: string, password: string): Promise<LoginResult | Me> => {
+    const res = await api.login(email, password);
+    if ("mfaRequired" in res && res.mfaRequired) {
+      return res;
+    }
+    const full = await api.me();
+    const next = meFrom({ ...full.user, ...res.user, permissions: full.user.permissions });
+    setMe(next);
+    setReady(true);
+    return next;
+  }, []);
+
+  const completeMfaSignIn = useCallback(async (user: SessionUser): Promise<Me> => {
     const full = await api.me();
     const next = meFrom({ ...full.user, ...user, permissions: full.user.permissions });
     setMe(next);
@@ -138,6 +150,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       userId: me?.userId ?? "",
       me,
       signIn,
+      completeMfaSignIn,
       applySession,
       switchOrg,
       signOut,
@@ -145,7 +158,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       error,
       retry,
     }),
-    [me, signIn, applySession, switchOrg, signOut, ready, error, retry],
+    [me, signIn, completeMfaSignIn, applySession, switchOrg, signOut, ready, error, retry],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

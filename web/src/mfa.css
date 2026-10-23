@@ -1,0 +1,298 @@
+/*
+ * Multi-Factor Authentication (MFA) Styles
+ * Follows ECC Sandstone Design System
+ */
+
+.mfa-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mfa-badge.active {
+  background: var(--good-bg);
+  color: var(--good);
+  border: 1px solid color-mix(in srgb, var(--good) 30%, transparent);
+}
+
+.mfa-badge.inactive {
+  background: var(--medium-bg);
+  color: var(--medium);
+  border: 1px solid color-mix(in srgb, var(--medium) 30%, transparent);
+}
+
+.mfa-code-input {
+  height: 52px !important;
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  letter-spacing: 10px !important;
+  text-align: center !important;
+  font-family: var(--mono, monospace) !important;
+  border: 2px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mfa-code-input:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accentSoft) !important;
+  outline: none !important;
+}
+
+.mfa-recovery-input {
+  height: 48px !important;
+  font-size: 16px !important;
+  font-family: var(--mono, monospace) !important;
+  letter-spacing: 2px !important;
+  text-align: center !important;
+  text-transform: uppercase !important;
+  border: 2px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+.mfa-recovery-input:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accentSoft) !important;
+  outline: none !important;
+}
+
+.mfa-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 0;
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.mfa-toggle-btn:hover {
+  color: color-mix(in srgb, var(--accent) 80%, black);
+}
+
+.mfa-secondary-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius);
+  height: 42px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.mfa-secondary-btn:hover {
+  background: var(--surface2);
+  border-color: var(--border2);
+}
+
+.mfa-alert {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  line-height: 1.45;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.mfa-alert.error {
+  background: var(--critical-bg);
+  color: var(--crit);
+  border: 1px solid color-mix(in srgb, var(--crit) 25%, transparent);
+}
+
+.mfa-alert.warning {
+  background: var(--medium-bg);
+  color: var(--med);
+  border: 1px solid color-mix(in srgb, var(--med) 25%, transparent);
+}
+
+.mfa-alert.info {
+  background: var(--accentSoft);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.mfa-alert.success {
+  background: var(--good-bg);
+  color: var(--good);
+  border: 1px solid color-mix(in srgb, var(--good) 25%, transparent);
+}
+
+/* Security Management Screen */
+.security-page {
+  padding: 24px 32px 48px;
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.security-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+
+.security-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.security-card-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.security-card-desc {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* QR Code & Setup Wizard */
+.qr-preview-box {
+  background: #ffffff;
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.qr-preview-box img {
+  display: block;
+  max-width: 200px;
+  height: auto;
+}
+
+.secret-key-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--mono, monospace);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--text);
+}
+
+.secret-key-text {
+  word-break: break-all;
+  user-select: all;
+}
+
+/* Recovery Codes Grid */
+.recovery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.recovery-code-chip {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-family: var(--mono, monospace);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 1px;
+  color: var(--text);
+}
+
+/* Modal Dialog */
+.mfa-modal-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 20, 0.65);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.mfa-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: min(540px, 100%);
+  padding: 28px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+.mfa-modal h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mfa-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.btn.danger {
+  background: var(--crit);
+  color: #ffffff;
+  border: none;
+}
+
+.btn.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--crit) 85%, black);
+}

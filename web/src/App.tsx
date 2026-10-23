@@ -30,9 +30,11 @@ import { OverviewPage } from "./pages/OverviewPage";
 import { PolicyAppetitePage } from "./pages/PolicyAppetitePage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ScenarioDetailPage, ScenariosPage } from "./pages/ScenariosPage";
+import { SecurityPage } from "./pages/SecurityPage";
 import "./index.css";
 import "./design.css";
 import "./command.css";
+import "./mfa.css";
 
 function Permit({
   permission,
@@ -196,6 +198,7 @@ function EccApp() {
         <Route path="/reports" element={<Permit permission="reports.read"><ReportsPage /></Permit>} />
         <Route path="/audit" element={<Permit permission="audit.read"><AuditPage /></Permit>} />
         <Route path="/admin" element={<Permit permission="admin.users"><AdminPage /></Permit>} />
+        <Route path="/security" element={<SecurityPage />} />
         <Route
           path="*"
           element={

@@ -9,15 +9,22 @@ import {
 } from "./loginThrottle.js";
 import {
   acceptInvite,
+  accountIdForEmail,
+  confirmMfaSetup,
   createInvite,
+  disableMfa,
+  getMfaStatus,
   login,
   previewInvite,
   principalFromToken,
   readCookie,
+  regenerateRecoveryCodes,
   revokeToken,
   sessionCookie,
   SESSION_COOKIE,
+  setupMfa,
   switchOrg,
+  verifyMfaChallengeAndLogin,
 } from "./service.js";
 
 function publicError(reply: FastifyReply, status: number, code: string, message: string) {
@@ -44,8 +51,142 @@ export function registerAuthRoutes(app: FastifyInstance) {
       return publicError(reply, 401, "unauthorized", "Wrong email or password.");
     }
     clearEmailLoginFailures(email);
+
+    if (result.mfaRequired) {
+      return reply.code(200).send({
+        mfaRequired: true,
+        mfaTicket: result.mfaTicket,
+        expiresAt: result.expiresAt,
+      });
+    }
+
     reply.header("set-cookie", sessionCookie(result.token));
     return { user: publicUser(result.principal) };
+  });
+
+  app.post("/api/ecc/auth/mfa/verify", async (req, reply) => {
+    const body = z
+      .object({
+        mfaTicket: z.string().min(10).max(256),
+        code: z.string().min(6).max(64),
+      })
+      .safeParse(req.body ?? {});
+
+    const ip = loginClientIp(req.ip, req.headers["x-forwarded-for"]);
+    const blocked = loginBlocked(ip, null);
+    if (!blocked.ok) {
+      reply.header("retry-after", String(blocked.retryAfterSec));
+      return publicError(reply, 429, "too_many_requests", "Too many verification attempts. Try again later.");
+    }
+
+    if (!body.success) {
+      recordLoginFailure(ip, null);
+      return publicError(reply, 400, "invalid_body", "Valid mfaTicket and verification code are required.");
+    }
+
+    const result = await verifyMfaChallengeAndLogin(body.data.mfaTicket, body.data.code);
+    if (!result.ok) {
+      recordLoginFailure(ip, null);
+      return publicError(reply, result.status, result.code, result.message);
+    }
+
+    clearEmailLoginFailures(result.principal.email);
+    reply.header("set-cookie", sessionCookie(result.token));
+    return {
+      user: publicUser(result.principal),
+      usedRecoveryCode: result.usedRecoveryCode ?? false,
+    };
+  });
+
+  app.get("/api/ecc/auth/mfa/status", async (req, reply) => {
+    if (!req.tenant) return publicError(reply, 401, "unauthorized", "Sign in required.");
+    const accountId = req.tenant.accountId ?? (await accountIdForEmail(req.tenant.email));
+    if (!accountId) return publicError(reply, 404, "not_found", "Account not found.");
+    const status = await getMfaStatus(accountId);
+    return status;
+  });
+
+  app.post("/api/ecc/auth/mfa/setup", async (req, reply) => {
+    if (!req.tenant) return publicError(reply, 401, "unauthorized", "Sign in required.");
+    const body = z.object({ password: z.string().min(1).max(200) }).safeParse(req.body ?? {});
+    if (!body.success) return publicError(reply, 400, "invalid_body", "Password is required for reauthentication.");
+
+    const accountId = req.tenant.accountId ?? (await accountIdForEmail(req.tenant.email));
+    if (!accountId) return publicError(reply, 404, "not_found", "Account not found.");
+
+    try {
+      const result = await setupMfa(accountId, body.data.password);
+      return result;
+    } catch (err: unknown) {
+      const status = (err as { status?: number }).status ?? 400;
+      const message = err instanceof Error ? err.message : "MFA setup failed.";
+      return publicError(reply, status, status === 401 ? "unauthorized" : "invalid_body", message);
+    }
+  });
+
+  app.post("/api/ecc/auth/mfa/confirm-setup", async (req, reply) => {
+    if (!req.tenant) return publicError(reply, 401, "unauthorized", "Sign in required.");
+    const body = z.object({ code: z.string().min(6).max(64) }).safeParse(req.body ?? {});
+    if (!body.success) return publicError(reply, 400, "invalid_body", "A 6-digit verification code is required.");
+
+    const accountId = req.tenant.accountId ?? (await accountIdForEmail(req.tenant.email));
+    if (!accountId) return publicError(reply, 404, "not_found", "Account not found.");
+
+    try {
+      const result = await confirmMfaSetup(accountId, body.data.code);
+      return result;
+    } catch (err: unknown) {
+      const status = (err as { status?: number }).status ?? 400;
+      const message = err instanceof Error ? err.message : "MFA confirmation failed.";
+      return publicError(reply, status, "invalid_code", message);
+    }
+  });
+
+  app.post("/api/ecc/auth/mfa/disable", async (req, reply) => {
+    if (!req.tenant) return publicError(reply, 401, "unauthorized", "Sign in required.");
+    const body = z
+      .object({
+        password: z.string().min(1).max(200),
+        code: z.string().max(64).optional(),
+        recoveryCode: z.string().max(64).optional(),
+      })
+      .safeParse(req.body ?? {});
+    if (!body.success) return publicError(reply, 400, "invalid_body", "Password and either TOTP code or recovery code are required.");
+
+    const accountId = req.tenant.accountId ?? (await accountIdForEmail(req.tenant.email));
+    if (!accountId) return publicError(reply, 404, "not_found", "Account not found.");
+
+    try {
+      const result = await disableMfa(accountId, body.data.password, body.data.code, body.data.recoveryCode);
+      return result;
+    } catch (err: unknown) {
+      const status = (err as { status?: number }).status ?? 400;
+      const message = err instanceof Error ? err.message : "Failed to disable MFA.";
+      return publicError(reply, status, status === 401 ? "unauthorized" : "invalid_code", message);
+    }
+  });
+
+  app.post("/api/ecc/auth/mfa/regenerate-recovery-codes", async (req, reply) => {
+    if (!req.tenant) return publicError(reply, 401, "unauthorized", "Sign in required.");
+    const body = z
+      .object({
+        password: z.string().min(1).max(200),
+        code: z.string().min(6).max(64),
+      })
+      .safeParse(req.body ?? {});
+    if (!body.success) return publicError(reply, 400, "invalid_body", "Password and a valid TOTP code are required.");
+
+    const accountId = req.tenant.accountId ?? (await accountIdForEmail(req.tenant.email));
+    if (!accountId) return publicError(reply, 404, "not_found", "Account not found.");
+
+    try {
+      const result = await regenerateRecoveryCodes(accountId, body.data.password, body.data.code);
+      return result;
+    } catch (err: unknown) {
+      const status = (err as { status?: number }).status ?? 400;
+      const message = err instanceof Error ? err.message : "Failed to regenerate recovery codes.";
+      return publicError(reply, status, status === 401 ? "unauthorized" : "invalid_code", message);
+    }
   });
 
   app.post("/api/ecc/auth/logout", async (req, reply) => {

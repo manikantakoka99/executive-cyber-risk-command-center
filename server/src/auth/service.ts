@@ -4,6 +4,18 @@ import { findPersona } from "../command/personas.js";
 import { deliverMail } from "./outboundMail.js";
 import { hashPassword, hashSecret, newSecret, passwordAccepted, verifyPasswordOrDummy } from "./passwords.js";
 import { ensureAuthSchema } from "./schema.js";
+import {
+  decryptTotpSecret,
+  encryptTotpSecret,
+  generateMfaChallengeTicket,
+  generateRecoveryCodes,
+  generateTotpSecret,
+  generateTotpUri,
+  hashMfaChallengeTicket,
+  isTotpStepReplayed,
+  verifyAndConsumeRecoveryCode,
+  verifyTotpCode,
+} from "./totp.js";
 
 export const SESSION_COOKIE = "ecc_session";
 const SESSION_MS = 12 * 60 * 60 * 1000;
@@ -35,6 +47,12 @@ type AccountRow = {
   password_hash: string;
   first_name: string;
   last_name: string | null;
+  mfa_enabled?: boolean;
+  totp_secret_encrypted?: string | null;
+  totp_secret_iv?: string | null;
+  totp_secret_tag?: string | null;
+  backup_codes_hashes?: string[] | null;
+  last_totp_timestamp?: string | number | bigint | null;
 };
 
 export function readCookie(header: string | undefined, name: string): string | undefined {
@@ -64,11 +82,43 @@ export async function verifySecondFactor(_input: { email: string; accountId: str
   return true;
 }
 
-export async function login(email: string, password: string): Promise<{ token: string; principal: SessionPrincipal } | null> {
+export type LoginSuccessResult = {
+  mfaRequired: false;
+  token: string;
+  principal: SessionPrincipal;
+};
+
+export type LoginMfaRequiredResult = {
+  mfaRequired: true;
+  mfaTicket: string;
+  expiresAt: string;
+};
+
+export type LoginResult = LoginSuccessResult | LoginMfaRequiredResult;
+
+export async function createSessionForAccount(
+  accountId: string,
+): Promise<{ token: string; principal: SessionPrincipal } | null> {
+  const memberships = await membershipsFor(accountId);
+  const home = memberships[0];
+  if (!home) return null;
+  const token = newSecret();
+  const expires = new Date(Date.now() + SESSION_MS);
+  await query(
+    `INSERT INTO auth_sessions (token_hash, account_id, user_id, org_id, expires_at)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [hashSecret(token), accountId, home.userId, home.orgId, expires.toISOString()],
+  );
+  const principal = await principalFromToken(token);
+  if (!principal) return null;
+  return { token, principal };
+}
+
+export async function login(email: string, password: string): Promise<LoginResult | null> {
   await ensureAuthSchema();
   const normalized = email.trim().toLowerCase();
   const { rows } = await query<AccountRow>(
-    `SELECT account_id, email, password_hash, first_name, last_name
+    `SELECT account_id, email, password_hash, first_name, last_name, mfa_enabled
      FROM auth_accounts WHERE lower(email) = $1`,
     [normalized],
   );
@@ -77,19 +127,31 @@ export async function login(email: string, password: string): Promise<{ token: s
   if (!account || !ok) return null;
   const secondFactor = await verifySecondFactor({ email: account.email, accountId: account.account_id });
   if (!secondFactor) return null;
-  const memberships = await membershipsFor(account.account_id);
-  const home = memberships[0];
-  if (!home) return null;
-  const token = newSecret();
-  const expires = new Date(Date.now() + SESSION_MS);
-  await query(
-    `INSERT INTO auth_sessions (token_hash, account_id, user_id, org_id, expires_at)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [hashSecret(token), account.account_id, home.userId, home.orgId, expires.toISOString()],
-  );
-  const principal = await principalFromToken(token);
-  if (!principal) return null;
-  return { token, principal };
+
+  // If MFA is enabled on this account, issue an ephemeral 5-minute challenge ticket
+  // and do NOT issue an authenticated session cookie yet.
+  if (account.mfa_enabled) {
+    const { ticket, ticketHash } = generateMfaChallengeTicket();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await query(
+      `INSERT INTO auth_mfa_challenges (ticket_hash, account_id, expires_at)
+       VALUES ($1, $2, $3)`,
+      [ticketHash, account.account_id, expiresAt.toISOString()],
+    );
+    return {
+      mfaRequired: true,
+      mfaTicket: ticket,
+      expiresAt: expiresAt.toISOString(),
+    };
+  }
+
+  const session = await createSessionForAccount(account.account_id);
+  if (!session) return null;
+  return {
+    mfaRequired: false,
+    token: session.token,
+    principal: session.principal,
+  };
 }
 
 export async function principalFromToken(token: string): Promise<SessionPrincipal | null> {
@@ -457,4 +519,437 @@ function nameFromEmail(email: string): { firstName: string; lastName: string | n
   if (parts.length === 0) return { firstName: "New", lastName: null };
   if (parts.length === 1) return { firstName: parts[0], lastName: null };
   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+}
+
+export async function accountIdForEmail(email: string): Promise<string | null> {
+  const { rows } = await query<{ account_id: string }>(
+    `SELECT account_id FROM auth_accounts WHERE lower(email) = lower($1)`,
+    [email.trim()],
+  );
+  return rows[0]?.account_id ?? null;
+}
+
+export async function getMfaStatus(accountId: string): Promise<{ mfaEnabled: boolean; enrolledAt: string | null }> {
+  await ensureAuthSchema();
+  const { rows } = await query<{ mfa_enabled: boolean; mfa_enrolled_at: Date | null }>(
+    `SELECT mfa_enabled, mfa_enrolled_at FROM auth_accounts WHERE account_id = $1`,
+    [accountId],
+  );
+  const row = rows[0];
+  return {
+    mfaEnabled: row?.mfa_enabled ?? false,
+    enrolledAt: row?.mfa_enrolled_at ? new Date(row.mfa_enrolled_at).toISOString() : null,
+  };
+}
+
+export async function verifyMfaChallengeAndLogin(
+  mfaTicket: string,
+  code: string,
+): Promise<
+  | { ok: true; token: string; principal: SessionPrincipal; usedRecoveryCode?: boolean }
+  | { ok: false; status: number; code: string; message: string }
+> {
+  await ensureAuthSchema();
+  if (!mfaTicket || typeof mfaTicket !== "string") {
+    return { ok: false, status: 400, code: "invalid_body", message: "mfaTicket is required." };
+  }
+  if (!code || typeof code !== "string") {
+    return { ok: false, status: 400, code: "invalid_body", message: "Verification code is required." };
+  }
+
+  const cleanTicket = mfaTicket.trim();
+  const cleanCode = code.trim();
+  const ticketHash = hashMfaChallengeTicket(cleanTicket);
+
+  const { rows: challengeRows } = await query<{
+    challenge_id: string;
+    account_id: string;
+    attempts: number;
+    consumed_at: Date | null;
+    expires_at: Date;
+  }>(
+    `SELECT challenge_id, account_id, attempts, consumed_at, expires_at
+     FROM auth_mfa_challenges
+     WHERE ticket_hash = $1`,
+    [ticketHash],
+  );
+
+  const challenge = challengeRows[0];
+  if (!challenge) {
+    return { ok: false, status: 401, code: "invalid_challenge", message: "Invalid MFA challenge. Sign in again." };
+  }
+
+  if (challenge.consumed_at != null) {
+    return { ok: false, status: 401, code: "challenge_consumed", message: "This challenge has already been consumed. Sign in again." };
+  }
+
+  if (new Date(challenge.expires_at).getTime() < Date.now()) {
+    return { ok: false, status: 401, code: "challenge_expired", message: "MFA challenge has expired. Sign in again." };
+  }
+
+  if (challenge.attempts >= 5) {
+    return { ok: false, status: 401, code: "challenge_exhausted", message: "Too many failed verification attempts. Sign in again." };
+  }
+
+  const { rows: accountRows } = await query<AccountRow>(
+    `SELECT account_id, email, mfa_enabled, totp_secret_encrypted, totp_secret_iv, totp_secret_tag,
+            backup_codes_hashes, last_totp_timestamp
+     FROM auth_accounts WHERE account_id = $1`,
+    [challenge.account_id],
+  );
+  const account = accountRows[0];
+  if (!account || !account.mfa_enabled || !account.totp_secret_encrypted || !account.totp_secret_iv || !account.totp_secret_tag) {
+    return { ok: false, status: 401, code: "mfa_not_configured", message: "MFA is not configured for this account." };
+  }
+
+  let totpMatchedStep: number | undefined;
+  let usedRecoveryCode = false;
+
+  // 1. Try 6-digit TOTP code
+  if (/^\d{6}$/.test(cleanCode)) {
+    try {
+      const secret = decryptTotpSecret({
+        ciphertextHex: account.totp_secret_encrypted,
+        ivHex: account.totp_secret_iv,
+        tagHex: account.totp_secret_tag,
+      });
+      const totpResult = verifyTotpCode({ secret, code: cleanCode, toleranceSteps: 1 });
+      if (totpResult.valid && totpResult.matchedStep !== undefined) {
+        // Enforce replay prevention against last_totp_timestamp
+        if (isTotpStepReplayed(totpResult.matchedStep, account.last_totp_timestamp)) {
+          await query(`UPDATE auth_mfa_challenges SET attempts = attempts + 1 WHERE challenge_id = $1`, [challenge.challenge_id]);
+          return {
+            ok: false,
+            status: 401,
+            code: "code_replayed",
+            message: "This code was already used. Please wait for the next 30-second code.",
+          };
+        }
+        totpMatchedStep = totpResult.matchedStep;
+      }
+    } catch {
+      /* ignore decryption error, proceed to check recovery code or fail */
+    }
+  }
+
+  // 2. Try emergency recovery code if TOTP didn't match
+  let updatedRecoveryHashes: string[] | undefined;
+  if (totpMatchedStep === undefined && account.backup_codes_hashes?.length) {
+    const recoveryResult = verifyAndConsumeRecoveryCode(cleanCode, account.backup_codes_hashes);
+    if (recoveryResult.matched) {
+      usedRecoveryCode = true;
+      updatedRecoveryHashes = recoveryResult.remainingHashes;
+    }
+  }
+
+  if (totpMatchedStep === undefined && !usedRecoveryCode) {
+    await query(`UPDATE auth_mfa_challenges SET attempts = attempts + 1 WHERE challenge_id = $1`, [challenge.challenge_id]);
+    return { ok: false, status: 401, code: "invalid_code", message: "Invalid verification code." };
+  }
+
+  // 3. Atomic consumption of the challenge (prevents concurrent race conditions)
+  const { rowCount: consumedCount } = await query(
+    `UPDATE auth_mfa_challenges
+     SET consumed_at = now()
+     WHERE challenge_id = $1 AND consumed_at IS NULL`,
+    [challenge.challenge_id],
+  );
+  if (consumedCount === 0) {
+    return { ok: false, status: 401, code: "challenge_consumed", message: "This challenge has already been consumed." };
+  }
+
+  // 4. Update replay step or remaining recovery codes atomically in DB
+  if (totpMatchedStep !== undefined) {
+    const { rowCount: replayCount } = await query(
+      `UPDATE auth_accounts
+       SET last_totp_timestamp = $2
+       WHERE account_id = $1
+         AND (last_totp_timestamp IS NULL OR last_totp_timestamp < $2)`,
+      [account.account_id, totpMatchedStep],
+    );
+    if (replayCount === 0) {
+      return { ok: false, status: 401, code: "code_replayed", message: "This code was already accepted in a concurrent session." };
+    }
+  } else if (usedRecoveryCode && updatedRecoveryHashes) {
+    await query(
+      `UPDATE auth_accounts
+       SET backup_codes_hashes = $2
+       WHERE account_id = $1`,
+      [account.account_id, updatedRecoveryHashes],
+    );
+  }
+
+  // 5. Issue session
+  const sessionResult = await createSessionForAccount(account.account_id);
+  if (!sessionResult) {
+    return { ok: false, status: 500, code: "session_failed", message: "Failed to establish authenticated session." };
+  }
+
+  return {
+    ok: true,
+    token: sessionResult.token,
+    principal: sessionResult.principal,
+    usedRecoveryCode,
+  };
+}
+
+export async function setupMfa(
+  accountId: string,
+  passwordConfirm: string,
+): Promise<{ provisioningUri: string; manualSecret: string; expiresAt: string }> {
+  await ensureAuthSchema();
+  const { rows } = await query<AccountRow>(
+    `SELECT account_id, email, password_hash FROM auth_accounts WHERE account_id = $1`,
+    [accountId],
+  );
+  const account = rows[0];
+  if (!account) {
+    const err = new Error("Account not found.") as Error & { status?: number };
+    err.status = 404;
+    throw err;
+  }
+
+  const ok = await verifyPasswordOrDummy(passwordConfirm, account.password_hash);
+  if (!ok) {
+    const err = new Error("Wrong password.") as Error & { status?: number };
+    err.status = 401;
+    throw err;
+  }
+
+  const secret = generateTotpSecret(20);
+  const encrypted = encryptTotpSecret(secret);
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+  await query(
+    `INSERT INTO auth_mfa_pending_enrollments (account_id, secret_encrypted, secret_iv, secret_tag, expires_at)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (account_id) DO UPDATE SET
+       secret_encrypted = EXCLUDED.secret_encrypted,
+       secret_iv = EXCLUDED.secret_iv,
+       secret_tag = EXCLUDED.secret_tag,
+       expires_at = EXCLUDED.expires_at,
+       created_at = now()`,
+    [account.account_id, encrypted.ciphertextHex, encrypted.ivHex, encrypted.tagHex, expiresAt.toISOString()],
+  );
+
+  const provisioningUri = generateTotpUri({
+    secret,
+    email: account.email,
+    issuer: "Executive Cyber Risk Command Center",
+  });
+
+  return {
+    provisioningUri,
+    manualSecret: secret,
+    expiresAt: expiresAt.toISOString(),
+  };
+}
+
+export async function confirmMfaSetup(
+  accountId: string,
+  code: string,
+): Promise<{ ok: true; backupCodes: string[] }> {
+  await ensureAuthSchema();
+  const { rows: pendingRows } = await query<{
+    secret_encrypted: string;
+    secret_iv: string;
+    secret_tag: string;
+    expires_at: Date;
+  }>(
+    `SELECT secret_encrypted, secret_iv, secret_tag, expires_at
+     FROM auth_mfa_pending_enrollments
+     WHERE account_id = $1`,
+    [accountId],
+  );
+
+  const pending = pendingRows[0];
+  if (!pending) {
+    const err = new Error("Pending MFA enrollment expired or not found. Start setup again.") as Error & { status?: number };
+    err.status = 400;
+    throw err;
+  }
+
+  if (new Date(pending.expires_at).getTime() < Date.now()) {
+    await query(`DELETE FROM auth_mfa_pending_enrollments WHERE account_id = $1`, [accountId]);
+    const err = new Error("Pending MFA enrollment expired. Start setup again.") as Error & { status?: number };
+    err.status = 400;
+    throw err;
+  }
+
+  const decryptedSecret = decryptTotpSecret({
+    ciphertextHex: pending.secret_encrypted,
+    ivHex: pending.secret_iv,
+    tagHex: pending.secret_tag,
+  });
+
+  const totpResult = verifyTotpCode({
+    secret: decryptedSecret,
+    code: code.trim(),
+    toleranceSteps: 1,
+  });
+
+  if (!totpResult.valid || totpResult.matchedStep === undefined) {
+    const err = new Error("Invalid verification code. Check Google Authenticator and try again.") as Error & { status?: number };
+    err.status = 400;
+    throw err;
+  }
+
+  const recoveryBundle = generateRecoveryCodes(8);
+
+  // Atomically promote pending secret, mark MFA enabled, record initial step, and set recovery codes
+  await query(
+    `UPDATE auth_accounts
+     SET mfa_enabled = true,
+         totp_secret_encrypted = $2,
+         totp_secret_iv = $3,
+         totp_secret_tag = $4,
+         mfa_enrolled_at = now(),
+         backup_codes_hashes = $5,
+         last_totp_timestamp = $6
+     WHERE account_id = $1`,
+    [
+      accountId,
+      pending.secret_encrypted,
+      pending.secret_iv,
+      pending.secret_tag,
+      recoveryBundle.hashedCodes,
+      totpResult.matchedStep - 1,
+    ],
+  );
+
+  await query(`DELETE FROM auth_mfa_pending_enrollments WHERE account_id = $1`, [accountId]);
+
+  return {
+    ok: true,
+    backupCodes: recoveryBundle.plaintextCodes,
+  };
+}
+
+export async function disableMfa(
+  accountId: string,
+  passwordConfirm: string,
+  code?: string,
+  recoveryCode?: string,
+): Promise<{ ok: true }> {
+  await ensureAuthSchema();
+  const { rows } = await query<AccountRow>(
+    `SELECT account_id, email, password_hash, mfa_enabled,
+            totp_secret_encrypted, totp_secret_iv, totp_secret_tag,
+            backup_codes_hashes
+     FROM auth_accounts WHERE account_id = $1`,
+    [accountId],
+  );
+  const account = rows[0];
+  if (!account) {
+    const err = new Error("Account not found.") as Error & { status?: number };
+    err.status = 404;
+    throw err;
+  }
+
+  if (!account.mfa_enabled) {
+    return { ok: true };
+  }
+
+  const passwordOk = await verifyPasswordOrDummy(passwordConfirm, account.password_hash);
+  if (!passwordOk) {
+    const err = new Error("Wrong password.") as Error & { status?: number };
+    err.status = 401;
+    throw err;
+  }
+
+  // Factor verification: requires either valid TOTP code or valid recovery code
+  let factorVerified = false;
+  if (code && account.totp_secret_encrypted && account.totp_secret_iv && account.totp_secret_tag) {
+    try {
+      const secret = decryptTotpSecret({
+        ciphertextHex: account.totp_secret_encrypted,
+        ivHex: account.totp_secret_iv,
+        tagHex: account.totp_secret_tag,
+      });
+      const result = verifyTotpCode({ secret, code: code.trim(), toleranceSteps: 1 });
+      if (result.valid) {
+        factorVerified = true;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (!factorVerified && recoveryCode && account.backup_codes_hashes) {
+    const recoveryResult = verifyAndConsumeRecoveryCode(recoveryCode, account.backup_codes_hashes);
+    if (recoveryResult.matched) {
+      factorVerified = true;
+    }
+  }
+
+  if (!factorVerified) {
+    const err = new Error("A valid TOTP code or recovery code is required to disable MFA.") as Error & { status?: number };
+    err.status = 400;
+    throw err;
+  }
+
+  await query(
+    `UPDATE auth_accounts
+     SET mfa_enabled = false,
+         totp_secret_encrypted = NULL,
+         totp_secret_iv = NULL,
+         totp_secret_tag = NULL,
+         mfa_enrolled_at = NULL,
+         backup_codes_hashes = NULL,
+         last_totp_timestamp = NULL
+     WHERE account_id = $1`,
+    [accountId],
+  );
+
+  await query(`DELETE FROM auth_mfa_pending_enrollments WHERE account_id = $1`, [accountId]);
+  await query(`UPDATE auth_mfa_challenges SET consumed_at = now() WHERE account_id = $1 AND consumed_at IS NULL`, [accountId]);
+
+  return { ok: true };
+}
+
+export async function regenerateRecoveryCodes(
+  accountId: string,
+  passwordConfirm: string,
+  code: string,
+): Promise<{ ok: true; backupCodes: string[] }> {
+  await ensureAuthSchema();
+  const { rows } = await query<AccountRow>(
+    `SELECT account_id, password_hash, mfa_enabled,
+            totp_secret_encrypted, totp_secret_iv, totp_secret_tag
+     FROM auth_accounts WHERE account_id = $1`,
+    [accountId],
+  );
+  const account = rows[0];
+  if (!account || !account.mfa_enabled || !account.totp_secret_encrypted || !account.totp_secret_iv || !account.totp_secret_tag) {
+    const err = new Error("MFA is not enabled for this account.") as Error & { status?: number };
+    err.status = 400;
+    throw err;
+  }
+
+  const passwordOk = await verifyPasswordOrDummy(passwordConfirm, account.password_hash);
+  if (!passwordOk) {
+    const err = new Error("Wrong password.") as Error & { status?: number };
+    err.status = 401;
+    throw err;
+  }
+
+  const secret = decryptTotpSecret({
+    ciphertextHex: account.totp_secret_encrypted,
+    ivHex: account.totp_secret_iv,
+    tagHex: account.totp_secret_tag,
+  });
+  const result = verifyTotpCode({ secret, code: code.trim(), toleranceSteps: 1 });
+  if (!result.valid) {
+    const err = new Error("Invalid TOTP verification code.") as Error & { status?: number };
+    err.status = 400;
+    throw err;
+  }
+
+  const bundle = generateRecoveryCodes(8);
+  await query(
+    `UPDATE auth_accounts SET backup_codes_hashes = $2 WHERE account_id = $1`,
+    [accountId, bundle.hashedCodes],
+  );
+
+  return { ok: true, backupCodes: bundle.plaintextCodes };
 }

@@ -36,6 +36,8 @@ MIGRATIONS = [
     "010_decision_log_org.sql",
     "011_org_id_not_null.sql",
     "012_audit_log_org_restrict.sql",
+    "013_ecc_mfa_totp.sql",
+    "014_ecc_mfa_enrollment.sql",
 ]
 
 

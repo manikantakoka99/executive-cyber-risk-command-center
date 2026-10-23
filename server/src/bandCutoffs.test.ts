@@ -41,7 +41,7 @@ async function applyBandMigration() {
   // 008 inserts a platform default with a NULL org_id. Migration 011 copies
   // that row onto every org and then rejects NULL, so a replay skips the insert.
   const updates = sql.replace(
-    /-- Ensure a platform default exists[\s\S]*?WHERE NOT EXISTS \([\s\S]*?\);\n/,
+    /-- Ensure a platform default exists[\s\S]*?WHERE NOT EXISTS \([\s\S]*?\);[\r\n]+/,
     "",
   );
   assert.equal(updates.includes("org_id IS NULL"), false);

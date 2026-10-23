@@ -107,12 +107,17 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const paletteItems = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return nav;
-    return nav.filter(
+    const items = [
+      ...nav,
+      { to: "/security", label: "Security & MFA", hint: "Two-factor authentication and recovery codes" },
+    ];
+    if (!q) return items;
+    return items.filter(
       (item) =>
         item.label.toLowerCase().includes(q) ||
         item.hint.toLowerCase().includes(q) ||
-        item.to.includes(q),
+        item.to.includes(q) ||
+        ((q === "mfa" || q === "2fa" || q === "totp") && item.to === "/security"),
     );
   }, [nav, query]);
 
@@ -147,20 +152,27 @@ export function Shell({ children }: { children: ReactNode }) {
           )}
         </div>
 
-        {nav.length > 0 && (
-          <nav aria-label="Primary" ref={navScrollRef}>
-            {!collapsed && <p className="nav-label">Navigate</p>}
-            {nav.map((item) => {
-              const Icon = NAV_ICONS[item.to] ?? Search;
-              return (
-                <NavLink key={item.to} to={item.to} title={item.label}>
-                  <Icon size={18} strokeWidth={1.8} />
-                  {!collapsed && <span>{item.label}</span>}
-                </NavLink>
-              );
-            })}
-          </nav>
-        )}
+        <nav aria-label="Primary" ref={navScrollRef}>
+          {nav.length > 0 && (
+            <>
+              {!collapsed && <p className="nav-label">Navigate</p>}
+              {nav.map((item) => {
+                const Icon = NAV_ICONS[item.to] ?? Search;
+                return (
+                  <NavLink key={item.to} to={item.to} title={item.label}>
+                    <Icon size={18} strokeWidth={1.8} />
+                    {!collapsed && <span>{item.label}</span>}
+                  </NavLink>
+                );
+              })}
+            </>
+          )}
+          {!collapsed && <p className="nav-label" style={{ marginTop: "1rem" }}>Account</p>}
+          <NavLink to="/security" title="Security & MFA">
+            <Shield size={18} strokeWidth={1.8} />
+            {!collapsed && <span>Security & MFA</span>}
+          </NavLink>
+        </nav>
 
         <div className="sidebar-foot">
           <button
@@ -222,6 +234,16 @@ export function Shell({ children }: { children: ReactNode }) {
                         Users
                       </button>
                     )}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setAccountOpen(false);
+                        navigate("/security");
+                      }}
+                    >
+                      <Shield size={14} /> Security & MFA
+                    </button>
                     <button
                       type="button"
                       role="menuitem"

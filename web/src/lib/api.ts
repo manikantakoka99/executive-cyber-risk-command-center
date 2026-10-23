@@ -53,11 +53,58 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export type LoginResult =
+  | { mfaRequired: true; mfaTicket: string; expiresAt: string }
+  | { mfaRequired?: false; user: SessionUser };
+
+export interface MfaStatusResponse {
+  mfaEnabled: boolean;
+  enrolledAt: string | null;
+}
+
+export interface MfaSetupResponse {
+  provisioningUri: string;
+  manualSecret: string;
+  expiresAt: string;
+}
+
+export interface MfaConfirmResponse {
+  ok: true;
+  backupCodes: string[];
+}
+
 export const api = {
   login: (email: string, password: string) =>
-    request<{ user: SessionUser }>("/api/ecc/auth/login", {
+    request<LoginResult>("/api/ecc/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
+    }),
+  mfaVerify: (mfaTicket: string, code: string) =>
+    request<{ user: SessionUser; usedRecoveryCode?: boolean }>("/api/ecc/auth/mfa/verify", {
+      method: "POST",
+      body: JSON.stringify({ mfaTicket, code }),
+    }),
+  mfaStatus: () =>
+    request<MfaStatusResponse>("/api/ecc/auth/mfa/status"),
+  mfaSetup: (password: string) =>
+    request<MfaSetupResponse>("/api/ecc/auth/mfa/setup", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    }),
+  mfaConfirmSetup: (code: string) =>
+    request<MfaConfirmResponse>("/api/ecc/auth/mfa/confirm-setup", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+  mfaDisable: (password: string, code?: string, recoveryCode?: string) =>
+    request<{ ok: true }>("/api/ecc/auth/mfa/disable", {
+      method: "POST",
+      body: JSON.stringify({ password, code, recoveryCode }),
+    }),
+  mfaRegenerateRecoveryCodes: (password: string, code: string) =>
+    request<MfaConfirmResponse>("/api/ecc/auth/mfa/regenerate-recovery-codes", {
+      method: "POST",
+      body: JSON.stringify({ password, code }),
     }),
   logout: () => request<{ ok: boolean }>("/api/ecc/auth/logout", { method: "POST" }),
   switchOrg: (orgId: string) =>

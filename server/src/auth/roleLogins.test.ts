@@ -17,9 +17,18 @@ function cookieFrom(raw: string | string[] | undefined): string {
 }
 
 describe("role domain logins", () => {
+  const originalAccounts = new Map<string, { hash: string; mfa: boolean }>();
+
   before(async () => {
     await ensureAuthSchema();
     resetLoginThrottle();
+    const existing = await query<{ account_id: string; password_hash: string; mfa_enabled: boolean }>(
+      `SELECT account_id, password_hash, mfa_enabled FROM auth_accounts`,
+    );
+    for (const r of existing.rows) {
+      originalAccounts.set(r.account_id, { hash: r.password_hash, mfa: !!r.mfa_enabled });
+    }
+
     const passwordHash = await hashPassword(PASSWORD);
     for (const persona of roleLogins()) {
       const updated = await query(`UPDATE users SET email = $2, first_name = $3, last_name = $4 WHERE user_id = $1`, [
@@ -46,11 +55,11 @@ describe("role domain logins", () => {
       );
       let accountId = found.rows[0]?.account_id;
       if (accountId) {
-        await query(`UPDATE auth_accounts SET password_hash = $2 WHERE account_id = $1`, [accountId, passwordHash]);
+        await query(`UPDATE auth_accounts SET password_hash = $2, mfa_enabled = false WHERE account_id = $1`, [accountId, passwordHash]);
       } else {
         const inserted = await query<{ account_id: string }>(
-          `INSERT INTO auth_accounts (email, password_hash, first_name, last_name)
-           VALUES ($1, $2, $3, $4) RETURNING account_id`,
+          `INSERT INTO auth_accounts (email, password_hash, first_name, last_name, mfa_enabled)
+           VALUES ($1, $2, $3, $4, false) RETURNING account_id`,
           [persona.email, passwordHash, persona.firstName, persona.lastName],
         );
         accountId = inserted.rows[0].account_id;
@@ -74,7 +83,10 @@ describe("role domain logins", () => {
     }
   });
 
-  after(() => {
+  after(async () => {
+    for (const [accountId, prev] of originalAccounts) {
+      await query(`UPDATE auth_accounts SET password_hash = $2, mfa_enabled = $3 WHERE account_id = $1`, [accountId, prev.hash, prev.mfa]);
+    }
     resetLoginThrottle();
   });
 
