@@ -13,8 +13,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(here, "../../.env") });
-dotenv.config(); // server/.env override if present
+// Same file the API loads via dotenv/config when run from server/.
+dotenv.config({ path: path.join(here, "../.env") });
 
 import {
   prepareManagerDemo,

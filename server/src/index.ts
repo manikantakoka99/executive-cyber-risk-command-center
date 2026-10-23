@@ -9,6 +9,7 @@ import "dotenv/config";
 
 // Reloaded: auth credentials verified
 import { query, runWithRequestTenant } from "./db.js";
+import { resolveCorsOrigins } from "./corsOrigin.js";
 import { isPublicEccPath, requireRoles, tenantMiddleware } from "./middleware/tenant.js";
 import { registerAuthRoutes } from "./auth/routes.js";
 import { ensureAuthSchema } from "./auth/schema.js";
@@ -40,6 +41,7 @@ import {
   getActivity,
   getAudit,
   getCompliance,
+  persistNistCompliance,
   getDomain,
   getFinding,
   listDomains,
@@ -126,7 +128,8 @@ export const app = Fastify({
 installRequestValidation(app);
 
 await app.register(cors, {
-  origin: process.env.CORS_ORIGIN?.split(",") ?? true,
+  // Fail closed: unset CORS_ORIGIN → http://localhost:5173 only (never true / *).
+  origin: resolveCorsOrigins(),
 });
 await app.register(rateLimit, {
   max: 300,
@@ -347,7 +350,27 @@ app.post(
   decisionActionHandler("close"),
 );
 
-app.get("/api/ecc/compliance", async (req) => getCompliance(req.tenant.orgId));
+app.get("/api/ecc/compliance", async (req) => {
+  try {
+    return await getCompliance();
+  } catch (err) {
+    req.log.error({ err }, "compliance read failed");
+    throw err;
+  }
+});
+
+app.post(
+  "/api/ecc/compliance/recompute",
+  { preHandler: requireRoles("admin", "ciso", "program_office") },
+  async (req) => {
+    try {
+      return await persistNistCompliance(req.tenant.orgId);
+    } catch (err) {
+      req.log.error({ err }, "NIST recompute failed");
+      throw err;
+    }
+  },
+);
 app.get("/api/ecc/activity", async (req) => ({
   activity: await getActivity(req.tenant.orgId),
 }));

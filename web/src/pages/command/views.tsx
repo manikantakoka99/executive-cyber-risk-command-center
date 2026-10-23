@@ -34,7 +34,7 @@ export function HeadlineView({
 }: {
   data: HeadlineView;
   /** Canonical open-decision count from workspace (same source as queue badge). */
-  openDecisions: number;
+  openDecisions: number | null;
   compliance: CommandWorkspace["complianceLive"];
   onOpen: (id: string) => void;
 }) {
@@ -47,6 +47,8 @@ export function HeadlineView({
     data.outsideAppetite > 0 ? "Domains outside appetite" : "Within appetite";
   // Workspace openDecisions is the single source (queue open count); card must not use accept-register size.
   const decisionsOpen = openDecisions;
+  const evidenceEmpty =
+    data.loss == null && decisionsOpen == null && data.confidencePct == null;
 
   return (
     <div className="view-board">
@@ -59,6 +61,18 @@ export function HeadlineView({
             <span className="hero-kpi mono">{fmt1(data.arithmetic)}</span>
             <span className={`word tone-${bandTone(data.band)}`}>{data.band}</span>
           </div>
+          {data.floored && data.floorDomainName ? (
+            <p className="floor-hold">
+              Held at {data.band} by{" "}
+              {data.floorDomainId ? (
+                <button type="button" className="text-link" onClick={() => onOpen(data.floorDomainId!)}>
+                  {data.floorDomainName.replaceAll(" and ", " & ")}
+                </button>
+              ) : (
+                data.floorDomainName.replaceAll(" and ", " & ")
+              )}
+            </p>
+          ) : null}
           <div className="hero-score-chips">
             {sparkValues.length > 1 ? (
               <span
@@ -71,11 +85,6 @@ export function HeadlineView({
             ) : null}
             <Chip tone={data.outsideAppetite > 0 ? "crit" : "low"}>{appetiteState}</Chip>
           </div>
-          {data.floorNote && (
-            <div className="why">
-              <b>Floor rule applied.</b> {data.floorNote.replace(/^Floor rule applied\.\s*/, "")}
-            </div>
-          )}
           <p className="note">
             Policy {data.policyVersion}
             {data.confidencePct != null ? ` · Confidence ${data.confidencePct}%` : ""}
@@ -83,38 +92,60 @@ export function HeadlineView({
         </div>
       </article>
 
-      <div className="kpi-row">
-        <KpiCard
-          label="Outside appetite"
-          value={data.outsideAppetite}
-          suffix={` / ${data.domainCount}`}
-          tone={data.outsideAppetite > 0 ? "crit" : "low"}
-          note="Domains above board limit"
-        />
-        {data.loss ? (
+      <div className="kpi-headline-block">
+        <div className="kpi-row kpi-row-headline">
           <KpiCard
-            label="Expected annual loss"
-            value={data.loss.ale}
-            display={formatAedMillions(data.loss.ale)}
-            tone="high"
-            note={`P90 bad year ${formatAedMillions(data.loss.p90)}`}
+            label="Outside appetite"
+            value={data.outsideAppetite}
+            suffix={` / ${data.domainCount}`}
+            tone={data.outsideAppetite > 0 ? "crit" : "low"}
+            note="Domains above board limit"
           />
+          {data.loss ? (
+            <KpiCard
+              label="Expected annual loss"
+              value={data.loss.ale}
+              display={formatAedMillions(data.loss.ale)}
+              tone="high"
+              note={`P90 bad year ${formatAedMillions(data.loss.p90)}`}
+            />
+          ) : (
+            <KpiCard label="Expected annual loss" value={0} display="—" emptyValue />
+          )}
+          <KpiCard
+            label="Open decisions"
+            value={decisionsOpen ?? 0}
+            display={decisionsOpen == null ? "—" : undefined}
+            emptyValue={decisionsOpen == null}
+            tone={decisionsOpen == null ? undefined : "info"}
+            note={decisionsOpen == null ? undefined : "Awaiting executive action"}
+          />
+          <KpiCard
+            label="Confidence"
+            value={data.confidencePct ?? 0}
+            suffix={data.confidencePct == null ? "" : "%"}
+            display={data.confidencePct == null ? "—" : undefined}
+            emptyValue={data.confidencePct == null}
+            tone={
+              data.confidencePct == null
+                ? undefined
+                : data.confidencePct >= 80
+                  ? "low"
+                  : data.confidencePct >= 60
+                    ? "med"
+                    : "crit"
+            }
+            note={data.confidencePct == null ? undefined : (data.confidenceLabel ?? undefined)}
+          />
+        </div>
+        {evidenceEmpty ? (
+          <div className="kpi-group-empty-row">
+            <span aria-hidden="true" />
+            <p className="kpi-group-empty" data-testid="kpi-group-empty">
+              No evidence yet
+            </p>
+          </div>
         ) : null}
-        <KpiCard
-          label="Open decisions"
-          value={decisionsOpen}
-          tone="info"
-          note="Awaiting executive action"
-        />
-        <KpiCard
-          label="Confidence"
-          value={data.confidencePct ?? 0}
-          suffix="%"
-          tone={
-            (data.confidencePct ?? 0) >= 80 ? "low" : (data.confidencePct ?? 0) >= 60 ? "med" : "crit"
-          }
-          note={data.confidenceLabel ?? "Coverage-adjusted"}
-        />
       </div>
 
       {data.loss && (
@@ -173,35 +204,97 @@ function ComplianceCard({
   compliance: CommandWorkspace["complianceLive"];
 }) {
   const frameworks = compliance?.frameworks ?? [];
+  const [nistOpen, setNistOpen] = useState(false);
+
+  if (compliance?.loadError) {
+    return (
+      <section className="card compliance-load-error" data-testid="compliance-load-error">
+        <h3>Compliance summary</h3>
+        <p className="big mono kpi-empty-value" aria-hidden>
+          —
+        </p>
+        <p className="compliance-load-caption">Couldn't load. Refresh to retry</p>
+      </section>
+    );
+  }
 
   return (
     <section className="card">
       <h3>Compliance summary</h3>
       {frameworks.length > 0 ? (
-        <ul className="frameworks">
-          {frameworks.map((row) => {
-            const pct = row.coveragePct ?? 0;
-            const tone = complianceTone(pct);
-            return (
-              <li key={row.name}>
-                <span>{row.name}</span>
-                <span className="bar">
-                  <i className={`tone-${tone}`} style={{ width: `${Math.min(100, pct)}%` }} />
-                </span>
-                <span className="mono">{row.coveragePct == null ? "—" : `${pct.toFixed(0)}%`}</span>
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <ul className="frameworks">
+            {frameworks.map((row) => {
+              const pct = row.coveragePct ?? 0;
+              const tone = complianceTone(pct);
+              const nist = row.code === "nist_csf_2" || row.name === "NIST CSF 2.0";
+              return (
+                <li key={row.name}>
+                  {nist ? (
+                    <button type="button" className="text-link nist-label" onClick={() => setNistOpen((open) => !open)}>
+                      {row.name}
+                    </button>
+                  ) : (
+                    <span>{row.name}</span>
+                  )}
+                  <span className="bar">
+                    <i className={`tone-${tone}`} style={{ width: `${Math.min(100, pct)}%` }} />
+                  </span>
+                  <span className="mono">
+                    {row.coveragePct == null ? (
+                      <span className="nist-empty">
+                        <span className="nist-empty-mark">—</span>
+                        <small>No evidence yet</small>
+                      </span>
+                    ) : (
+                      `${pct.toFixed(0)}%`
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          {nistOpen && compliance?.nist && !compliance.nist.empty ? (
+            <NistDetail nist={compliance.nist} />
+          ) : null}
+        </>
       ) : data.complianceDomain ? (
         <p>
           Framework rollup is not connected. Continuous Compliance is {data.complianceDomain.band.toLowerCase()} at{" "}
           <b>{fmt1(data.complianceDomain.score)}</b> and {data.complianceDomain.appetiteState.toLowerCase()}.
         </p>
       ) : (
-        <p className="note">Compliance summary is not available for this role.</p>
+        <p className="note">No compliance data.</p>
       )}
     </section>
+  );
+}
+
+function NistDetail({
+  nist,
+}: {
+  nist: NonNullable<CommandWorkspace["complianceLive"]>["nist"];
+}) {
+  if (!nist) return null;
+  return (
+    <div className="nist-detail">
+      <p className="note">{nist.note}</p>
+      <p className="note">
+        {nist.evidenced} of {nist.total} categories have ECC evidence.
+      </p>
+      <ul className="frameworks">
+        {nist.functions.map((fn) => (
+          <li key={fn.name}>
+            <span>{fn.name}</span>
+            <span className="mono">
+              {fn.covered}/{fn.total}
+              {fn.gaps.length > 0 ? ` · gap ${fn.gaps.join(", ")}` : ""}
+              {fn.partial.length > 0 ? ` · partial ${fn.partial.join(", ")}` : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

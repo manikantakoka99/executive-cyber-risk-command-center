@@ -19,7 +19,7 @@ function escapeRegExp(value: string) {
 }
 
 describe("what-if expected loss direction", () => {
-  beforeEach(() => resetState(ORG));
+  beforeEach(() => resetState(ORG, { seedDemoQueue: true }));
 
   it("says falls by the absolute AED amount when expected loss decreases", () => {
     const gaps = { edr: 10, siem: 10, imm: 10, dr: 10 };

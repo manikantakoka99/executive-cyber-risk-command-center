@@ -37,7 +37,7 @@ CREATE TYPE finding_status   AS ENUM ('open','acknowledged','in_remediation','re
 CREATE TYPE decision_status  AS ENUM ('awaiting_decision','approved','info_requested','declined','closed');
 CREATE TYPE decision_priority AS ENUM ('critical','high','medium','low');
 CREATE TYPE user_role_name   AS ENUM ('cxo','board_member','program_office','domain_analyst','auditor');
-CREATE TYPE framework_code   AS ENUM ('dubai_isr','pci_dss_v4','iso_27001','nesa_uae_ia','gdpr');
+CREATE TYPE framework_code   AS ENUM ('dubai_isr','pci_dss_v4','iso_27001','nesa_uae_ia','gdpr','nist_csf_2');
 CREATE TYPE activity_type    AS ENUM ('finding_created','decision_escalated','decision_resolved',
                                        'report_generated','compliance_refresh','simulation_completed');
 
@@ -408,7 +408,8 @@ INSERT INTO compliance_frameworks (code, display_name, renewal_cycle_months) VAL
   ('pci_dss_v4','PCI DSS v4.0', 12),
   ('iso_27001','ISO 27001', 36),
   ('nesa_uae_ia','NESA / UAE IA', 12),
-  ('gdpr','GDPR (EU Data Subjects)', 12);
+  ('gdpr','GDPR (EU Data Subjects)', 12),
+  ('nist_csf_2','NIST CSF 2.0', NULL);
 
 -- ============================================================================
 -- END OF SCRIPT

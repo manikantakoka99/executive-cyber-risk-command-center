@@ -63,6 +63,12 @@ export async function setTenantContext(orgId: string, userId: string) {
   tenantAls.enterWith({ orgId, userId });
 }
 
+/** Org bound by the authenticated session. Empty when the request has no session. */
+export function sessionOrgId(): string | null {
+  const orgId = tenantAls.getStore()?.orgId?.trim() ?? "";
+  return orgId || null;
+}
+
 export function clearTenantContext() {
   const store = tenantAls.getStore();
   if (store) {

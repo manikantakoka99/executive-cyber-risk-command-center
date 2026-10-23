@@ -1,11 +1,11 @@
 # Local Postgres 16. An empty volume runs db/docker-init/apply_app_schema.sh:
 #   schema.sql, migrations 001–008, sample workbook, AED formatting, tenant seed.
 # `npm run demo:seed` adds the four Al Dhabi demo scenarios.
-# Usage (Fedora / any host with Docker Compose v2):
+# Usage (any host with Docker Compose v2):
 #   docker compose up -d db
 #   cd server && npm install && npm run demo:seed && npm run dev   # :4000
 #   cd web && npm install && npm run dev                          # :5173
-# Or: ./scripts/dev-up.sh  (see README “Fedora local run”)
+# Or: ./scripts/dev-up.sh  (see README)
 services:
   db:
     build:

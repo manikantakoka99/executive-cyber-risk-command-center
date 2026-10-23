@@ -144,7 +144,7 @@ export function CommandCenter() {
             onClick={() => navigate(`/c/${item.id}`)}
           >
             {item.label}
-            {item.id === "queue" && workspace.openDecisions > 0 && (
+            {item.id === "queue" && (workspace.openDecisions ?? 0) > 0 && (
               <span className="dot">{workspace.openDecisions}</span>
             )}
           </button>

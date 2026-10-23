@@ -80,7 +80,7 @@ Command center can demo without DB. Ops pages show empty/errors until Postgres i
 
 Supabase hosts (`*.supabase.co`) get SSL automatically in `server/src/db.ts`.
 
-## Local bring-up (Fedora / docker-compose.yml)
+## Local bring-up (docker-compose.yml)
 
 ```bash
 cp .env.example .env

@@ -12,6 +12,7 @@ import {
   sampleWorkbookAdapter,
 } from "../ingestion/adapters/sampleWorkbook.js";
 import { correlateReadySignals } from "../risk/correlation.js";
+import { persistNistCompliance } from "./catalog.js";
 
 const SOURCE_LABEL = "CyberCommandCenter_Tool_To_Risk_Domain_Solution.xlsx";
 
@@ -54,6 +55,64 @@ async function ensureSampleConnector(orgId: string): Promise<string> {
   return ins[0]!.connector_id;
 }
 
+/**
+ * After a successful sample sync: stamp last_sync_at on the parent connector and
+ * upsert one active, synced connector per domain that received signals. NIST
+ * EVIDENCE_SQL joins connectors by risk_domain_id, so the unmapped parent alone
+ * cannot cover those domains.
+ */
+async function recordIngestionDomainEvidence(orgId: string, connectorId: string): Promise<number> {
+  await query(
+    `UPDATE connectors SET
+       last_sync_at = now(),
+       last_success_at = now(),
+       status = 'active'
+     WHERE org_id = $1 AND connector_id = $2`,
+    [orgId, connectorId],
+  );
+  const { rows } = await query<{ risk_domain_id: string; code: string }>(
+    `SELECT DISTINCT d.risk_domain_id, d.code::text AS code
+     FROM security_signals s
+     JOIN risk_domains d ON d.risk_domain_id = s.risk_domain_id
+     WHERE s.org_id = $1
+       AND s.connector_id = $2
+       AND s.is_duplicate = false
+       AND d.code::text <> 'unmapped'`,
+    [orgId, connectorId],
+  );
+  for (const domain of rows) {
+    const name = `${SAMPLE_WORKBOOK_CONNECTOR_NAME} · ${domain.code}`;
+    await query(
+      `INSERT INTO connectors (
+         org_id, name, connector_type, risk_domain_id, adapter_key, status,
+         last_sync_at, last_success_at, credentials_reference, config_nonsecret, vendor
+       ) VALUES (
+         $1, $2, 'demo', $3, $4, 'active',
+         now(), now(), 'configured', $5::jsonb, 'ecc-sample-workbook'
+       )
+       ON CONFLICT (org_id, risk_domain_id, name) DO UPDATE SET
+         last_sync_at = now(),
+         last_success_at = now(),
+         status = 'active',
+         adapter_key = EXCLUDED.adapter_key,
+         config_nonsecret = EXCLUDED.config_nonsecret`,
+      [
+        orgId,
+        name,
+        domain.risk_domain_id,
+        SAMPLE_WORKBOOK_ADAPTER_KEY,
+        JSON.stringify({
+          parentConnectorId: connectorId,
+          domainEvidence: true,
+          synthetic: true,
+          sourceWorkbook: SOURCE_LABEL,
+        }),
+      ],
+    );
+  }
+  return rows.length;
+}
+
 /** Reset only sample-workbook connector artifacts for this org */
 export async function resetSampleWorkbookIngestion(orgId: string) {
   const { rows: conn } = await query<{ connector_id: string }>(
@@ -64,24 +123,26 @@ export async function resetSampleWorkbookIngestion(orgId: string) {
   if (!conn[0]) {
     return { ok: true, message: "No sample workbook connector to reset", deleted: 0 };
   }
-  const cid = conn[0].connector_id;
+  const ids = conn.map((row) => row.connector_id);
   await query(
-    `DELETE FROM security_signals WHERE org_id=$1 AND connector_id=$2`,
-    [orgId, cid],
+    `DELETE FROM security_signals WHERE org_id=$1 AND connector_id = ANY($2::uuid[])`,
+    [orgId, ids],
   );
-  await query(`DELETE FROM raw_events WHERE org_id=$1 AND connector_id=$2`, [orgId, cid]);
+  await query(`DELETE FROM raw_events WHERE org_id=$1 AND connector_id = ANY($2::uuid[])`, [orgId, ids]);
+  await query(`DELETE FROM sample_workbook_runs WHERE org_id=$1`, [orgId]);
   await query(
-    `DELETE FROM sample_workbook_runs WHERE org_id=$1`,
-    [orgId],
+    `DELETE FROM connector_sync_runs WHERE org_id=$1 AND connector_id = ANY($2::uuid[])`,
+    [orgId, ids],
   );
-  await query(
-    `DELETE FROM connector_sync_runs WHERE org_id=$1 AND connector_id=$2`,
-    [orgId, cid],
-  );
+  await query(`DELETE FROM connectors WHERE org_id=$1 AND adapter_key=$2`, [
+    orgId,
+    SAMPLE_WORKBOOK_ADAPTER_KEY,
+  ]);
   return {
     ok: true,
     message: "Sample workbook ingestion artifacts cleared (demo connector only)",
-    connectorId: cid,
+    connectorId: ids[0],
+    deleted: ids.length,
   };
 }
 
@@ -208,12 +269,22 @@ export async function runSampleWorkbookIngestion(
       [orgId, JSON.stringify(summary), runId],
     );
 
+    const domainsEvidenced = await recordIngestionDomainEvidence(orgId, connectorId);
+
+    try {
+      await persistNistCompliance(orgId);
+    } catch (err) {
+      console.error("NIST status recompute failed after ingestion", err);
+      throw err;
+    }
+
     return {
       runId,
       syncRunId,
       connectorId,
       source: SOURCE_LABEL,
       status: "completed" as const,
+      domainsEvidenced,
       result: summary,
     };
   } catch (err) {

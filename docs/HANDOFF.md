@@ -1,6 +1,6 @@
 # ECC Command Center — Teammate Handoff
 
-**Purpose:** Give another engineer (or Claude / Cursor / any agent) enough context to continue from this branch without rediscovering the product, RBAC model, UI redesign, or open work.
+**Purpose:** Give another engineer enough context to continue from this branch without rediscovering the product, RBAC model, UI redesign, or open work.
 
 **Last updated:** 2026-10-13  
 **Branch:** `cursor/ecc-command-rbac-a090`  
@@ -52,9 +52,9 @@ Latest commits on this PR branch (newest first):
 
 ---
 
-## 3. How to run locally (Fedora / docker-compose.yml)
+## 3. How to run locally (docker-compose.yml)
 
-Authoritative steps live in the root `README.md` (“Fedora local run”). Short form:
+Authoritative steps live in the root `README.md`. Short form:
 
 ```bash
 git checkout cursor/ecc-command-rbac-a090
@@ -86,7 +86,7 @@ cd web && npm run build
 .venv-ecc/bin/python db/migrate_to_supabase.py --import-sample --reset
 ```
 
-SSL for `*.supabase.co` is automatic in `server/src/db.ts`. Migration was **prepared but not completed** in the agent environment (waiting on project credentials / egress).
+SSL for `*.supabase.co` is automatic in `server/src/db.ts`. Migration was prepared but not completed here (waiting on project credentials / network access).
 
 ---
 
@@ -265,15 +265,13 @@ Reference snapshot date shown in copy historically: **5 Sep 2026**.
 
 ## 10. Artifacts (visual QA)
 
-Captured under `/opt/cursor/artifacts/` in the cloud agent environment (also linked from the PR):
+Example screenshot names from earlier redesign review (paths vary by environment):
 
 - `before_role_*.png` — pre-redesign
 - `after_role_*.png` / `role_*.png` — post-redesign per persona
 - `after_login_demo_roles.png`
 - `after_role_board_command_palette.png`
 - `ecc_premium_redesign_walkthrough.mp4`
-
-Local screenshot helper used previously: `/tmp/ecc-shots-redesign.mjs` (Puppeteer against `:5173`).
 
 ---
 
